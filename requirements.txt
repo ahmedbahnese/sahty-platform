@@ -1,0 +1,16 @@
+Flask
+gunicorn
+requests
+pandas
+numpy
+scikit-learn
+opencv-python
+SpeechRecognition
+pydub
+matplotlib
+reportlab
+PyJWT
+SQLAlchemy
+psycopg2-binary
+
+
