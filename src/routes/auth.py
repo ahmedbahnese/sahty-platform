@@ -9,6 +9,7 @@ from src.models.user import db, User, UserSession
 from src.models.patient import Patient
 from src.models.doctor import Doctor
 from src.models.admin import Admin, AuditLog
+from src.models.provider import PROVIDER_ROLES, ProviderRegistration
 import os
 
 auth_bp = Blueprint('auth', __name__)
@@ -18,6 +19,12 @@ JWT_SECRET = os.environ.get('JWT_SECRET', os.environ.get('SESSION_SECRET'))
 if not JWT_SECRET:
     raise RuntimeError('SESSION_SECRET or JWT_SECRET must be configured before starting the API')
 SESSION_TTL = datetime.timedelta(hours=24)
+PUBLIC_ROLES = {'patient', 'doctor', *PROVIDER_ROLES.keys()}
+ROLE_LABELS = {
+    'patient': 'مستخدم',
+    'doctor': 'طبيب',
+    **PROVIDER_ROLES,
+}
 
 
 def _hash_token(token):
@@ -101,13 +108,20 @@ def role_required(*roles):
 @auth_bp.route('/register', methods=['POST'])
 def register():
     try:
-        data = request.get_json()
+        data = request.get_json(silent=True) or {}
         required_fields = ['email', 'password', 'user_type', 'first_name', 'last_name']
         for field in required_fields:
             if field not in data:
                 return jsonify({'message': f'حقل {field} مطلوب'}), 400
-        if data['user_type'] not in ['patient', 'doctor']:
-            return jsonify({'message': 'يمكن إنشاء حساب مستخدم أو طبيب فقط'}), 400
+        user_type = data['user_type']
+        if user_type not in PUBLIC_ROLES:
+            return jsonify({'message': 'نوع الحساب المطلوب غير متاح للتسجيل العام'}), 400
+        if len(data['password']) < 8:
+            return jsonify({'message': 'كلمة المرور يجب أن تكون 8 أحرف على الأقل'}), 400
+        if user_type != 'patient':
+            for field in ('legal_name', 'license_number', 'address', 'city'):
+                if not data.get(field):
+                    return jsonify({'message': f'حقل {field} مطلوب للحساب المهني'}), 400
         if User.query.filter_by(email=data['email']).first():
             return jsonify({'message': 'البريد الإلكتروني مستخدم بالفعل'}), 400
         username = (data.get('username') or data['email'].split('@')[0]).strip()
@@ -118,12 +132,12 @@ def register():
             username=username,
             email=data['email'],
             password_hash=hashed_password,
-            user_type=data['user_type'],
-            is_active=data['user_type'] != 'doctor'
+            user_type=user_type,
+            is_active=user_type == 'patient'
         )
         db.session.add(new_user)
         db.session.flush()
-        if data['user_type'] == 'patient':
+        if user_type == 'patient':
             patient = Patient(
                 user_id=new_user.id,
                 first_name=data['first_name'],
@@ -135,7 +149,7 @@ def register():
                 national_id=data.get('national_id', str(new_user.id))
             )
             db.session.add(patient)
-        elif data['user_type'] == 'doctor':
+        elif user_type == 'doctor':
             doctor = Doctor(
                 user_id=new_user.id,
                 first_name=data['first_name'],
@@ -146,6 +160,26 @@ def register():
                 specialization=data.get('specialization', '')
             )
             db.session.add(doctor)
+        if user_type != 'patient':
+            provider = ProviderRegistration(
+                user_id=new_user.id,
+                provider_type=user_type,
+                legal_name=data.get('legal_name') or f'{data["first_name"]} {data["last_name"]}',
+                license_number=data['license_number'],
+                phone=data.get('phone', ''),
+                address=data['address'],
+                city=data.get('city', ''),
+                details={
+                    'first_name': data['first_name'],
+                    'last_name': data['last_name'],
+                    'specialization': data.get('specialization'),
+                    'website': data.get('website'),
+                    'services': data.get('services'),
+                    'id_card_image': data.get('id_card_image'),
+                    'practice_license_image': data.get('practice_license_image'),
+                },
+            )
+            db.session.add(provider)
         db.session.commit()
         try:
             audit_log = AuditLog(
@@ -155,11 +189,10 @@ def register():
                 action='user_registration',
                 description=f'تسجيل مستخدم جديد: {data["first_name"]} {data["last_name"]}',
                 new_values={
+                    'user_type': user_type,
                     'license_number': data.get('license_number'),
-                    'specialization': data.get('specialization'),
-                    'id_card_image': data.get('id_card_image'),
-                    'practice_license_image': data.get('practice_license_image')
-                } if data['user_type'] == 'doctor' else None,
+                    'legal_name': data.get('legal_name'),
+                } if user_type != 'patient' else None,
                 ip_address=request.remote_addr,
                 user_agent=request.headers.get('User-Agent')
             )
@@ -168,12 +201,15 @@ def register():
         except Exception:
             pass
         response_data = {
-            'message': 'تم التسجيل بنجاح، ستراجع الإدارة الطبية بياناتك قبل تفعيل حساب الطبيب' if data['user_type'] == 'doctor' else 'تم التسجيل بنجاح',
+            'message': (
+                'تم استلام طلبك بنجاح، وستتمكن من تسجيل الدخول بعد اعتماد الإدارة '
+                f'لحساب {ROLE_LABELS[user_type]}'
+            ) if user_type != 'patient' else 'تم التسجيل بنجاح',
             'user_id': new_user.id,
             'user_type': new_user.user_type,
-            'pending_review': data['user_type'] == 'doctor'
+            'pending_review': user_type != 'patient'
         }
-        if data['user_type'] == 'patient':
+        if user_type == 'patient':
             response_data['token'], _ = _issue_session(new_user)
             db.session.commit()
             response_data['user'] = {
@@ -210,7 +246,9 @@ def login():
         if not user or not check_password_hash(user.password_hash, data['password']):
             return jsonify({'message': 'بيانات الدخول غير صحيحة'}), 401
         if not user.is_active:
-            return jsonify({'message': 'تم استلام بيانات الطبيب، الحساب بانتظار مراجعة الإدارة الطبية'}), 401
+            if user.user_type in PUBLIC_ROLES - {'patient'}:
+                return jsonify({'message': 'الحساب بانتظار اعتماد الإدارة قبل تسجيل الدخول'}), 403
+            return jsonify({'message': 'الحساب غير مفعل'}), 403
         token, _ = _issue_session(user)
         user.last_login = datetime.datetime.utcnow()
         user.login_count = (user.login_count or 0) + 1
@@ -233,6 +271,10 @@ def login():
             admin = Admin.query.filter_by(user_id=user.id).first()
             if admin:
                 profile_data = admin.to_dict()
+        elif user.user_type in PUBLIC_ROLES - {'patient', 'doctor'}:
+            provider = ProviderRegistration.query.filter_by(user_id=user.id).first()
+            if provider:
+                profile_data = provider.to_dict()
         return jsonify({
             'message': 'تم تسجيل الدخول بنجاح',
             'token': token,
@@ -265,6 +307,10 @@ def get_profile(current_user):
             admin = Admin.query.filter_by(user_id=current_user.id).first()
             if admin:
                 profile_data = admin.to_dict()
+        elif current_user.user_type in PUBLIC_ROLES - {'patient', 'doctor'}:
+            provider = ProviderRegistration.query.filter_by(user_id=current_user.id).first()
+            if provider:
+                profile_data = provider.to_dict()
         return jsonify({
             'user': {
                 'id': current_user.id,

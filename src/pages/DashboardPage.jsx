@@ -1,388 +1,199 @@
-import { useState, useEffect } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { Button } from '@/components/ui/button'
-import { 
-  Calendar, 
-  Users, 
-  Heart, 
-  Activity, 
-  Clock, 
-  Bell,
-  Settings,
-  User,
-  Stethoscope,
-  Shield,
-  Crown,
-  BarChart3,
-  FileText,
-  Pill,
-  MapPin
+import {
+  Activity, BarChart3, Building2, CheckCircle2, Clock3, Heart,
+  Hospital, Languages, Loader2, LogOut, ShieldCheck, Stethoscope,
+  TestTube2, Users, XCircle
 } from 'lucide-react'
 
-export default function DashboardPage() {
-  const { user, isAdmin, isDoctor, isPatient } = useAuth()
-  const [stats, setStats] = useState({
-    appointments: 0,
-    patients: 0,
-    doctors: 0,
-    notifications: 0
-  })
+const providerLabels = {
+  doctor: 'الأطباء',
+  hospital: 'المستشفيات',
+  pharmacy: 'الصيدليات',
+  lab: 'المعامل',
+  radiology_center: 'مراكز الأشعة',
+}
 
-  useEffect(() => {
-    // محاكاة جلب الإحصائيات
-    setStats({
-      appointments: 25,
-      patients: 150,
-      doctors: 45,
-      notifications: 8
-    })
-  }, [])
+const roleDescriptions = {
+  patient: 'إدارة مواعيدك وملفك الصحي',
+  doctor: 'إدارة المرضى والمواعيد والاستشارات',
+  pharmacy: 'إدارة طلبات الصيدلية والخدمات',
+  lab: 'إدارة الفحوصات والنتائج',
+  radiology_center: 'إدارة الأشعة والتقارير',
+  hospital: 'إدارة أقسام المستشفى والخدمات',
+}
 
-  const PatientDashboard = () => (
-    <div className="space-y-6">
-      {/* بطاقات الإحصائيات */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-          <div className="flex items-center">
-            <div className="bg-blue-100 p-3 rounded-full">
-              <Calendar className="h-6 w-6 text-blue-600" />
-            </div>
-            <div className="mr-4">
-              <p className="text-sm font-medium text-gray-600">المواعيد القادمة</p>
-              <p className="text-2xl font-bold text-gray-900">3</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-          <div className="flex items-center">
-            <div className="bg-green-100 p-3 rounded-full">
-              <Pill className="h-6 w-6 text-green-600" />
-            </div>
-            <div className="mr-4">
-              <p className="text-sm font-medium text-gray-600">الأدوية النشطة</p>
-              <p className="text-2xl font-bold text-gray-900">5</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-          <div className="flex items-center">
-            <div className="bg-purple-100 p-3 rounded-full">
-              <FileText className="h-6 w-6 text-purple-600" />
-            </div>
-            <div className="mr-4">
-              <p className="text-sm font-medium text-gray-600">التقارير الطبية</p>
-              <p className="text-2xl font-bold text-gray-900">12</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-          <div className="flex items-center">
-            <div className="bg-red-100 p-3 rounded-full">
-              <Bell className="h-6 w-6 text-red-600" />
-            </div>
-            <div className="mr-4">
-              <p className="text-sm font-medium text-gray-600">التنبيهات</p>
-              <p className="text-2xl font-bold text-gray-900">2</p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* الأقسام الرئيسية */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* المواعيد القادمة */}
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">المواعيد القادمة</h3>
-          <div className="space-y-4">
-            <div className="flex items-center p-4 bg-blue-50 rounded-lg">
-              <div className="bg-blue-100 p-2 rounded-full">
-                <Stethoscope className="h-5 w-5 text-blue-600" />
-              </div>
-              <div className="mr-3 flex-1">
-                <p className="font-medium text-gray-900">د. أحمد محمد</p>
-                <p className="text-sm text-gray-600">طب القلب</p>
-              </div>
-              <div className="text-left">
-                <p className="text-sm font-medium text-gray-900">غداً</p>
-                <p className="text-sm text-gray-600">10:00 ص</p>
-              </div>
-            </div>
-            
-            <div className="flex items-center p-4 bg-green-50 rounded-lg">
-              <div className="bg-green-100 p-2 rounded-full">
-                <Stethoscope className="h-5 w-5 text-green-600" />
-              </div>
-              <div className="mr-3 flex-1">
-                <p className="font-medium text-gray-900">د. فاطمة علي</p>
-                <p className="text-sm text-gray-600">طب الأطفال</p>
-              </div>
-              <div className="text-left">
-                <p className="text-sm font-medium text-gray-900">الأحد</p>
-                <p className="text-sm text-gray-600">2:00 م</p>
-              </div>
-            </div>
-          </div>
-          <Button className="w-full mt-4" variant="outline">
-            عرض جميع المواعيد
-          </Button>
-        </div>
-
-        {/* الأدوية والتذكيرات */}
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">تذكيرات الأدوية</h3>
-          <div className="space-y-4">
-            <div className="flex items-center p-4 bg-yellow-50 rounded-lg">
-              <div className="bg-yellow-100 p-2 rounded-full">
-                <Pill className="h-5 w-5 text-yellow-600" />
-              </div>
-              <div className="mr-3 flex-1">
-                <p className="font-medium text-gray-900">أسبرين 100 مجم</p>
-                <p className="text-sm text-gray-600">مرة واحدة يومياً</p>
-              </div>
-              <div className="text-left">
-                <p className="text-sm font-medium text-gray-900">8:00 ص</p>
-                <p className="text-sm text-gray-600">بعد الإفطار</p>
-              </div>
-            </div>
-            
-            <div className="flex items-center p-4 bg-purple-50 rounded-lg">
-              <div className="bg-purple-100 p-2 rounded-full">
-                <Pill className="h-5 w-5 text-purple-600" />
-              </div>
-              <div className="mr-3 flex-1">
-                <p className="font-medium text-gray-900">فيتامين د</p>
-                <p className="text-sm text-gray-600">مرة واحدة أسبوعياً</p>
-              </div>
-              <div className="text-left">
-                <p className="text-sm font-medium text-gray-900">الجمعة</p>
-                <p className="text-sm text-gray-600">مع الطعام</p>
-              </div>
-            </div>
-          </div>
-          <Button className="w-full mt-4" variant="outline">
-            إدارة الأدوية
-          </Button>
-        </div>
-      </div>
-    </div>
-  )
-
-  const DoctorDashboard = () => (
-    <div className="space-y-6">
-      {/* بطاقات الإحصائيات */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-          <div className="flex items-center">
-            <div className="bg-blue-100 p-3 rounded-full">
-              <Users className="h-6 w-6 text-blue-600" />
-            </div>
-            <div className="mr-4">
-              <p className="text-sm font-medium text-gray-600">المرضى اليوم</p>
-              <p className="text-2xl font-bold text-gray-900">12</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-          <div className="flex items-center">
-            <div className="bg-green-100 p-3 rounded-full">
-              <Calendar className="h-6 w-6 text-green-600" />
-            </div>
-            <div className="mr-4">
-              <p className="text-sm font-medium text-gray-600">المواعيد هذا الأسبوع</p>
-              <p className="text-2xl font-bold text-gray-900">45</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-          <div className="flex items-center">
-            <div className="bg-purple-100 p-3 rounded-full">
-              <Activity className="h-6 w-6 text-purple-600" />
-            </div>
-            <div className="mr-4">
-              <p className="text-sm font-medium text-gray-600">التقييم</p>
-              <p className="text-2xl font-bold text-gray-900">4.8</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-          <div className="flex items-center">
-            <div className="bg-yellow-100 p-3 rounded-full">
-              <Clock className="h-6 w-6 text-yellow-600" />
-            </div>
-            <div className="mr-4">
-              <p className="text-sm font-medium text-gray-600">ساعات العمل</p>
-              <p className="text-2xl font-bold text-gray-900">8</p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* جدول المواعيد */}
-      <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">مواعيد اليوم</h3>
-        <div className="space-y-4">
-          {[
-            { time: '9:00 ص', patient: 'أحمد محمد', type: 'كشف دوري', status: 'مؤكد' },
-            { time: '10:00 ص', patient: 'فاطمة علي', type: 'استشارة', status: 'في الانتظار' },
-            { time: '11:00 ص', patient: 'محمد أحمد', type: 'متابعة', status: 'مكتمل' }
-          ].map((appointment, index) => (
-            <div key={index} className="flex items-center p-4 bg-gray-50 rounded-lg">
-              <div className="flex-1">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium text-gray-900">{appointment.patient}</p>
-                    <p className="text-sm text-gray-600">{appointment.type}</p>
-                  </div>
-                  <div className="text-left">
-                    <p className="text-sm font-medium text-gray-900">{appointment.time}</p>
-                    <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
-                      appointment.status === 'مؤكد' ? 'bg-blue-100 text-blue-800' :
-                      appointment.status === 'في الانتظار' ? 'bg-yellow-100 text-yellow-800' :
-                      'bg-green-100 text-green-800'
-                    }`}>
-                      {appointment.status}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  )
-
-  const AdminDashboard = () => (
-    <div className="space-y-6">
-      {/* بطاقات الإحصائيات */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-          <div className="flex items-center">
-            <div className="bg-blue-100 p-3 rounded-full">
-              <Users className="h-6 w-6 text-blue-600" />
-            </div>
-            <div className="mr-4">
-              <p className="text-sm font-medium text-gray-600">إجمالي المستخدمين</p>
-              <p className="text-2xl font-bold text-gray-900">{stats.patients + stats.doctors}</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-          <div className="flex items-center">
-            <div className="bg-green-100 p-3 rounded-full">
-              <Stethoscope className="h-6 w-6 text-green-600" />
-            </div>
-            <div className="mr-4">
-              <p className="text-sm font-medium text-gray-600">الأطباء</p>
-              <p className="text-2xl font-bold text-gray-900">{stats.doctors}</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-          <div className="flex items-center">
-            <div className="bg-purple-100 p-3 rounded-full">
-              <Heart className="h-6 w-6 text-purple-600" />
-            </div>
-            <div className="mr-4">
-              <p className="text-sm font-medium text-gray-600">المرضى</p>
-              <p className="text-2xl font-bold text-gray-900">{stats.patients}</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-          <div className="flex items-center">
-            <div className="bg-yellow-100 p-3 rounded-full">
-              <Calendar className="h-6 w-6 text-yellow-600" />
-            </div>
-            <div className="mr-4">
-              <p className="text-sm font-medium text-gray-600">المواعيد اليوم</p>
-              <p className="text-2xl font-bold text-gray-900">{stats.appointments}</p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* أدوات الإدارة */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-          <div className="flex items-center mb-4">
-            <Users className="h-6 w-6 text-blue-600 ml-2" />
-            <h3 className="text-lg font-semibold text-gray-900">إدارة المستخدمين</h3>
-          </div>
-          <p className="text-gray-600 mb-4">إدارة حسابات المرضى والأطباء</p>
-          <Button className="w-full">عرض المستخدمين</Button>
-        </div>
-
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-          <div className="flex items-center mb-4">
-            <BarChart3 className="h-6 w-6 text-green-600 ml-2" />
-            <h3 className="text-lg font-semibold text-gray-900">التقارير والإحصائيات</h3>
-          </div>
-          <p className="text-gray-600 mb-4">عرض تقارير النظام والإحصائيات</p>
-          <Button className="w-full" variant="outline">عرض التقارير</Button>
-        </div>
-
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-          <div className="flex items-center mb-4">
-            <Settings className="h-6 w-6 text-purple-600 ml-2" />
-            <h3 className="text-lg font-semibold text-gray-900">إعدادات النظام</h3>
-          </div>
-          <p className="text-gray-600 mb-4">تكوين إعدادات المنصة</p>
-          <Button className="w-full" variant="outline">الإعدادات</Button>
-        </div>
-      </div>
-    </div>
-  )
-
+function StatCard({ label, value, icon: Icon, tone = 'blue' }) {
+  const tones = {
+    blue: 'bg-blue-50 text-blue-600',
+    green: 'bg-emerald-50 text-emerald-600',
+    amber: 'bg-amber-50 text-amber-600',
+    purple: 'bg-purple-50 text-purple-600',
+  }
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* الرأس */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900 flex items-center">
-                مرحباً، {user?.profile?.first_name || user?.email}
-              </h1>
-              <p className="text-gray-600 mt-1">
-                 {isAdmin ? 'مدير النظام' :
-                 isDoctor ? 'طبيب معتمد' :
-                 'مريض'}
-              </p>
-            </div>
-            <div className="flex items-center space-x-4 rtl:space-x-reverse">
-              <Button variant="outline" size="sm">
-                <Bell className="h-4 w-4 ml-1" />
-                التنبيهات
-                {stats.notifications > 0 && (
-                  <span className="bg-red-500 text-white text-xs rounded-full px-2 py-1 mr-2">
-                    {stats.notifications}
-                  </span>
-                )}
-              </Button>
-              <Button variant="outline" size="sm">
-                <Settings className="h-4 w-4 ml-1" />
-                الإعدادات
-              </Button>
-            </div>
-          </div>
-        </div>
-
-        {/* المحتوى حسب نوع المستخدم */}
-        {isPatient && <PatientDashboard />}
-        {isDoctor && <DoctorDashboard />}
-        {isAdmin && <AdminDashboard />}
+    <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+      <div className="flex items-center gap-4">
+        <div className={`rounded-xl p-3 ${tones[tone]}`}><Icon className="h-6 w-6" /></div>
+        <div><p className="text-sm text-gray-500">{label}</p><p className="mt-1 text-2xl font-bold text-gray-900">{value}</p></div>
       </div>
     </div>
   )
 }
 
+function ProviderDashboard({ user }) {
+  const label = {
+    doctor: 'الطبيب',
+    pharmacy: 'الصيدلية',
+    lab: 'المعمل',
+    radiology_center: 'مركز الأشعة',
+    hospital: 'المستشفى',
+  }[user.user_type]
+  return (
+    <div className="space-y-6">
+      <div className="rounded-2xl bg-gradient-to-l from-blue-700 to-indigo-600 p-7 text-white">
+        <p className="text-blue-100">لوحة {label}</p>
+        <h2 className="mt-2 text-2xl font-bold">{user.profile?.legal_name || user.profile?.first_name || user.email}</h2>
+        <p className="mt-2 text-sm text-blue-100">يمكنك من هنا متابعة الخدمات والطلبات الخاصة بجهتك.</p>
+      </div>
+      <div className="grid gap-5 md:grid-cols-3">
+        <StatCard label="الطلبات الجديدة" value="0" icon={Clock3} tone="amber" />
+        <StatCard label="الخدمات النشطة" value="0" icon={Activity} tone="green" />
+        <StatCard label="التقييم العام" value="—" icon={Heart} tone="purple" />
+      </div>
+      <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
+        <h3 className="text-lg font-bold text-gray-900">بيانات الاعتماد</h3>
+        <div className="mt-4 grid gap-4 text-sm text-gray-600 md:grid-cols-2">
+          <p><span className="font-semibold text-gray-900">الترخيص:</span> {user.profile?.license_number || 'غير متاح'}</p>
+          <p><span className="font-semibold text-gray-900">الحالة:</span> <span className="text-emerald-600">معتمد</span></p>
+          <p><span className="font-semibold text-gray-900">العنوان:</span> {user.profile?.address || 'غير متاح'}</p>
+          <p><span className="font-semibold text-gray-900">المدينة:</span> {user.profile?.city || 'غير متاح'}</p>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function PatientDashboard() {
+  return (
+    <div className="space-y-6">
+      <div className="grid gap-5 md:grid-cols-3">
+        <StatCard label="المواعيد القادمة" value="0" icon={Clock3} />
+        <StatCard label="الأدوية النشطة" value="0" icon={Heart} tone="green" />
+        <StatCard label="التقارير الطبية" value="0" icon={Activity} tone="purple" />
+      </div>
+      <div className="rounded-2xl border border-gray-100 bg-white p-8 text-center shadow-sm">
+        <Heart className="mx-auto h-12 w-12 text-blue-500" />
+        <h2 className="mt-4 text-xl font-bold text-gray-900">ملفك الصحي في أمان</h2>
+        <p className="mt-2 text-gray-500">ستظهر هنا مواعيدك وتقاريرك الطبية عند إضافتها.</p>
+      </div>
+    </div>
+  )
+}
+
+function AdminDashboard({ token }) {
+  const [stats, setStats] = useState(null)
+  const [providers, setProviders] = useState([])
+  const [users, setUsers] = useState([])
+  const [filter, setFilter] = useState('pending')
+  const [loading, setLoading] = useState(true)
+  const [message, setMessage] = useState('')
+
+  const headers = useMemo(() => ({ Authorization: `Bearer ${token}` }), [token])
+  const load = async () => {
+    setLoading(true)
+    try {
+      const [statsResponse, providersResponse, usersResponse] = await Promise.all([
+        fetch('/api/admin/stats', { headers }),
+        fetch(`/api/admin/providers?status=${filter}`, { headers }),
+        fetch('/api/admin/users', { headers }),
+      ])
+      if (!statsResponse.ok || !providersResponse.ok || !usersResponse.ok) throw new Error('تعذر تحميل بيانات الإدارة')
+      setStats(await statsResponse.json())
+      setProviders(await providersResponse.json())
+      setUsers(await usersResponse.json())
+    } catch (error) {
+      setMessage(error.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => { load() }, [filter])
+
+  const review = async (id, status) => {
+    const response = await fetch(`/api/admin/providers/${id}/review`, {
+      method: 'PATCH', headers: { ...headers, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status }),
+    })
+    const data = await response.json()
+    if (!response.ok) { setMessage(data.message || 'تعذر تحديث الطلب'); return }
+    setMessage(status === 'approved' ? 'تم اعتماد الطلب وتفعيل الحساب' : 'تم رفض الطلب وتعطيل الحساب')
+    load()
+  }
+
+  const toggleUser = async (user) => {
+    const response = await fetch(`/api/admin/users/${user.id}/status`, {
+      method: 'PATCH', headers: { ...headers, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ is_active: !user.is_active }),
+    })
+    if (response.ok) load()
+    else { const data = await response.json(); setMessage(data.message || 'تعذر تحديث المستخدم') }
+  }
+
+  return (
+    <div className="space-y-6">
+      {message && <div className="rounded-xl border border-blue-200 bg-blue-50 p-4 text-blue-800">{message}</div>}
+      {loading && !stats ? <div className="flex items-center justify-center rounded-2xl bg-white p-16"><Loader2 className="h-8 w-8 animate-spin text-blue-600" /></div> : (
+        <>
+          <div className="grid gap-5 md:grid-cols-4">
+            <StatCard label="إجمالي المستخدمين" value={stats?.total_users || 0} icon={Users} />
+            <StatCard label="الحسابات النشطة" value={stats?.active_users || 0} icon={CheckCircle2} tone="green" />
+            <StatCard label="طلبات بانتظار الاعتماد" value={stats?.pending_approvals || 0} icon={Clock3} tone="amber" />
+            <StatCard label="أنواع الجهات" value="5" icon={BarChart3} tone="purple" />
+          </div>
+
+          <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div><h2 className="text-xl font-bold text-gray-900">اعتماد الجهات الطبية</h2><p className="text-sm text-gray-500">مراجعة طلبات الأطباء والمنشآت قبل تفعيل حساباتهم</p></div>
+              <div className="flex flex-wrap gap-2">
+                {['pending', 'approved', 'rejected'].map((status) => <Button key={status} size="sm" variant={filter === status ? 'default' : 'outline'} onClick={() => setFilter(status)}>{status === 'pending' ? 'قيد المراجعة' : status === 'approved' ? 'معتمدة' : 'مرفوضة'}</Button>)}
+              </div>
+            </div>
+            <div className="mt-5 space-y-3">
+              {providers.length === 0 && <p className="rounded-xl bg-gray-50 p-6 text-center text-gray-500">لا توجد طلبات في هذه القائمة.</p>}
+              {providers.map((provider) => (
+                <div key={provider.id} className="flex flex-col gap-4 rounded-xl border border-gray-100 p-4 md:flex-row md:items-center">
+                  <div className="flex-1"><div className="flex items-center gap-2"><Building2 className="h-5 w-5 text-blue-600" /><h3 className="font-bold text-gray-900">{provider.legal_name}</h3><span className="rounded-full bg-blue-50 px-2 py-1 text-xs text-blue-700">{provider.provider_label}</span></div><p className="mt-1 text-sm text-gray-500">{provider.license_number} · {provider.city} · {provider.user?.email}</p></div>
+                  {filter === 'pending' && <div className="flex gap-2"><Button size="sm" onClick={() => review(provider.id, 'approved')}><CheckCircle2 className="ml-1 h-4 w-4" /> اعتماد</Button><Button size="sm" variant="outline" onClick={() => review(provider.id, 'rejected')}><XCircle className="ml-1 h-4 w-4" /> رفض</Button></div>}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
+            <h2 className="text-xl font-bold text-gray-900">إدارة المستخدمين</h2>
+            <div className="mt-4 overflow-x-auto"><table className="w-full text-right text-sm"><thead><tr className="border-b text-gray-500"><th className="p-3">المستخدم</th><th className="p-3">الدور</th><th className="p-3">الحالة</th><th className="p-3">إجراء</th></tr></thead><tbody>{users.map((user) => <tr key={user.id} className="border-b last:border-0"><td className="p-3"><div className="font-semibold">{user.username || '—'}</div><div className="text-gray-500">{user.email}</div></td><td className="p-3">{user.user_type}</td><td className="p-3"><span className={user.is_active ? 'text-emerald-600' : 'text-red-600'}>{user.is_active ? 'نشط' : 'غير نشط'}</span></td><td className="p-3"><Button size="sm" variant="outline" disabled={user.user_type === 'super_admin'} onClick={() => toggleUser(user)}>{user.is_active ? 'تعطيل' : 'تفعيل'}</Button></td></tr>)}</tbody></table></div>
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
+export default function DashboardPage() {
+  const { user, token, isAdmin, roleLabel } = useAuth()
+  const role = user?.user_type
+  const name = user?.profile?.first_name || user?.profile?.legal_name || user?.email
+  return (
+    <div className="min-h-screen bg-gray-50 py-8">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div className="mb-8 flex flex-col justify-between gap-4 md:flex-row md:items-center">
+          <div><p className="text-sm font-semibold text-blue-600">{roleLabel}</p><h1 className="mt-1 text-3xl font-bold text-gray-900">مرحباً، {name}</h1><p className="mt-1 text-gray-500">{roleDescriptions[role] || 'إدارة المنصة والصلاحيات'}</p></div>
+          {isAdmin && <div className="flex items-center gap-2 rounded-xl bg-blue-50 px-4 py-3 text-sm text-blue-800"><ShieldCheck className="h-5 w-5" /> صلاحيات الإدارة مفعلة</div>}
+        </div>
+        {isAdmin ? <AdminDashboard token={token} /> : role === 'patient' ? <PatientDashboard /> : <ProviderDashboard user={user} />}
+      </div>
+    </div>
+  )
+}

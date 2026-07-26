@@ -164,7 +164,18 @@ export function AuthProvider({ children }) {
     isOwner: user?.is_owner || false,
     isAdmin: user?.user_type === 'admin' || user?.user_type === 'super_admin',
     isDoctor: user?.user_type === 'doctor',
-    isPatient: user?.user_type === 'patient'
+    isPatient: user?.user_type === 'patient',
+    isProvider: ['pharmacy', 'lab', 'radiology_center', 'hospital'].includes(user?.user_type),
+    roleLabel: {
+      patient: 'مستخدم',
+      doctor: 'طبيب',
+      pharmacy: 'صيدلية',
+      lab: 'معمل',
+      radiology_center: 'مركز أشعة',
+      hospital: 'مستشفى',
+      admin: 'مدير',
+      super_admin: 'مدير النظام',
+    }[user?.user_type] || 'حساب'
   }
 
   return (

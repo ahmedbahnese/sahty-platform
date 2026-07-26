@@ -16,6 +16,9 @@ from src.models.medication import Medication, MedicationSchedule, MedicationLog,
 from src.models.blood_bank import BloodDonor, BloodRequest, BloodRequestResponse, BloodDonation, BloodInventory
 from src.models.hospital import Hospital, HospitalDepartment, EmergencyService, HospitalReview
 from src.models.admin import Admin, SystemOwner, SystemSettings, AuditLog
+from src.models.provider import ProviderRegistration
+from src.routes.admin import admin_bp
+from werkzeug.security import generate_password_hash
 
 app = Flask(__name__, static_folder=os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static'))
 
@@ -32,6 +35,7 @@ CORS(app, origins=['http://localhost:5000', 'http://localhost:5173', 'https://*.
 # Blueprints
 app.register_blueprint(user_bp, url_prefix='/api')
 app.register_blueprint(auth_bp, url_prefix='/api/auth')
+app.register_blueprint(admin_bp, url_prefix='/api/admin')
 
 # Database
 db_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'src', 'database', 'app.db')
@@ -44,6 +48,42 @@ db.init_app(app)
 
 with app.app_context():
     db.create_all()
+
+    # Bootstrap the first system administrator only when explicitly configured.
+    # This keeps admin creation out of the public registration flow.
+    bootstrap_email = os.environ.get('ADMIN_EMAIL')
+    bootstrap_password = os.environ.get('ADMIN_PASSWORD')
+    if bootstrap_email and bootstrap_password:
+        bootstrap_user = User.query.filter_by(email=bootstrap_email).first()
+        if not bootstrap_user:
+            bootstrap_user = User(
+                username=bootstrap_email.split('@')[0],
+                email=bootstrap_email,
+                password_hash=generate_password_hash(bootstrap_password),
+                user_type='super_admin',
+                is_active=True,
+            )
+            db.session.add(bootstrap_user)
+            db.session.flush()
+            db.session.add(Admin(
+                user_id=bootstrap_user.id,
+                first_name=os.environ.get('ADMIN_FIRST_NAME', 'مدير'),
+                last_name=os.environ.get('ADMIN_LAST_NAME', 'النظام'),
+                phone=os.environ.get('ADMIN_PHONE', ''),
+                email=bootstrap_email,
+                admin_type='super_admin',
+                permissions={'all': True},
+                can_access_dashboard=True,
+                can_manage_users=True,
+                can_manage_doctors=True,
+                can_manage_hospitals=True,
+                can_manage_content=True,
+                can_view_reports=True,
+                can_manage_system_settings=True,
+                is_active=True,
+                is_super_admin=True,
+            ))
+            db.session.commit()
 
 # Serve React build (production)
 @app.route('/', defaults={'path': ''})

@@ -4,7 +4,10 @@ from src.routes.auth import token_required, role_required
 from werkzeug.security import generate_password_hash
 
 user_bp = Blueprint('user', __name__)
-ASSIGNABLE_ROLES = {'patient', 'doctor', 'admin', 'super_admin'}
+ASSIGNABLE_ROLES = {
+    'patient', 'doctor', 'pharmacy', 'lab', 'radiology_center',
+    'hospital', 'admin', 'super_admin',
+}
 
 @user_bp.route('/users', methods=['GET'])
 @token_required

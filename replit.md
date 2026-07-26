@@ -8,7 +8,7 @@ A full-stack Arabic healthcare web platform with a React/Vite frontend and Flask
 |---|---|---|
 | Frontend | React 19 + Vite + Tailwind CSS + shadcn/ui | 5000 |
 | Backend API | Flask 3 + SQLAlchemy + SQLite | 5001 |
-| Database | SQLite (`src/database/app.db`) | — |
+ | Database | PostgreSQL via `DATABASE_URL` (SQLite fallback for local use) | — |
 
 ## How to Run
 
@@ -36,8 +36,10 @@ Two workflows must be running simultaneously:
 │   │   ├── blood_bank.py    # BloodDonor, BloodRequest, BloodInventory
 │   │   ├── hospital.py      # Hospital, HospitalDepartment, EmergencyService, HospitalReview
 │   │   └── admin.py         # Admin, SystemOwner, SystemSettings, AuditLog
+│   │   └── provider.py      # Registration and approval records for medical providers
 │   ├── routes/              # Flask blueprints (Python)
 │   │   ├── auth.py          # /api/auth/* — register, login, profile, logout
+│   │   ├── admin.py         # /api/admin/* — approvals, statistics, user management
 │   │   └── user.py          # /api/users/* — basic CRUD
 │   ├── database/            # SQLite database file
 │   ├── lib/utils.js         # shadcn/ui cn() utility
@@ -72,6 +74,11 @@ Two workflows must be running simultaneously:
 | /api/users | GET/POST | Admin role | Protected user administration |
 | /api/users/:id | GET/PUT | Own account or admin role | Protected user profile access |
 | /api/users/:id | DELETE | Super-admin role | Protected user deletion |
+| /api/admin/providers | GET | Admin role | List provider approval requests |
+| /api/admin/providers/:id/review | PATCH | Admin role | Approve or reject a provider |
+| /api/admin/users | GET | Admin role | List all users |
+| /api/admin/users/:id/status | PATCH | Admin role | Activate or deactivate a user |
+| /api/admin/stats | GET | Admin role | Dashboard statistics |
 
 ## Environment Variables
 
@@ -79,12 +86,14 @@ Two workflows must be running simultaneously:
 |---|---|---|
 | SESSION_SECRET | Yes | Flask secret key (set in Replit Secrets) |
 | JWT_SECRET | Optional | JWT signing key (falls back to SESSION_SECRET) |
-| DATABASE_URL | Optional | SQLAlchemy database URL (defaults to `src/database/app.db`) |
+| DATABASE_URL | Managed | SQLAlchemy database URL; Replit supplies this for PostgreSQL |
+| ADMIN_EMAIL | Optional | Creates the first super-admin when paired with `ADMIN_PASSWORD` |
+| ADMIN_PASSWORD | Optional secret | Password for the first super-admin; never place it in source code |
 
 ## Database
 
-- 28 tables fully created and relational, including `user_sessions`
-- SQLite at `src/database/app.db`
+- 29 tables fully created and relational, including `user_sessions` and `provider_registrations`
+- Replit PostgreSQL is used when `DATABASE_URL` is present; SQLite is the fallback
 - Run `python init_database.py` to seed sample data
 
 ## Security foundation
@@ -92,7 +101,8 @@ Two workflows must be running simultaneously:
 - Passwords are stored as Werkzeug hashes, never as plaintext.
 - Every login creates a persisted `user_sessions` record with an expiry, token hash, client metadata, and revocation state.
 - Bearer tokens are accepted only while their matching database session is active.
-- Roles are enforced on the server (`patient`, `doctor`, `admin`, `super_admin`); frontend visibility is not treated as authorization.
+- Roles are enforced on the server (`patient`, `doctor`, `pharmacy`, `lab`, `radiology_center`, `hospital`, `admin`, `super_admin`); frontend visibility is not treated as authorization.
+- Professional registrations remain pending until an administrator approves them; approval activates the account.
 
 ## User Preferences
 
