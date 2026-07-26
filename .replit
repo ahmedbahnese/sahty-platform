@@ -2,7 +2,7 @@ modules = ["python-3.12", "nodejs-20", "web"]
 
 [nix]
 channel = "stable-25_05"
-packages = ["cairo", "ffmpeg-full", "freetype", "ghostscript", "glibcLocales", "gobject-introspection", "gtk3", "pkg-config", "qhull", "tcl", "tk"]
+packages = ["cairo", "cargo", "espeak-ng", "ffmpeg-full", "freetype", "ghostscript", "glibcLocales", "gobject-introspection", "gtk3", "libiconv", "libxcrypt", "openssl", "pkg-config", "qhull", "rustc", "tcl", "tk"]
 
 [agent]
 expertMode = true

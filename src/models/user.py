@@ -36,3 +36,29 @@ class User(db.Model):
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None,
         }
+
+
+class UserSession(db.Model):
+    """جلسة دخول محفوظة في قاعدة البيانات ويمكن إلغاؤها من الخادم."""
+
+    __tablename__ = 'user_sessions'
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)
+    jwt_id = db.Column(db.String(128), unique=True, nullable=False, index=True)
+    token_hash = db.Column(db.String(128), unique=True, nullable=False, index=True)
+    expires_at = db.Column(db.DateTime, nullable=False, index=True)
+    revoked_at = db.Column(db.DateTime)
+    ip_address = db.Column(db.String(45))
+    user_agent = db.Column(db.Text)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    last_seen_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
+    user = db.relationship(
+        'User',
+        backref=db.backref('sessions', lazy=True, cascade='all, delete-orphan')
+    )
+
+    @property
+    def is_valid(self):
+        return self.revoked_at is None and self.expires_at > datetime.utcnow()

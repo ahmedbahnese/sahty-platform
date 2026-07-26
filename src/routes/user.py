@@ -1,38 +1,90 @@
 from flask import Blueprint, jsonify, request
 from src.models.user import User, db
+from src.routes.auth import token_required, role_required
+from werkzeug.security import generate_password_hash
 
 user_bp = Blueprint('user', __name__)
+ASSIGNABLE_ROLES = {'patient', 'doctor', 'admin', 'super_admin'}
 
 @user_bp.route('/users', methods=['GET'])
-def get_users():
+@token_required
+@role_required('admin', 'super_admin')
+def get_users(current_user):
     users = User.query.all()
     return jsonify([user.to_dict() for user in users])
 
 @user_bp.route('/users', methods=['POST'])
-def create_user():
-    data = request.json
-    user = User(username=data.get('username'), email=data['email'])
+@token_required
+@role_required('admin', 'super_admin')
+def create_user(current_user):
+    data = request.get_json(silent=True) or {}
+    if not data.get('email') or not data.get('password'):
+        return jsonify({'message': 'البريد الإلكتروني وكلمة المرور مطلوبان'}), 400
+    if User.query.filter_by(email=data['email']).first():
+        return jsonify({'message': 'البريد الإلكتروني مستخدم بالفعل'}), 400
+    requested_role = data.get('user_type', 'patient')
+    if requested_role not in ASSIGNABLE_ROLES:
+        return jsonify({'message': 'الدور المطلوب غير صالح'}), 400
+    if requested_role == 'super_admin' and current_user.user_type != 'super_admin':
+        return jsonify({'message': 'لا يمكن للمدير العادي إنشاء مالك للنظام'}), 403
+    user = User(
+        username=data.get('username'),
+        email=data['email'],
+        password_hash=generate_password_hash(data['password']),
+        user_type=requested_role,
+    )
     db.session.add(user)
     db.session.commit()
     return jsonify(user.to_dict()), 201
 
 @user_bp.route('/users/<int:user_id>', methods=['GET'])
-def get_user(user_id):
-    user = User.query.get_or_404(user_id)
+@token_required
+def get_user(current_user, user_id):
+    if current_user.id != user_id and current_user.user_type not in ('admin', 'super_admin'):
+        return jsonify({'message': 'غير مصرح لك بالوصول'}), 403
+    user = db.session.get(User, user_id)
+    if not user:
+        return jsonify({'message': 'المستخدم غير موجود'}), 404
     return jsonify(user.to_dict())
 
 @user_bp.route('/users/<int:user_id>', methods=['PUT'])
-def update_user(user_id):
-    user = User.query.get_or_404(user_id)
-    data = request.json
+@token_required
+def update_user(current_user, user_id):
+    if current_user.id != user_id and current_user.user_type not in ('admin', 'super_admin'):
+        return jsonify({'message': 'غير مصرح لك بالوصول'}), 403
+    user = db.session.get(User, user_id)
+    if not user:
+        return jsonify({'message': 'المستخدم غير موجود'}), 404
+    if (
+        current_user.user_type == 'admin'
+        and user.user_type == 'super_admin'
+    ):
+        return jsonify({'message': 'لا يمكن للمدير العادي تعديل مالك النظام'}), 403
+    data = request.get_json(silent=True) or {}
     user.username = data.get('username', user.username)
-    user.email = data.get('email', user.email)
+    if current_user.user_type in ('admin', 'super_admin'):
+        user.email = data.get('email', user.email)
+        requested_role = data.get('user_type', user.user_type)
+        if requested_role not in ASSIGNABLE_ROLES:
+            return jsonify({'message': 'الدور المطلوب غير صالح'}), 400
+        if (
+            current_user.user_type != 'super_admin'
+            and requested_role == 'super_admin'
+        ):
+            return jsonify({'message': 'لا يمكن للمدير العادي تعيين مالك للنظام'}), 403
+        user.user_type = requested_role
     db.session.commit()
     return jsonify(user.to_dict())
 
 @user_bp.route('/users/<int:user_id>', methods=['DELETE'])
-def delete_user(user_id):
-    user = User.query.get_or_404(user_id)
+@token_required
+@role_required('super_admin')
+def delete_user(current_user, user_id):
+    user = db.session.get(User, user_id)
+    if not user:
+        return jsonify({'message': 'المستخدم غير موجود'}), 404
+    if user.id == current_user.id:
+        return jsonify({'message': 'لا يمكن حذف الحساب الحالي'}), 400
     db.session.delete(user)
     db.session.commit()
     return '', 204

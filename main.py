@@ -20,7 +20,10 @@ from src.models.admin import Admin, SystemOwner, SystemSettings, AuditLog
 app = Flask(__name__, static_folder=os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static'))
 
 # Security — use environment secret if available
-app.config['SECRET_KEY'] = os.environ.get('SESSION_SECRET', 'sahty-dev-secret-2024')
+app.config['SECRET_KEY'] = os.environ.get('SESSION_SECRET')
+if not app.config['SECRET_KEY']:
+    raise RuntimeError('SESSION_SECRET must be configured before starting the API')
+app.config['JWT_SECRET'] = os.environ.get('JWT_SECRET', app.config['SECRET_KEY'])
 
 # CORS — allow Vite dev server to call the API
 CORS(app, origins=['http://localhost:5000', 'http://localhost:5173', 'https://*.replit.dev', 'https://*.repl.co'],
@@ -32,7 +35,10 @@ app.register_blueprint(auth_bp, url_prefix='/api/auth')
 
 # Database
 db_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'src', 'database', 'app.db')
-app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{db_path}'
+app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get(
+    'DATABASE_URL',
+    f'sqlite:///{db_path}'
+)
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db.init_app(app)
 

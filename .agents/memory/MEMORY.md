@@ -1,1 +1,2 @@
 - [Frontend dependency compatibility](frontend-dependency-compatibility.md) — remove unused calendar dependencies when their peer versions block installation.
+- [Role and session security](role-and-session-security.md) — privilege changes need server-side role checks, and logout revocation must commit independently of audit logging.

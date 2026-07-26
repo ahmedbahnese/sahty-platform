@@ -1,9 +1,11 @@
-from flask import Blueprint, request, jsonify, session
+from flask import Blueprint, request, jsonify, g
 from werkzeug.security import check_password_hash, generate_password_hash
 from functools import wraps
 import jwt
 import datetime
-from src.models.user import db, User
+import hashlib
+import secrets
+from src.models.user import db, User, UserSession
 from src.models.patient import Patient
 from src.models.doctor import Doctor
 from src.models.admin import Admin, AuditLog
@@ -12,7 +14,38 @@ import os
 auth_bp = Blueprint('auth', __name__)
 
 # JWT Secret Key
-JWT_SECRET = os.environ.get('JWT_SECRET', os.environ.get('SESSION_SECRET', 'your-secret-key-here'))
+JWT_SECRET = os.environ.get('JWT_SECRET', os.environ.get('SESSION_SECRET'))
+if not JWT_SECRET:
+    raise RuntimeError('SESSION_SECRET or JWT_SECRET must be configured before starting the API')
+SESSION_TTL = datetime.timedelta(hours=24)
+
+
+def _hash_token(token):
+    return hashlib.sha256(token.encode('utf-8')).hexdigest()
+
+
+def _issue_session(user):
+    """Create a signed token and a server-side session record."""
+    session_id = secrets.token_urlsafe(32)
+    expires_at = datetime.datetime.utcnow() + SESSION_TTL
+    token_payload = {
+        'user_id': user.id,
+        'email': user.email,
+        'user_type': user.user_type,
+        'jti': session_id,
+        'exp': expires_at,
+    }
+    token = jwt.encode(token_payload, JWT_SECRET, algorithm='HS256')
+    user_session = UserSession(
+        user_id=user.id,
+        jwt_id=session_id,
+        token_hash=_hash_token(token),
+        expires_at=expires_at,
+        ip_address=request.remote_addr,
+        user_agent=request.headers.get('User-Agent'),
+    )
+    db.session.add(user_session)
+    return token, user_session
 
 def token_required(f):
     @wraps(f)
@@ -25,9 +58,19 @@ def token_required(f):
                 token = token[7:]
             data = jwt.decode(token, JWT_SECRET, algorithms=['HS256'])
             current_user_id = data['user_id']
-            current_user = User.query.get(current_user_id)
-            if not current_user:
+            current_user = db.session.get(User, current_user_id)
+            current_session = UserSession.query.filter_by(
+                token_hash=_hash_token(token),
+                user_id=current_user_id,
+            ).first()
+            if not current_user or not current_session or not current_session.is_valid:
                 return jsonify({'message': 'مستخدم غير صالح'}), 401
+            if data.get('jti') != current_session.jwt_id:
+                return jsonify({'message': 'جلسة غير صالحة'}), 401
+            if not current_user.is_active:
+                return jsonify({'message': 'الحساب غير مفعل'}), 401
+            current_session.last_seen_at = datetime.datetime.utcnow()
+            g.current_session = current_session
         except jwt.ExpiredSignatureError:
             return jsonify({'message': 'انتهت صلاحية الجلسة'}), 401
         except jwt.InvalidTokenError:
@@ -42,6 +85,18 @@ def admin_required(f):
             return jsonify({'message': 'غير مصرح لك بالوصول'}), 403
         return f(current_user, *args, **kwargs)
     return decorated
+
+
+def role_required(*roles):
+    """Restrict an endpoint to one or more user roles."""
+    def decorator(f):
+        @wraps(f)
+        def decorated(current_user, *args, **kwargs):
+            if current_user.user_type not in roles:
+                return jsonify({'message': 'غير مصرح لك بالوصول'}), 403
+            return f(current_user, *args, **kwargs)
+        return decorated
+    return decorator
 
 @auth_bp.route('/register', methods=['POST'])
 def register():
@@ -119,13 +174,8 @@ def register():
             'pending_review': data['user_type'] == 'doctor'
         }
         if data['user_type'] == 'patient':
-            token_payload = {
-                'user_id': new_user.id,
-                'email': new_user.email,
-                'user_type': new_user.user_type,
-                'exp': datetime.datetime.utcnow() + datetime.timedelta(hours=24)
-            }
-            response_data['token'] = jwt.encode(token_payload, JWT_SECRET, algorithm='HS256')
+            response_data['token'], _ = _issue_session(new_user)
+            db.session.commit()
             response_data['user'] = {
                 'id': new_user.id,
                 'username': new_user.username,
@@ -161,13 +211,7 @@ def login():
             return jsonify({'message': 'بيانات الدخول غير صحيحة'}), 401
         if not user.is_active:
             return jsonify({'message': 'تم استلام بيانات الطبيب، الحساب بانتظار مراجعة الإدارة الطبية'}), 401
-        token_payload = {
-            'user_id': user.id,
-            'email': user.email,
-            'user_type': user.user_type,
-            'exp': datetime.datetime.utcnow() + datetime.timedelta(hours=24)
-        }
-        token = jwt.encode(token_payload, JWT_SECRET, algorithm='HS256')
+        token, _ = _issue_session(user)
         user.last_login = datetime.datetime.utcnow()
         user.login_count = (user.login_count or 0) + 1
         if user.user_type in ['admin', 'super_admin']:
@@ -239,6 +283,12 @@ def get_profile(current_user):
 @token_required
 def logout(current_user):
     try:
+        current_session = getattr(g, 'current_session', None)
+        if current_session:
+            current_session.revoked_at = datetime.datetime.utcnow()
+            db.session.commit()
+
+        # Session invalidation is durable even if audit logging is unavailable.
         try:
             audit_log = AuditLog(
                 user_id=current_user.id,
@@ -252,9 +302,10 @@ def logout(current_user):
             db.session.add(audit_log)
             db.session.commit()
         except Exception:
-            pass
+            db.session.rollback()
         return jsonify({'message': 'تم تسجيل الخروج بنجاح'}), 200
     except Exception as e:
+        db.session.rollback()
         return jsonify({'message': f'خطأ في تسجيل الخروج: {str(e)}'}), 500
 
 @auth_bp.route('/change-password', methods=['POST'])
@@ -267,6 +318,10 @@ def change_password(current_user):
         if not check_password_hash(current_user.password_hash, data['current_password']):
             return jsonify({'message': 'كلمة المرور الحالية غير صحيحة'}), 400
         current_user.password_hash = generate_password_hash(data['new_password'])
+        UserSession.query.filter(
+            UserSession.user_id == current_user.id,
+            UserSession.revoked_at.is_(None),
+        ).update({'revoked_at': datetime.datetime.utcnow()})
         db.session.commit()
         return jsonify({'message': 'تم تغيير كلمة المرور بنجاح'}), 200
     except Exception as e:
