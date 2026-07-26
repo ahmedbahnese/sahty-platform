@@ -145,12 +145,9 @@ export default function DoctorsPage() {
   const cities = ['القاهرة', 'الإسكندرية', 'الجيزة', 'الشرقية', 'البحيرة', 'المنوفية']
 
   useEffect(() => {
-    // محاكاة تحميل البيانات
-    setTimeout(() => {
-      setDoctors(mockDoctors)
-      setFilteredDoctors(mockDoctors)
-      setLoading(false)
-    }, 1000)
+    setDoctors(mockDoctors)
+    setFilteredDoctors(mockDoctors)
+    setLoading(false)
   }, [])
 
   useEffect(() => {
