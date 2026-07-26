@@ -56,17 +56,8 @@ Two workflows must be running simultaneously:
 │       ├── ServicesPage.jsx
 │       ├── BloodBankPage.jsx
 │       ├── EmergencyPage.jsx
-│       └── AIAssistantPage.jsx
 └── init_database.py         # Database seeder (run once for sample data)
 ```
-
-## Test Accounts
-
-| Role | Email | Password |
-|---|---|---|
-| Super Admin / Owner | Ahmedbahnese@yahoo.com | Bahnasy123 |
-| Sample Doctor | doctor@sahty.zya.me | doctor123 |
-| Sample Patient | patient@sahty.zya.me | patient123 |
 
 ## API Endpoints
 
@@ -75,7 +66,6 @@ Two workflows must be running simultaneously:
 | /api/health | GET | None | Health check |
 | /api/auth/register | POST | None | User registration |
 | /api/auth/login | POST | None | Login → JWT token |
-| /api/auth/owner-login | POST | None | Owner login |
 | /api/auth/profile | GET | Bearer token | Get profile |
 | /api/auth/logout | POST | Bearer token | Logout |
 | /api/auth/change-password | POST | Bearer token | Change password |
@@ -87,7 +77,6 @@ Two workflows must be running simultaneously:
 | Variable | Required | Description |
 |---|---|---|
 | SESSION_SECRET | Yes | Flask secret key (set in Replit Secrets) |
-| OPENAI_API_KEY | For AI features | OpenAI API key for AI Assistant |
 | JWT_SECRET | Optional | JWT signing key (falls back to SESSION_SECRET) |
 
 ## Database
@@ -100,4 +89,3 @@ Two workflows must be running simultaneously:
 
 - Keep existing Flask + React structure; do not migrate to another framework
 - Arabic is the primary UI language (RTL layout)
-- The project owner is Ahmed Bahnasi (Ahmedbahnese@yahoo.com)

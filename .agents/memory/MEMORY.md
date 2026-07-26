@@ -1,0 +1,1 @@
+- [Frontend dependency compatibility](frontend-dependency-compatibility.md) — remove unused calendar dependencies when their peer versions block installation.

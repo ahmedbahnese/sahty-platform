@@ -5,19 +5,18 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { Heart, Eye, EyeOff, Mail, Lock, Crown } from 'lucide-react'
+import { Heart, Eye, EyeOff, UserRound, Lock } from 'lucide-react'
 
 export default function LoginPage() {
   const [formData, setFormData] = useState({
-    email: '',
+    identifier: '',
     password: ''
   })
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const [isOwnerLogin, setIsOwnerLogin] = useState(false)
   
-  const { login, ownerLogin } = useAuth()
+  const { login } = useAuth()
   const navigate = useNavigate()
 
   const handleChange = (e) => {
@@ -34,9 +33,7 @@ export default function LoginPage() {
     setError('')
 
     try {
-      const result = isOwnerLogin 
-        ? await ownerLogin(formData.email, formData.password)
-        : await login(formData.email, formData.password)
+      const result = await login(formData.identifier, formData.password)
 
       if (result.success) {
         navigate('/dashboard')
@@ -48,14 +45,6 @@ export default function LoginPage() {
     } finally {
       setLoading(false)
     }
-  }
-
-  const handleOwnerQuickLogin = () => {
-    setFormData({
-      email: 'Ahmedbahnese@yahoo.com',
-      password: 'Bahnasy123'
-    })
-    setIsOwnerLogin(true)
   }
 
   return (
@@ -70,27 +59,12 @@ export default function LoginPage() {
               </div>
             </div>
             <h2 className="text-3xl font-bold text-gray-900">
-              {isOwnerLogin ? 'دخول المالك' : 'تسجيل الدخول'}
+              تسجيل الدخول
             </h2>
             <p className="mt-2 text-gray-600">
-              {isOwnerLogin ? 'مرحباً بك أحمد بهنسي' : 'أدخل بياناتك للوصول إلى حسابك'}
+              أدخل اسم المستخدم أو رقم الهاتف أو البريد الإلكتروني وكلمة المرور
             </p>
           </div>
-
-          {/* زر دخول المالك السريع */}
-          {!isOwnerLogin && (
-            <div className="mb-6">
-              <Button
-                type="button"
-                variant="outline"
-                className="w-full border-amber-300 text-amber-700 hover:bg-amber-50"
-                onClick={handleOwnerQuickLogin}
-              >
-                <Crown className="ml-2 h-4 w-4" />
-                دخول المالك (أحمد بهنسي)
-              </Button>
-            </div>
-          )}
 
           {/* رسالة الخطأ */}
           {error && (
@@ -104,21 +78,21 @@ export default function LoginPage() {
           {/* النموذج */}
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
-              <Label htmlFor="email" className="text-gray-700">
-                البريد الإلكتروني
+              <Label htmlFor="identifier" className="text-gray-700">
+                اسم المستخدم أو الهاتف أو البريد الإلكتروني
               </Label>
               <div className="mt-1 relative">
                 <Input
-                  id="email"
-                  name="email"
-                  type="email"
+                  id="identifier"
+                  name="identifier"
+                  type="text"
                   required
-                  value={formData.email}
+                  value={formData.identifier}
                   onChange={handleChange}
                   className="pl-10"
-                  placeholder="أدخل بريدك الإلكتروني"
+                  placeholder="أدخل اسم المستخدم أو الهاتف أو البريد"
                 />
-                <Mail className="h-5 w-5 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
+                <UserRound className="h-5 w-5 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
               </div>
             </div>
 
@@ -176,48 +150,17 @@ export default function LoginPage() {
               {loading ? 'جاري تسجيل الدخول...' : 'تسجيل الدخول'}
             </Button>
 
-            {isOwnerLogin && (
-              <Button
-                type="button"
-                variant="outline"
-                className="w-full"
-                onClick={() => {
-                  setIsOwnerLogin(false)
-                  setFormData({ email: '', password: '' })
-                  setError('')
-                }}
-              >
-                العودة لتسجيل الدخول العادي
-              </Button>
-            )}
           </form>
 
           {/* رابط التسجيل */}
-          {!isOwnerLogin && (
-            <div className="mt-6 text-center">
-              <p className="text-gray-600">
-                ليس لديك حساب؟{' '}
-                <Link to="/register" className="font-medium text-blue-600 hover:text-blue-500">
-                  إنشاء حساب جديد
-                </Link>
-              </p>
-            </div>
-          )}
-
-          {/* معلومات إضافية للمالك */}
-          {isOwnerLogin && (
-            <div className="mt-6 p-4 bg-amber-50 rounded-lg border border-amber-200">
-              <div className="flex items-center">
-                <Crown className="h-5 w-5 text-amber-600 ml-2" />
-                <span className="text-sm text-amber-800 font-medium">
-                  حساب المالك - صلاحيات كاملة
-                </span>
-              </div>
-              <p className="text-xs text-amber-700 mt-1">
-                يمكنك الوصول لجميع أجزاء النظام كمدير عام، طبيب، مريض، أو أي دور آخر
-              </p>
-            </div>
-          )}
+          <div className="mt-6 text-center">
+            <p className="text-gray-600">
+              ليس لديك حساب؟{' '}
+              <Link to="/register" className="font-medium text-blue-600 hover:text-blue-500">
+                إنشاء حساب جديد
+              </Link>
+            </p>
+          </div>
         </div>
 
         {/* روابط إضافية */}

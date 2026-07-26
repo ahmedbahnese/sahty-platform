@@ -20,7 +20,7 @@ import {
 } from 'lucide-react'
 
 export default function DashboardPage() {
-  const { user, isOwner, isAdmin, isDoctor, isPatient } = useAuth()
+  const { user, isAdmin, isDoctor, isPatient } = useAuth()
   const [stats, setStats] = useState({
     appointments: 0,
     patients: 0,
@@ -351,12 +351,10 @@ export default function DashboardPage() {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-3xl font-bold text-gray-900 flex items-center">
-                {isOwner && <Crown className="h-8 w-8 text-yellow-500 ml-2" />}
                 مرحباً، {user?.profile?.first_name || user?.email}
               </h1>
               <p className="text-gray-600 mt-1">
-                {isOwner ? 'مالك النظام - صلاحيات كاملة' :
-                 isAdmin ? 'مدير النظام' :
+                 {isAdmin ? 'مدير النظام' :
                  isDoctor ? 'طبيب معتمد' :
                  'مريض'}
               </p>
@@ -382,22 +380,7 @@ export default function DashboardPage() {
         {/* المحتوى حسب نوع المستخدم */}
         {isPatient && <PatientDashboard />}
         {isDoctor && <DoctorDashboard />}
-        {(isAdmin || isOwner) && <AdminDashboard />}
-
-        {/* إشعار خاص للمالك */}
-        {isOwner && (
-          <div className="mt-8 bg-gradient-to-r from-yellow-50 to-amber-50 border border-yellow-200 rounded-xl p-6">
-            <div className="flex items-center">
-              <Crown className="h-6 w-6 text-yellow-600 ml-3" />
-              <div>
-                <h3 className="text-lg font-semibold text-yellow-800">حساب المالك</h3>
-                <p className="text-yellow-700">
-                  أهلاً بك أحمد بهنسي، يمكنك الوصول لجميع أجزاء النظام والتحكم الكامل في المنصة
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
+        {isAdmin && <AdminDashboard />}
       </div>
     </div>
   )

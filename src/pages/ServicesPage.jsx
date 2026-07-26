@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { 
   Calendar, 
@@ -22,13 +23,13 @@ import {
 
 export default function ServicesPage() {
   const [selectedCategory, setSelectedCategory] = useState('all')
+  const [requestMessage, setRequestMessage] = useState('')
+  const navigate = useNavigate()
 
   const serviceCategories = [
     { id: 'all', name: 'جميع الخدمات', icon: Stethoscope },
     { id: 'consultation', name: 'الاستشارات الطبية', icon: Video },
     { id: 'emergency', name: 'خدمات الطوارئ', icon: Phone },
-    { id: 'medication', name: 'إدارة الأدوية', icon: Pill },
-    { id: 'homecare', name: 'الرعاية المنزلية', icon: Home },
     { id: 'specialized', name: 'خدمات متخصصة', icon: Heart }
   ]
 
@@ -57,17 +58,6 @@ export default function ServicesPage() {
     },
     {
       id: 3,
-      category: 'medication',
-      title: 'إدارة الأدوية والتذكيرات',
-      description: 'نظام ذكي لإدارة أدويتك مع تذكيرات دقيقة ومتابعة الجرعات',
-      icon: Pill,
-      features: ['تذكيرات ذكية', 'تتبع الجرعات', 'تحذيرات التفاعل', 'تقارير الالتزام'],
-      price: 'مجاني',
-      duration: 'مستمر',
-      popular: true
-    },
-    {
-      id: 4,
       category: 'emergency',
       title: 'خدمة الطوارئ الطبية',
       description: 'خدمة طوارئ متاحة على مدار الساعة للحالات العاجلة والطارئة',
@@ -78,10 +68,10 @@ export default function ServicesPage() {
       popular: false
     },
     {
-      id: 5,
+      id: 4,
       category: 'specialized',
       title: 'بنك الدم الرقمي',
-      description: 'منصة للتبرع بالدم والبحث عن متبرعين في حالات الطوارئ',
+      description: 'منصة لطلبات الدم وتسجيل المتبرعين والعثور على نقاط التبرع القريبة',
       icon: Droplets,
       features: ['شبكة متبرعين', 'طلبات طارئة', 'فحص الأهلية', 'تتبع التبرعات'],
       price: 'مجاني',
@@ -89,18 +79,7 @@ export default function ServicesPage() {
       popular: true
     },
     {
-      id: 6,
-      category: 'homecare',
-      title: 'الرعاية الصحية المنزلية',
-      description: 'خدمات طبية وتمريضية في منزلك مع فريق طبي مؤهل',
-      icon: Home,
-      features: ['زيارات منزلية', 'تمريض منزلي', 'علاج طبيعي', 'رعاية كبار السن'],
-      price: 'من 200 جنيه',
-      duration: 'حسب الخدمة',
-      popular: false
-    },
-    {
-      id: 7,
+      id: 5,
       category: 'specialized',
       title: 'تحليل الصور الطبية بالذكاء الاصطناعي',
       description: 'تحليل متقدم للأشعة والصور الطبية باستخدام تقنيات الذكاء الاصطناعي',
@@ -111,7 +90,7 @@ export default function ServicesPage() {
       popular: false
     },
     {
-      id: 8,
+      id: 6,
       category: 'specialized',
       title: 'برامج الصحة النفسية',
       description: 'جلسات علاج نفسي وبرامج دعم للصحة النفسية والعقلية',
@@ -122,7 +101,7 @@ export default function ServicesPage() {
       popular: false
     },
     {
-      id: 9,
+      id: 7,
       category: 'specialized',
       title: 'رعاية الأمومة والطفولة',
       description: 'برامج شاملة لرعاية الحوامل والأطفال من الولادة حتى المراهقة',
@@ -133,18 +112,7 @@ export default function ServicesPage() {
       popular: true
     },
     {
-      id: 10,
-      category: 'consultation',
-      title: 'التقارير الطبية الرقمية',
-      description: 'إنشاء وإدارة التقارير الطبية الرقمية مع إمكانية المشاركة الآمنة',
-      icon: FileText,
-      features: ['تقارير رقمية', 'مشاركة آمنة', 'أرشفة ذكية', 'وصول سريع'],
-      price: 'مجاني',
-      duration: 'فوري',
-      popular: false
-    },
-    {
-      id: 11,
+      id: 8,
       category: 'specialized',
       title: 'برامج اللياقة والتغذية',
       description: 'برامج مخصصة للياقة البدنية والتغذية الصحية مع متابعة من المختصين',
@@ -155,7 +123,7 @@ export default function ServicesPage() {
       popular: false
     },
     {
-      id: 12,
+      id: 9,
       category: 'emergency',
       title: 'خدمة الإسعاف الذكي',
       description: 'خدمة إسعاف متطورة مع تتبع GPS وتنسيق مع أقرب المستشفيات',
@@ -172,8 +140,19 @@ export default function ServicesPage() {
     : services.filter(service => service.category === selectedCategory)
 
   const handleServiceRequest = (serviceId) => {
-    console.log('طلب خدمة:', serviceId)
-    // هنا سيتم التوجيه لصفحة طلب الخدمة
+    const service = services.find(item => item.id === serviceId)
+    if (!service) return
+    if (service.title === 'حجز المواعيد الطبية') {
+      navigate('/doctors')
+    } else if (service.category === 'emergency') {
+      navigate('/emergency')
+    } else if (service.title === 'بنك الدم الرقمي') {
+      navigate('/blood-bank')
+    } else {
+      setSelectedCategory(service.category)
+      setRequestMessage(`تم استلام طلبك لخدمة «${service.title}». سيتم التواصل معك قريباً.`)
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    }
   }
 
   return (
@@ -211,6 +190,12 @@ export default function ServicesPage() {
             })}
           </div>
         </div>
+
+        {requestMessage && (
+          <div className="mb-6 rounded-lg border border-green-200 bg-green-50 p-4 text-green-800 text-center">
+            {requestMessage}
+          </div>
+        )}
 
         {/* عدد الخدمات */}
         <div className="mb-6">

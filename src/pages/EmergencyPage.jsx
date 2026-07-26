@@ -31,7 +31,8 @@ export default function EmergencyPage() {
   })
   const [isEmergencyActive, setIsEmergencyActive] = useState(false)
   const [nearbyHospitals, setNearbyHospitals] = useState([])
-  const [emergencyContacts, setEmergencyContacts] = useState([])
+  const [locationStatus, setLocationStatus] = useState('')
+  const [locationLoading, setLocationLoading] = useState(false)
 
   // أرقام الطوارئ
   const emergencyNumbers = [
@@ -97,9 +98,38 @@ export default function EmergencyPage() {
     }
   ]
 
-  useEffect(() => {
-    setNearbyHospitals(mockHospitals)
-  }, [])
+  const requestLocation = () => {
+    if (!navigator.geolocation) {
+      setLocationStatus('المتصفح لا يدعم تحديد الموقع')
+      return
+    }
+    setLocationLoading(true)
+    setLocationStatus('جاري تحديد موقعك...')
+    navigator.geolocation.getCurrentPosition(
+      ({ coords }) => {
+        setNearbyHospitals(mockHospitals)
+        setEmergencyForm(prev => ({
+          ...prev,
+          location: `${coords.latitude.toFixed(5)}, ${coords.longitude.toFixed(5)}`
+        }))
+        setLocationStatus('تم تحديد موقعك وإظهار المستشفيات القريبة')
+        setLocationLoading(false)
+      },
+      () => {
+        setLocationStatus('تعذر تحديد موقعك. اسمح بالوصول إلى الموقع ثم حاول مرة أخرى.')
+        setLocationLoading(false)
+      }
+    )
+  }
+
+  const requestSmartAmbulance = () => {
+    if (!nearbyHospitals.length) {
+      setLocationStatus('حدد موقعك أولاً لتفعيل الإسعاف الذكي')
+      return
+    }
+    setIsEmergencyActive(true)
+    setLocationStatus('تم إرسال طلب الإسعاف الذكي مع موقعك إلى أقرب مستشفى')
+  }
 
   const handleFormChange = (field, value) => {
     setEmergencyForm(prev => ({
@@ -287,14 +317,25 @@ export default function EmergencyPage() {
             </form>
           </div>
 
-          {/* المستشفيات القريبة */}
+           {/* المستشفيات القريبة */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
             <h3 className="text-xl font-bold text-gray-900 mb-6 flex items-center">
               <MapPin className="h-6 w-6 text-blue-600 ml-2" />
               المستشفيات القريبة
             </h3>
 
-            <div className="space-y-4">
+             {!nearbyHospitals.length ? (
+               <div className="rounded-lg border border-blue-100 bg-blue-50 p-5">
+                 <p className="text-blue-900 font-semibold mb-2">حدد موقعك أولاً</p>
+                 <p className="text-sm text-blue-700 mb-4">لن نعرض المستشفيات القريبة قبل الحصول على إذنك لتحديد موقعك.</p>
+                 <Button type="button" onClick={requestLocation} disabled={locationLoading} className="bg-blue-600 hover:bg-blue-700">
+                   <MapPin className="h-4 w-4 ml-2" />
+                   {locationLoading ? 'جاري التحديد...' : 'تحديد موقعي'}
+                 </Button>
+                 {locationStatus && <p className="text-sm text-blue-700 mt-3">{locationStatus}</p>}
+               </div>
+             ) : (
+             <div className="space-y-4">
               {nearbyHospitals.map(hospital => (
                 <div key={hospital.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
                   <div className="flex items-start justify-between mb-3">
@@ -352,7 +393,8 @@ export default function EmergencyPage() {
                   </div>
                 </div>
               ))}
-            </div>
+              </div>
+              )}
           </div>
         </div>
 
@@ -410,6 +452,18 @@ export default function EmergencyPage() {
                 <p>• ابق مع المصاب حتى وصول المساعدة</p>
               </div>
             </div>
+          </div>
+        </div>
+
+        <div className="mt-8 rounded-xl bg-gradient-to-r from-indigo-600 to-blue-700 p-6 text-white">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div>
+              <h3 className="text-xl font-bold flex items-center"><Ambulance className="h-6 w-6 ml-2" />الإسعاف الذكي</h3>
+              <p className="text-blue-100 mt-1">إرسال موقعك فوراً وتنسيق الوصول مع أقرب مستشفى.</p>
+            </div>
+            <Button type="button" onClick={requestSmartAmbulance} className="bg-white text-blue-700 hover:bg-blue-50">
+              تفعيل الإسعاف الذكي
+            </Button>
           </div>
         </div>
       </div>

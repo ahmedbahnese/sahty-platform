@@ -4,28 +4,18 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { 
-  Droplets, 
-  Search, 
+  Droplets,
   MapPin, 
   Phone, 
-  Clock, 
   Heart,
-  User,
   Calendar,
-  Filter,
   Plus,
   AlertCircle,
-  CheckCircle,
-  Star
+  CheckCircle
 } from 'lucide-react'
 
 export default function BloodBankPage() {
-  const [activeTab, setActiveTab] = useState('search')
-  const [searchFilters, setSearchFilters] = useState({
-    bloodType: '',
-    city: '',
-    urgency: ''
-  })
+  const [activeTab, setActiveTab] = useState('requests')
   const [donationForm, setDonationForm] = useState({
     name: '',
     phone: '',
@@ -36,7 +26,8 @@ export default function BloodBankPage() {
     available: true
   })
   const [requests, setRequests] = useState([])
-  const [donors, setDonors] = useState([])
+  const [donationPoints, setDonationPoints] = useState([])
+  const [locationStatus, setLocationStatus] = useState('')
   const [loading, setLoading] = useState(false)
 
   // بيانات وهمية لطلبات الدم
@@ -82,60 +73,27 @@ export default function BloodBankPage() {
     }
   ]
 
-  // بيانات وهمية للمتبرعين
-  const mockDonors = [
-    {
-      id: 1,
-      name: 'سارة محمد إبراهيم',
-      bloodType: 'O+',
-      city: 'القاهرة',
-      phone: '01234567893',
-      lastDonation: '2023-10-15',
-      totalDonations: 8,
-      rating: 4.9,
-      available: true,
-      verified: true
-    },
-    {
-      id: 2,
-      name: 'عمر عبد الرحمن',
-      bloodType: 'A+',
-      city: 'الإسكندرية',
-      phone: '01234567894',
-      lastDonation: '2023-11-20',
-      totalDonations: 5,
-      rating: 4.7,
-      available: true,
-      verified: true
-    },
-    {
-      id: 3,
-      name: 'نورا أحمد سالم',
-      bloodType: 'B-',
-      city: 'الجيزة',
-      phone: '01234567895',
-      lastDonation: '2023-09-10',
-      totalDonations: 12,
-      rating: 5.0,
-      available: true,
-      verified: true
-    }
-  ]
-
-  const bloodTypes = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-']
-  const cities = ['القاهرة', 'الإسكندرية', 'الجيزة', 'الشرقية', 'البحيرة', 'المنوفية']
-  const urgencyLevels = ['عاجل جداً', 'عاجل', 'متوسط', 'غير عاجل']
-
   useEffect(() => {
     setRequests(mockRequests)
-    setDonors(mockDonors)
   }, [])
 
-  const handleSearchFilterChange = (field, value) => {
-    setSearchFilters(prev => ({
-      ...prev,
-      [field]: value
-    }))
+  const findDonationPoints = () => {
+    if (!navigator.geolocation) {
+      setLocationStatus('المتصفح لا يدعم تحديد الموقع')
+      return
+    }
+    setLocationStatus('جاري تحديد موقعك...')
+    navigator.geolocation.getCurrentPosition(
+      ({ coords }) => {
+        setDonationPoints([
+          { name: 'مركز التبرع الرئيسي', address: 'مدينة نصر، القاهرة', distance: '1.8 كم', phone: '0225555555' },
+          { name: 'بنك الدم المركزي', address: 'العباسية، القاهرة', distance: '3.4 كم', phone: '0223456789' },
+          { name: 'مركز الهلال الأحمر', address: 'مصر الجديدة، القاهرة', distance: '5.1 كم', phone: '0229876543' }
+        ])
+        setLocationStatus(`تم تحديد موقعك (${coords.latitude.toFixed(3)}, ${coords.longitude.toFixed(3)})`)
+      },
+      () => setLocationStatus('تعذر تحديد الموقع. اسمح بالوصول إلى الموقع وحاول مرة أخرى.')
+    )
   }
 
   const handleDonationFormChange = (field, value) => {
@@ -163,10 +121,6 @@ export default function BloodBankPage() {
         available: true
       })
     }, 2000)
-  }
-
-  const handleContactDonor = (donorId) => {
-    console.log('التواصل مع المتبرع:', donorId)
   }
 
   const handleRequestHelp = (requestId) => {
@@ -210,7 +164,7 @@ export default function BloodBankPage() {
             بنك الدم الرقمي
           </h1>
           <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-            منصة شاملة للتبرع بالدم والبحث عن متبرعين في حالات الطوارئ
+            منصة لطلبات الدم، تسجيل المتبرعين، والعثور على نقاط التبرع القريبة
           </p>
         </div>
 
@@ -239,16 +193,6 @@ export default function BloodBankPage() {
           <div className="border-b border-gray-200">
             <nav className="flex space-x-8 rtl:space-x-reverse px-6">
               <button
-                onClick={() => setActiveTab('search')}
-                className={`py-4 px-2 border-b-2 font-medium text-sm ${
-                  activeTab === 'search'
-                    ? 'border-red-500 text-red-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700'
-                }`}
-              >
-                البحث عن متبرعين
-              </button>
-              <button
                 onClick={() => setActiveTab('requests')}
                 className={`py-4 px-2 border-b-2 font-medium text-sm ${
                   activeTab === 'requests'
@@ -261,133 +205,17 @@ export default function BloodBankPage() {
               <button
                 onClick={() => setActiveTab('donate')}
                 className={`py-4 px-2 border-b-2 font-medium text-sm ${
-                  activeTab === 'donate'
+                    activeTab === 'donate'
                     ? 'border-red-500 text-red-600'
                     : 'border-transparent text-gray-500 hover:text-gray-700'
                 }`}
               >
-                سجل كمتبرع
+                سجل كمتبرع وأقرب نقاط التبرع
               </button>
             </nav>
           </div>
 
-          <div className="p-6">
-            {/* تبويب البحث عن متبرعين */}
-            {activeTab === 'search' && (
-              <div className="space-y-6">
-                {/* فلاتر البحث */}
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 p-4 bg-gray-50 rounded-lg">
-                  <div>
-                    <Label>فصيلة الدم</Label>
-                    <select
-                      value={searchFilters.bloodType}
-                      onChange={(e) => handleSearchFilterChange('bloodType', e.target.value)}
-                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-red-500 focus:border-red-500"
-                    >
-                      <option value="">جميع الفصائل</option>
-                      {bloodTypes.map(type => (
-                        <option key={type} value={type}>{type}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <Label>المدينة</Label>
-                    <select
-                      value={searchFilters.city}
-                      onChange={(e) => handleSearchFilterChange('city', e.target.value)}
-                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-red-500 focus:border-red-500"
-                    >
-                      <option value="">جميع المدن</option>
-                      {cities.map(city => (
-                        <option key={city} value={city}>{city}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <Label>مستوى الإلحاح</Label>
-                    <select
-                      value={searchFilters.urgency}
-                      onChange={(e) => handleSearchFilterChange('urgency', e.target.value)}
-                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-red-500 focus:border-red-500"
-                    >
-                      <option value="">جميع المستويات</option>
-                      {urgencyLevels.map(level => (
-                        <option key={level} value={level}>{level}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="flex items-end">
-                    <Button className="w-full bg-red-600 hover:bg-red-700">
-                      <Search className="h-4 w-4 ml-2" />
-                      بحث
-                    </Button>
-                  </div>
-                </div>
-
-                {/* قائمة المتبرعين */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {donors.map(donor => (
-                    <div key={donor.id} className="bg-white p-6 rounded-lg border border-gray-200 hover:shadow-md transition-shadow">
-                      <div className="flex items-start justify-between mb-4">
-                        <div className="flex items-center">
-                          <div className="bg-red-100 p-2 rounded-full">
-                            <User className="h-5 w-5 text-red-600" />
-                          </div>
-                          <div className="mr-3">
-                            <h3 className="font-semibold text-gray-900">{donor.name}</h3>
-                            <div className="flex items-center mt-1">
-                              <span className={`px-2 py-1 text-xs font-medium rounded-full ${getBloodTypeColor(donor.bloodType)}`}>
-                                {donor.bloodType}
-                              </span>
-                              {donor.verified && (
-                                <CheckCircle className="h-4 w-4 text-green-500 mr-1" />
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                        <div className="flex items-center">
-                          <Star className="h-4 w-4 text-yellow-400 fill-current" />
-                          <span className="text-sm text-gray-600 mr-1">{donor.rating}</span>
-                        </div>
-                      </div>
-
-                      <div className="space-y-2 text-sm text-gray-600 mb-4">
-                        <div className="flex items-center">
-                          <MapPin className="h-4 w-4 ml-1" />
-                          <span>{donor.city}</span>
-                        </div>
-                        <div className="flex items-center">
-                          <Droplets className="h-4 w-4 ml-1" />
-                          <span>{donor.totalDonations} تبرع سابق</span>
-                        </div>
-                        <div className="flex items-center">
-                          <Calendar className="h-4 w-4 ml-1" />
-                          <span>آخر تبرع: {donor.lastDonation}</span>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center justify-between">
-                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                          donor.available ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
-                        }`}>
-                          {donor.available ? 'متاح' : 'غير متاح'}
-                        </span>
-                        <Button
-                          size="sm"
-                          onClick={() => handleContactDonor(donor.id)}
-                          disabled={!donor.available}
-                          className="bg-red-600 hover:bg-red-700"
-                        >
-                          <Phone className="h-4 w-4 ml-1" />
-                          تواصل
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
+           <div className="p-6">
             {/* تبويب طلبات الدم */}
             {activeTab === 'requests' && (
               <div className="space-y-6">
@@ -462,7 +290,7 @@ export default function BloodBankPage() {
               </div>
             )}
 
-            {/* تبويب التسجيل كمتبرع */}
+            {/* تبويب التسجيل كمتبرع وأقرب النقاط */}
             {activeTab === 'donate' && (
               <div className="max-w-2xl mx-auto">
                 <div className="text-center mb-8">
@@ -583,6 +411,26 @@ export default function BloodBankPage() {
                     {loading ? 'جاري التسجيل...' : 'سجل كمتبرع'}
                   </Button>
                 </form>
+                <div className="mt-10 border-t pt-6">
+                  <h4 className="text-xl font-bold text-gray-900 mb-2">أقرب نقاط التبرع حسب موقعك</h4>
+                  <p className="text-gray-600 mb-4">اسمح بتحديد الموقع لعرض أقرب المراكز المتاحة للتبرع.</p>
+                  <Button type="button" onClick={findDonationPoints} variant="outline" className="mb-4">
+                    <MapPin className="h-4 w-4 ml-2" />
+                    تحديد موقعي وعرض الأقرب
+                  </Button>
+                  {locationStatus && <p className="text-sm text-blue-700 mb-4">{locationStatus}</p>}
+                  <div className="space-y-3">
+                    {donationPoints.map(point => (
+                      <div key={point.name} className="flex items-center justify-between rounded-lg border p-4">
+                        <div>
+                          <p className="font-semibold">{point.name}</p>
+                          <p className="text-sm text-gray-600">{point.address} · {point.distance}</p>
+                        </div>
+                        <a href={`tel:${point.phone}`} className="text-red-600 font-medium">اتصال</a>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
             )}
           </div>

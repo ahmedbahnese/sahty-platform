@@ -11,7 +11,6 @@ import DoctorsPage from './pages/DoctorsPage'
 import ServicesPage from './pages/ServicesPage'
 import BloodBankPage from './pages/BloodBankPage'
 import EmergencyPage from './pages/EmergencyPage'
-import AIAssistantPage from './pages/AIAssistantPage'
 import './App.css'
 
 // مكون للحماية - يتطلب تسجيل الدخول
@@ -56,7 +55,6 @@ function AppContent() {
           <Route path="/services" element={<ServicesPage />} />
           <Route path="/blood-bank" element={<BloodBankPage />} />
           <Route path="/emergency" element={<EmergencyPage />} />
-          <Route path="/ai-assistant" element={<AIAssistantPage />} />
           
           {/* صفحات المصادقة */}
           <Route 

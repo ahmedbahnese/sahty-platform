@@ -238,11 +238,10 @@ export default function DoctorsPage() {
               ))}
             </select>
 
-            {/* زر الفلترة */}
-            <Button variant="outline" className="flex items-center">
+            <div className="rounded-md bg-blue-50 px-3 py-2 text-sm text-blue-700 flex items-center">
               <Filter className="h-4 w-4 ml-2" />
-              فلاتر متقدمة
-            </Button>
+              اختر التخصص والمدينة لعرض الاقتراحات المناسبة
+            </div>
           </div>
         </div>
 
@@ -270,12 +269,19 @@ export default function DoctorsPage() {
           </div>
         </div>
 
-        {/* نتائج البحث */}
-        <div className="mb-6">
-          <p className="text-gray-600">
-            تم العثور على {filteredDoctors.length} طبيب
-          </p>
-        </div>
+        {/* اقتراحات الفلاتر الحالية */}
+        {(selectedSpecialization || selectedCity || searchTerm) && (
+          <div className="mb-6 rounded-xl border border-blue-100 bg-blue-50 p-4">
+            <h3 className="font-semibold text-blue-900 mb-2">اقتراحات مناسبة لك</h3>
+            <p className="text-sm text-blue-700">
+              {selectedSpecialization && `تخصص ${selectedSpecialization}`}
+              {selectedSpecialization && selectedCity && ' في '}
+              {selectedCity && selectedCity}
+              {!selectedSpecialization && !selectedCity && `نتائج البحث عن ${searchTerm}`}
+              {' — يتم تحديث القائمة تلقائياً حسب اختيارك.'}
+            </p>
+          </div>
+        )}
 
         {/* قائمة الأطباء */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -387,7 +393,7 @@ export default function DoctorsPage() {
           <div className="text-center py-12">
             <Stethoscope className="h-16 w-16 text-gray-300 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-gray-900 mb-2">
-              لم يتم العثور على أطباء
+              لا توجد نتائج مطابقة حالياً. جرّب تخصصاً أو مدينة أخرى.
             </h3>
             <p className="text-gray-600">
               جرب تغيير معايير البحث أو الفلاتر
@@ -403,7 +409,10 @@ export default function DoctorsPage() {
           <p className="text-blue-100 mb-6">
             انضم إلى شبكة أطبائنا المعتمدين واحصل على المزيد من المرضى
           </p>
-          <Button className="bg-white text-blue-600 hover:bg-gray-100">
+          <Button
+            onClick={() => window.location.href = '/register'}
+            className="bg-white text-blue-600 hover:bg-gray-100"
+          >
             سجل كطبيب
           </Button>
         </div>

@@ -21,6 +21,7 @@ import {
 
 export default function RegisterPage() {
   const [formData, setFormData] = useState({
+    username: '',
     email: '',
     password: '',
     confirmPassword: '',
@@ -31,10 +32,13 @@ export default function RegisterPage() {
     date_of_birth: '',
     gender: '',
     national_id: '',
-    // للأطباء
+    // بيانات الطبيب عند اختيار التسجيل المهني
     license_number: '',
-    specialization: ''
+    specialization: '',
+    id_card_image: '',
+    practice_license_image: ''
   })
+  const [doctorMode, setDoctorMode] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -77,10 +81,12 @@ export default function RegisterPage() {
       const result = await register(formData)
 
       if (result.success) {
-        setSuccess('تم إنشاء الحساب بنجاح! يمكنك الآن تسجيل الدخول')
-        setTimeout(() => {
-          navigate('/login')
-        }, 2000)
+        if (doctorMode) {
+          setSuccess(`تم استلام طلبك يا د/ ${formData.first_name} ${formData.last_name}. سيتم مراجعة البيانات من قبل الإدارة الطبية والرد عليكم شكراً.`)
+          setTimeout(() => navigate('/login'), 3500)
+        } else {
+          navigate('/dashboard')
+        }
       } else {
         setError(result.message)
       }
@@ -150,55 +156,20 @@ export default function RegisterPage() {
 
           {/* النموذج */}
           <form onSubmit={handleSubmit} className="space-y-6">
-            {/* نوع المستخدم */}
-            <div>
-              <Label className="text-gray-700 mb-3 block">نوع الحساب</Label>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <label className={`flex items-center p-4 border-2 rounded-lg cursor-pointer transition-colors ${
-                  formData.user_type === 'patient' ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300'
-                }`}>
-                  <input
-                    type="radio"
-                    name="user_type"
-                    value="patient"
-                    checked={formData.user_type === 'patient'}
-                    onChange={handleChange}
-                    className="sr-only"
-                  />
-                  <Users className="h-6 w-6 text-blue-600 ml-3" />
-                  <span className="font-medium">مريض</span>
-                </label>
-
-                <label className={`flex items-center p-4 border-2 rounded-lg cursor-pointer transition-colors ${
-                  formData.user_type === 'doctor' ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300'
-                }`}>
-                  <input
-                    type="radio"
-                    name="user_type"
-                    value="doctor"
-                    checked={formData.user_type === 'doctor'}
-                    onChange={handleChange}
-                    className="sr-only"
-                  />
-                  <Stethoscope className="h-6 w-6 text-blue-600 ml-3" />
-                  <span className="font-medium">طبيب</span>
-                </label>
-
-                <label className={`flex items-center p-4 border-2 rounded-lg cursor-pointer transition-colors ${
-                  formData.user_type === 'admin' ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300'
-                }`}>
-                  <input
-                    type="radio"
-                    name="user_type"
-                    value="admin"
-                    checked={formData.user_type === 'admin'}
-                    onChange={handleChange}
-                    className="sr-only"
-                  />
-                  <User className="h-6 w-6 text-blue-600 ml-3" />
-                  <span className="font-medium">مدير</span>
-                </label>
-              </div>
+            <div className="rounded-lg border border-blue-100 bg-blue-50 p-4 text-blue-800">
+              <p className="font-semibold">إنشاء حساب مستخدم للمنصة</p>
+              <p className="text-sm mt-1">سيتم تسجيلك كمستخدم للموقع بالكامل، وبعد الإنشاء سيتم دخولك تلقائياً.</p>
+              <button
+                type="button"
+                onClick={() => {
+                  setDoctorMode(!doctorMode)
+                  setFormData(prev => ({ ...prev, user_type: !doctorMode ? 'doctor' : 'patient' }))
+                }}
+                className="mt-3 inline-flex items-center gap-2 text-sm font-semibold text-blue-700 underline"
+              >
+                <Stethoscope className="h-4 w-4" />
+                {doctorMode ? 'العودة لتسجيل مستخدم عادي' : 'التسجيل كطبيب بشكل منفصل'}
+              </button>
             </div>
 
             {/* المعلومات الشخصية */}
@@ -244,6 +215,20 @@ export default function RegisterPage() {
 
             {/* البريد الإلكتروني والهاتف */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <Label htmlFor="username" className="text-gray-700">
+                  اسم المستخدم *
+                </Label>
+                <Input
+                  id="username"
+                  name="username"
+                  type="text"
+                  required
+                  value={formData.username}
+                  onChange={handleChange}
+                  placeholder="اسم الدخول الخاص بك"
+                />
+              </div>
               <div>
                 <Label htmlFor="email" className="text-gray-700">
                   البريد الإلكتروني *
@@ -339,7 +324,7 @@ export default function RegisterPage() {
             </div>
 
             {/* معلومات إضافية للمرضى */}
-            {formData.user_type === 'patient' && (
+            {!doctorMode && (
               <>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   <div>
@@ -398,7 +383,8 @@ export default function RegisterPage() {
             )}
 
             {/* معلومات إضافية للأطباء */}
-            {formData.user_type === 'doctor' && (
+            {doctorMode && (
+              <>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <Label htmlFor="license_number" className="text-gray-700">
@@ -437,7 +423,21 @@ export default function RegisterPage() {
                     ))}
                   </select>
                 </div>
+                <div>
+                  <Label htmlFor="id_card_image">صورة البطاقة *</Label>
+                  <Input id="id_card_image" name="id_card_image" type="file" accept="image/*"
+                    required onChange={(e) => setFormData({ ...formData, id_card_image: e.target.files?.[0]?.name || '' })} />
+                </div>
+                <div>
+                  <Label htmlFor="practice_license_image">صورة ترخيص مزاولة المهنة *</Label>
+                  <Input id="practice_license_image" name="practice_license_image" type="file" accept="image/*"
+                    required onChange={(e) => setFormData({ ...formData, practice_license_image: e.target.files?.[0]?.name || '' })} />
+                </div>
               </div>
+              <p className="rounded-md bg-amber-50 border border-amber-200 p-3 text-sm text-amber-800">
+                سيتم مراجعة بياناتك من قبل الإدارة الطبية والرد عليكم، شكراً د/ {formData.first_name || 'الطبيب'}.
+              </p>
+              </>
             )}
 
             {/* الموافقة على الشروط */}

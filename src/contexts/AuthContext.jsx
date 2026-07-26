@@ -51,14 +51,14 @@ export function AuthProvider({ children }) {
     }
   }
 
-  const login = async (email, password) => {
+  const login = async (identifier, password) => {
     try {
       const response = await fetch(`${API_BASE}/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ email, password })
+        body: JSON.stringify({ identifier, password })
       })
 
       const data = await response.json()
@@ -77,32 +77,6 @@ export function AuthProvider({ children }) {
     }
   }
 
-  const ownerLogin = async (email, password) => {
-    try {
-      const response = await fetch(`${API_BASE}/auth/owner-login`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ email, password })
-      })
-
-      const data = await response.json()
-
-      if (response.ok) {
-        setToken(data.token)
-        setUser(data.user)
-        localStorage.setItem('token', data.token)
-        return { success: true, user: data.user }
-      } else {
-        return { success: false, message: data.message }
-      }
-    } catch (error) {
-      console.error('خطأ في تسجيل دخول المالك:', error)
-      return { success: false, message: 'خطأ في الاتصال بالخادم' }
-    }
-  }
-
   const register = async (userData) => {
     try {
       const response = await fetch(`${API_BASE}/auth/register`, {
@@ -116,6 +90,11 @@ export function AuthProvider({ children }) {
       const data = await response.json()
 
       if (response.ok) {
+        if (data.token && data.user) {
+          setToken(data.token)
+          setUser(data.user)
+          localStorage.setItem('token', data.token)
+        }
         return { success: true, message: data.message }
       } else {
         return { success: false, message: data.message }
@@ -178,7 +157,6 @@ export function AuthProvider({ children }) {
     token,
     loading,
     login,
-    ownerLogin,
     register,
     logout,
     changePassword,
