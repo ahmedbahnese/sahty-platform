@@ -1,9 +1,11 @@
 import os
 import sys
-# DON\'T CHANGE THIS !!!
-sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
-from flask import Flask, send_from_directory
+# Add project root to path so 'src.*' imports resolve correctly
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+from flask import Flask, send_from_directory, jsonify
+from flask_cors import CORS
 from src.models.user import db
 from src.routes.user import user_bp
 from src.routes.auth import auth_bp
@@ -15,54 +17,54 @@ from src.models.blood_bank import BloodDonor, BloodRequest, BloodRequestResponse
 from src.models.hospital import Hospital, HospitalDepartment, EmergencyService, HospitalReview
 from src.models.admin import Admin, SystemOwner, SystemSettings, AuditLog
 
-app = Flask(__name__, static_folder=os.path.join(os.path.dirname(__file__), 'static'))
-app.config['SECRET_KEY'] = 'asdf#FGSgvasgf$5$WGT'
+app = Flask(__name__, static_folder=os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static'))
 
+# Security — use environment secret if available
+app.config['SECRET_KEY'] = os.environ.get('SESSION_SECRET', 'sahty-dev-secret-2024')
+
+# CORS — allow Vite dev server to call the API
+CORS(app, origins=['http://localhost:5000', 'http://localhost:5173', 'https://*.replit.dev', 'https://*.repl.co'],
+     supports_credentials=True)
+
+# Blueprints
 app.register_blueprint(user_bp, url_prefix='/api')
 app.register_blueprint(auth_bp, url_prefix='/api/auth')
 
-# uncomment if you need to use database
-app.config['SQLALCHEMY_DATABASE_URI'] = f"sqlite:///{os.path.join(os.path.dirname(__file__), 'database', 'app.db')}"
+# Database
+db_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'src', 'database', 'app.db')
+app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{db_path}'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db.init_app(app)
+
 with app.app_context():
     db.create_all()
 
+# Serve React build (production)
 @app.route('/', defaults={'path': ''})
 @app.route('/<path:path>')
 def serve(path):
-    """
-    دالة لتقديم الملفات الثابتة (الواجهة الأمامية).
-
-    تخدم ملفات الواجهة الأمامية (React build) من مجلد 'static'.
-    إذا كان المسار غير موجود، تعيد توجيه الطلب إلى index.html.
-
-    Args:
-        path (str): المسار المطلوب للملف.
-
-    Returns:
-        Response: الملف المطلوب أو index.html أو رسالة خطأ 404.
-    """
     static_folder_path = app.static_folder
     if static_folder_path is None:
-            return "Static folder not configured", 404
+        return jsonify({'message': 'Static folder not configured'}), 404
 
-    if path != "" and os.path.exists(os.path.join(static_folder_path, path)):
+    if path != '' and os.path.exists(os.path.join(static_folder_path, path)):
         return send_from_directory(static_folder_path, path)
     else:
         index_path = os.path.join(static_folder_path, 'index.html')
         if os.path.exists(index_path):
             return send_from_directory(static_folder_path, 'index.html')
         else:
-            return "index.html not found", 404
+            return jsonify({
+                'message': 'صحتك في أمان API',
+                'status': 'running',
+                'endpoints': {
+                    'auth': '/api/auth/',
+                    'users': '/api/users',
+                    'health': '/api/health'
+                }
+            }), 200
 
 
 if __name__ == '__main__':
-    """
-    نقطة الدخول الرئيسية لتشغيل تطبيق Flask.
-
-    يقوم بتشغيل الخادم على العنوان 0.0.0.0 والمنفذ 5000 في وضع التصحيح.
-    """
-    app.run(host='0.0.0.0', port=5000, debug=True)
-
-
+    port = int(os.environ.get('PORT', 5001))
+    app.run(host='0.0.0.0', port=port, debug=True)
