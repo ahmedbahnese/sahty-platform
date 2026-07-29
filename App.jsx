@@ -15,6 +15,7 @@ import AIAssistantPage from './pages/AIAssistantPage'
 import AdminDashboardPage from './pages/AdminDashboardPage'
 import LabRequestsPage from './pages/LabRequestsPage'
 import RadiologyRequestsPage from './pages/RadiologyRequestsPage'
+import FloatingAIChat from './components/FloatingAIChat'
 import './App.css'
 
 // مكون للحماية - يتطلب تسجيل الدخول
@@ -124,6 +125,7 @@ function AppContent() {
         </Routes>
       </main>
       <Footer />
+      <FloatingAIChat />
     </div>
   )
 }

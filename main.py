@@ -106,6 +106,31 @@ with app.app_context():
                 is_super_admin=True,
             ))
             db.session.commit()
+        else:
+            # Always sync the password from the env secret so a changed ADMIN_PASSWORD takes effect.
+            bootstrap_user.password_hash = generate_password_hash(bootstrap_password)
+            bootstrap_user.user_type = 'super_admin'
+            bootstrap_user.is_active = True
+            if not Admin.query.filter_by(user_id=bootstrap_user.id).first():
+                db.session.add(Admin(
+                    user_id=bootstrap_user.id,
+                    first_name=os.environ.get('ADMIN_FIRST_NAME', 'مدير'),
+                    last_name=os.environ.get('ADMIN_LAST_NAME', 'النظام'),
+                    phone=os.environ.get('ADMIN_PHONE', ''),
+                    email=bootstrap_email,
+                    admin_type='super_admin',
+                    permissions={'all': True},
+                    can_access_dashboard=True,
+                    can_manage_users=True,
+                    can_manage_doctors=True,
+                    can_manage_hospitals=True,
+                    can_manage_content=True,
+                    can_view_reports=True,
+                    can_manage_system_settings=True,
+                    is_active=True,
+                    is_super_admin=True,
+                ))
+            db.session.commit()
 
 # Serve React build (production)
 @app.route('/', defaults={'path': ''})

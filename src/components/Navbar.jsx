@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
-import { Button } from '@/components/ui/button'
 import { 
   Menu, 
   X, 
@@ -20,13 +19,15 @@ import {
   Scan,
   Bot,
   Pill,
-  Users
+  Users,
+  ChevronDown,
+  LayoutDashboard
 } from 'lucide-react'
 
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false)
   const [userMenuOpen, setUserMenuOpen] = useState(false)
-  const { user, logout, isAuthenticated } = useAuth()
+  const { user, logout, isAuthenticated, isAdmin } = useAuth()
   const location = useLocation()
 
   const handleLogout = async () => {
@@ -34,9 +35,7 @@ export default function Navbar() {
     setUserMenuOpen(false)
   }
 
-  const isActive = (path) => {
-    return location.pathname === path
-  }
+  const isActive = (path) => location.pathname === path
 
   const navLinks = [
     { path: '/', label: 'الرئيسية', icon: Heart },
@@ -46,232 +45,228 @@ export default function Navbar() {
     { path: '/emergency', label: 'الطوارئ', icon: Phone }
   ]
 
-  return (
-    <nav className="bg-white shadow-lg sticky top-0 z-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between h-16">
-          {/* الشعار */}
-          <div className="flex items-center">
-            <Link to="/" className="flex items-center space-x-2 rtl:space-x-reverse">
-              <Heart className="h-8 w-8 text-blue-600" />
-              <span className="text-xl font-bold text-gray-900">صحتك في أمان</span>
-            </Link>
-          </div>
+  const userMenuItems = [
+    { path: '/dashboard', label: 'لوحة التحكم', icon: LayoutDashboard },
+    { path: '/medical-record', label: 'الملف الطبي', icon: ClipboardList },
+    { path: '/appointments', label: 'المواعيد', icon: Calendar },
+    { path: '/prescriptions', label: 'الوصفات الطبية', icon: FileText },
+    { path: '/lab-requests', label: 'التحاليل المخبرية', icon: FlaskConical },
+    { path: '/radiology', label: 'الأشعة والتصوير', icon: Scan },
+    { path: '/medications', label: 'متابعة الأدوية', icon: Pill },
+    { path: '/family-health', label: 'صحة الأسرة', icon: Users },
+  ]
 
-          {/* روابط التنقل - سطح المكتب */}
-          <div className="hidden md:flex items-center space-x-8 rtl:space-x-reverse">
+  return (
+    <nav className="sticky top-0 z-50 shadow-sm" style={{ background: '#ffffff', borderBottom: '1px solid #e2e8f0' }}>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex justify-between items-center h-16">
+
+          {/* Logo */}
+          <Link to="/" className="flex items-center gap-2.5 flex-shrink-0">
+            <div className="w-9 h-9 rounded-xl flex items-center justify-center"
+              style={{ background: 'linear-gradient(135deg, #0f2444 0%, #2563eb 100%)' }}>
+              <Heart className="h-5 w-5 text-white" />
+            </div>
+            <span className="text-lg font-bold" style={{ color: '#0f2444' }}>صحتك في أمان</span>
+          </Link>
+
+          {/* Desktop Nav */}
+          <div className="hidden md:flex items-center gap-1">
             {navLinks.map((link) => {
-              const IconComponent = link.icon
+              const Icon = link.icon
               return (
                 <Link
                   key={link.path}
                   to={link.path}
-                  className={`flex items-center space-x-1 rtl:space-x-reverse px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                  className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium transition-all ${
                     isActive(link.path)
-                      ? 'text-blue-600 bg-blue-50'
-                      : 'text-gray-700 hover:text-blue-600 hover:bg-gray-50'
+                      ? 'text-white'
+                      : 'text-gray-600 hover:text-blue-700 hover:bg-blue-50'
                   }`}
+                  style={isActive(link.path) ? { background: 'linear-gradient(135deg, #0f2444 0%, #2563eb 100%)' } : {}}
                 >
-                  <IconComponent className="h-4 w-4" />
+                  <Icon className="h-4 w-4" />
                   <span>{link.label}</span>
                 </Link>
               )
             })}
           </div>
 
-          {/* أزرار المستخدم */}
-          <div className="hidden md:flex items-center space-x-4 rtl:space-x-reverse">
+          {/* Desktop User */}
+          <div className="hidden md:flex items-center gap-3">
             {isAuthenticated ? (
               <div className="relative">
-                <Button
-                  variant="ghost"
+                <button
                   onClick={() => setUserMenuOpen(!userMenuOpen)}
-                  className="flex items-center space-x-2 rtl:space-x-reverse"
+                  className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 border border-gray-200 transition-all"
                 >
-                  <User className="h-4 w-4" />
-                  <span>{user?.profile?.first_name || user?.email}</span>
-                </Button>
+                  <div className="w-7 h-7 rounded-lg flex items-center justify-center text-white text-xs font-bold"
+                    style={{ background: 'linear-gradient(135deg, #0f2444 0%, #2563eb 100%)' }}>
+                    {(user?.profile?.first_name || user?.email || 'U').charAt(0).toUpperCase()}
+                  </div>
+                  <span className="max-w-[120px] truncate">
+                    {user?.profile?.first_name || user?.email?.split('@')[0] || 'المستخدم'}
+                  </span>
+                  <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform ${userMenuOpen ? 'rotate-180' : ''}`} />
+                </button>
 
                 {userMenuOpen && (
-                  <div className="absolute left-0 rtl:right-0 mt-2 w-56 bg-white rounded-md shadow-lg py-1 z-50 border border-gray-100">
-                    <Link
-                      to="/dashboard"
-                      className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                      onClick={() => setUserMenuOpen(false)}
-                    >
-                      <Settings className="h-4 w-4 ml-2" />
-                      لوحة التحكم
-                    </Link>
-                    <Link
-                      to="/medical-record"
-                      className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                      onClick={() => setUserMenuOpen(false)}
-                    >
-                      <ClipboardList className="h-4 w-4 ml-2" />
-                      الملف الطبي
-                    </Link>
-                    <Link
-                      to="/appointments"
-                      className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                      onClick={() => setUserMenuOpen(false)}
-                    >
-                      <Calendar className="h-4 w-4 ml-2" />
-                      المواعيد
-                    </Link>
-                    <Link
-                      to="/prescriptions"
-                      className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                      onClick={() => setUserMenuOpen(false)}
-                    >
-                      <FileText className="h-4 w-4 ml-2" />
-                      الوصفات الطبية
-                    </Link>
-                    <Link
-                      to="/lab-requests"
-                      className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                      onClick={() => setUserMenuOpen(false)}
-                    >
-                      <FlaskConical className="h-4 w-4 ml-2" />
-                      التحاليل المخبرية
-                    </Link>
-                    <Link
-                      to="/radiology"
-                      className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                      onClick={() => setUserMenuOpen(false)}
-                    >
-                      <Scan className="h-4 w-4 ml-2" />
-                      الأشعة والتصوير
-                    </Link>
-                    <Link
-                      to="/medications"
-                      className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                      onClick={() => setUserMenuOpen(false)}
-                    >
-                      <Pill className="h-4 w-4 ml-2" />
-                      متابعة الأدوية
-                    </Link>
-                    <Link
-                      to="/family-health"
-                      className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                      onClick={() => setUserMenuOpen(false)}
-                    >
-                      <Users className="h-4 w-4 ml-2" />
-                      صحة الأسرة
-                    </Link>
-                    <div className="border-t my-1" />
-                    <Link
-                      to="/ai-assistant"
-                      className="flex items-center px-4 py-2 text-sm text-blue-600 hover:bg-blue-50 font-medium"
-                      onClick={() => setUserMenuOpen(false)}
-                    >
-                      <Bot className="h-4 w-4 ml-2" />
-                      🤖 المساعد الذكي
-                    </Link>
-                    <div className="border-t my-1" />
-                    <button
-                      onClick={handleLogout}
-                      className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                    >
-                      <LogOut className="h-4 w-4 ml-2" />
-                      تسجيل الخروج
-                    </button>
-                  </div>
+                  <>
+                    <div className="fixed inset-0 z-10" onClick={() => setUserMenuOpen(false)} />
+                    <div className="absolute left-0 rtl:right-0 rtl:left-auto mt-2 w-56 bg-white rounded-2xl shadow-xl py-2 z-20 border border-gray-100">
+                      <div className="px-4 py-3 border-b border-gray-100">
+                        <p className="text-sm font-semibold text-gray-900 truncate">
+                          {user?.profile?.first_name} {user?.profile?.last_name}
+                        </p>
+                        <p className="text-xs text-gray-400 truncate">{user?.email}</p>
+                      </div>
+                      <div className="py-1">
+                        {userMenuItems.map(item => {
+                          const Icon = item.icon
+                          return (
+                            <Link
+                              key={item.path}
+                              to={item.path}
+                              className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                              onClick={() => setUserMenuOpen(false)}
+                            >
+                              <Icon className="h-4 w-4 text-gray-400" />
+                              {item.label}
+                            </Link>
+                          )
+                        })}
+                        {isAdmin && (
+                          <Link
+                            to="/admin"
+                            className="flex items-center gap-3 px-4 py-2.5 text-sm text-indigo-700 hover:bg-indigo-50 transition-colors"
+                            onClick={() => setUserMenuOpen(false)}
+                          >
+                            <Settings className="h-4 w-4" />
+                            لوحة الإدارة
+                          </Link>
+                        )}
+                        <Link
+                          to="/ai-assistant"
+                          className="flex items-center gap-3 px-4 py-2.5 text-sm font-medium hover:bg-blue-50 transition-colors"
+                          style={{ color: '#2563eb' }}
+                          onClick={() => setUserMenuOpen(false)}
+                        >
+                          <Bot className="h-4 w-4" />
+                          المساعد الذكي
+                        </Link>
+                      </div>
+                      <div className="border-t border-gray-100 pt-1">
+                        <button
+                          onClick={handleLogout}
+                          className="flex items-center gap-3 w-full px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                        >
+                          <LogOut className="h-4 w-4" />
+                          تسجيل الخروج
+                        </button>
+                      </div>
+                    </div>
+                  </>
                 )}
               </div>
             ) : (
-              <div className="flex items-center space-x-2 rtl:space-x-reverse">
+              <div className="flex items-center gap-2">
                 <Link to="/login">
-                  <Button variant="ghost">تسجيل الدخول</Button>
+                  <button className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-blue-700 hover:bg-blue-50 rounded-xl transition-all">
+                    تسجيل الدخول
+                  </button>
                 </Link>
                 <Link to="/register">
-                  <Button>إنشاء حساب</Button>
+                  <button className="px-5 py-2 text-sm font-semibold text-white rounded-xl transition-all hover:opacity-90 shadow-sm"
+                    style={{ background: 'linear-gradient(135deg, #0f2444 0%, #2563eb 100%)' }}>
+                    إنشاء حساب
+                  </button>
                 </Link>
               </div>
             )}
           </div>
 
-          {/* زر القائمة - الجوال */}
-          <div className="md:hidden flex items-center">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setIsOpen(!isOpen)}
-            >
-              {isOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
-            </Button>
-          </div>
+          {/* Mobile toggle */}
+          <button
+            className="md:hidden p-2 rounded-xl text-gray-600 hover:bg-gray-100 transition-colors"
+            onClick={() => setIsOpen(!isOpen)}
+          >
+            {isOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          </button>
         </div>
       </div>
 
-      {/* القائمة المنسدلة - الجوال */}
+      {/* Mobile Menu */}
       {isOpen && (
-        <div className="md:hidden">
-          <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3 bg-white border-t">
-            {navLinks.map((link) => {
-              const IconComponent = link.icon
-              return (
-                <Link
-                  key={link.path}
-                  to={link.path}
-                  className={`flex items-center space-x-2 rtl:space-x-reverse px-3 py-2 rounded-md text-base font-medium ${
-                    isActive(link.path)
-                      ? 'text-blue-600 bg-blue-50'
-                      : 'text-gray-700 hover:text-blue-600 hover:bg-gray-50'
-                  }`}
-                  onClick={() => setIsOpen(false)}
+        <div className="md:hidden bg-white border-t border-gray-100 px-4 pt-3 pb-4 space-y-1">
+          {navLinks.map((link) => {
+            const Icon = link.icon
+            return (
+              <Link
+                key={link.path}
+                to={link.path}
+                className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all ${
+                  isActive(link.path)
+                    ? 'text-white'
+                    : 'text-gray-700 hover:bg-gray-50'
+                }`}
+                style={isActive(link.path) ? { background: 'linear-gradient(135deg, #0f2444 0%, #2563eb 100%)' } : {}}
+                onClick={() => setIsOpen(false)}
+              >
+                <Icon className="h-5 w-5" />
+                <span>{link.label}</span>
+              </Link>
+            )
+          })}
+          <div className="border-t border-gray-100 pt-3 mt-2">
+            {isAuthenticated ? (
+              <div className="space-y-1">
+                <div className="px-4 py-2 flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-sm font-bold"
+                    style={{ background: 'linear-gradient(135deg, #0f2444 0%, #2563eb 100%)' }}>
+                    {(user?.profile?.first_name || 'U').charAt(0).toUpperCase()}
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-gray-900">
+                      {user?.profile?.first_name} {user?.profile?.last_name}
+                    </p>
+                    <p className="text-xs text-gray-400">{user?.email}</p>
+                  </div>
+                </div>
+                {userMenuItems.slice(0, 4).map(item => {
+                  const Icon = item.icon
+                  return (
+                    <Link key={item.path} to={item.path}
+                      className="flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm text-gray-700 hover:bg-gray-50"
+                      onClick={() => setIsOpen(false)}>
+                      <Icon className="h-4 w-4 text-gray-400" />
+                      {item.label}
+                    </Link>
+                  )
+                })}
+                <button
+                  onClick={() => { handleLogout(); setIsOpen(false) }}
+                  className="flex items-center gap-3 w-full px-4 py-2.5 rounded-xl text-sm text-red-600 hover:bg-red-50"
                 >
-                  <IconComponent className="h-5 w-5" />
-                  <span>{link.label}</span>
+                  <LogOut className="h-4 w-4" />
+                  تسجيل الخروج
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <Link to="/login" onClick={() => setIsOpen(false)}
+                  className="block px-4 py-3 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 text-center border border-gray-200">
+                  تسجيل الدخول
                 </Link>
-              )
-            })}
-
-            {/* أزرار المستخدم - الجوال */}
-            <div className="border-t pt-4 mt-4">
-              {isAuthenticated ? (
-                <div className="space-y-2">
-                  <Link
-                    to="/dashboard"
-                    className="flex items-center space-x-2 rtl:space-x-reverse px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-blue-600 hover:bg-gray-50"
-                    onClick={() => setIsOpen(false)}
-                  >
-                    <Settings className="h-5 w-5" />
-                    <span>لوحة التحكم</span>
-                  </Link>
-                  <button
-                    onClick={() => {
-                      handleLogout()
-                      setIsOpen(false)
-                    }}
-                    className="flex items-center space-x-2 rtl:space-x-reverse px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-blue-600 hover:bg-gray-50 w-full text-right"
-                  >
-                    <LogOut className="h-5 w-5" />
-                    <span>تسجيل الخروج</span>
-                  </button>
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  <Link
-                    to="/login"
-                    className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-blue-600 hover:bg-gray-50"
-                    onClick={() => setIsOpen(false)}
-                  >
-                    تسجيل الدخول
-                  </Link>
-                  <Link
-                    to="/register"
-                    className="block px-3 py-2 rounded-md text-base font-medium bg-blue-600 text-white hover:bg-blue-700"
-                    onClick={() => setIsOpen(false)}
-                  >
-                    إنشاء حساب
-                  </Link>
-                </div>
-              )}
-            </div>
+                <Link to="/register" onClick={() => setIsOpen(false)}
+                  className="block px-4 py-3 rounded-xl text-sm font-semibold text-white text-center"
+                  style={{ background: 'linear-gradient(135deg, #0f2444 0%, #2563eb 100%)' }}>
+                  إنشاء حساب جديد
+                </Link>
+              </div>
+            )}
           </div>
         </div>
       )}
     </nav>
   )
 }
-
