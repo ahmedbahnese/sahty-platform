@@ -14,6 +14,9 @@ import EmergencyPage from './pages/EmergencyPage'
 import MedicalRecordPage from './pages/MedicalRecordPage'
 import AppointmentsPage from './pages/AppointmentsPage'
 import PrescriptionsPage from './pages/PrescriptionsPage'
+import AIAssistantPage from './pages/AIAssistantPage'
+import MedicationTrackingPage from './pages/MedicationTrackingPage'
+import FamilyHealthPage from './pages/FamilyHealthPage'
 import './App.css'
 
 // مكون للحماية - يتطلب تسجيل الدخول
@@ -58,6 +61,7 @@ function AppContent() {
           <Route path="/services" element={<ServicesPage />} />
           <Route path="/blood-bank" element={<BloodBankPage />} />
           <Route path="/emergency" element={<EmergencyPage />} />
+          <Route path="/ai-assistant" element={<AIAssistantPage />} />
           
           {/* صفحات المصادقة */}
           <Route 
@@ -111,6 +115,24 @@ function AppContent() {
             } 
           />
           
+          {/* صفحات الذكاء الاصطناعي والصحة */}
+          <Route
+            path="/medications"
+            element={
+              <ProtectedRoute>
+                <MedicationTrackingPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/family-health"
+            element={
+              <ProtectedRoute>
+                <FamilyHealthPage />
+              </ProtectedRoute>
+            }
+          />
+
           {/* إعادة توجيه للصفحة الرئيسية */}
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>

@@ -17,7 +17,10 @@ import {
   Calendar,
   FileText,
   FlaskConical,
-  Scan
+  Scan,
+  Bot,
+  Pill,
+  Users
 } from 'lucide-react'
 
 export default function Navbar() {
@@ -138,6 +141,31 @@ export default function Navbar() {
                     >
                       <Scan className="h-4 w-4 ml-2" />
                       الأشعة والتصوير
+                    </Link>
+                    <Link
+                      to="/medications"
+                      className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                      onClick={() => setUserMenuOpen(false)}
+                    >
+                      <Pill className="h-4 w-4 ml-2" />
+                      متابعة الأدوية
+                    </Link>
+                    <Link
+                      to="/family-health"
+                      className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                      onClick={() => setUserMenuOpen(false)}
+                    >
+                      <Users className="h-4 w-4 ml-2" />
+                      صحة الأسرة
+                    </Link>
+                    <div className="border-t my-1" />
+                    <Link
+                      to="/ai-assistant"
+                      className="flex items-center px-4 py-2 text-sm text-blue-600 hover:bg-blue-50 font-medium"
+                      onClick={() => setUserMenuOpen(false)}
+                    >
+                      <Bot className="h-4 w-4 ml-2" />
+                      🤖 المساعد الذكي
                     </Link>
                     <div className="border-t my-1" />
                     <button

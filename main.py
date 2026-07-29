@@ -28,6 +28,10 @@ from src.models.lab_radiology import LabRequest, RadiologyRequest
 from src.routes.lab_radiology import lab_radiology_bp
 from src.models.emergency import EmergencyAlert, FamilyContact
 from src.routes.emergency import emergency_bp
+from src.models.family_health import FamilyGroup, FamilyMember, FamilyMemberHealthRecord, FamilyHealthGoal
+from src.routes.ai import ai_bp
+from src.routes.family_health import family_bp
+from src.routes.medication import medication_bp
 from werkzeug.security import generate_password_hash
 
 app = Flask(__name__, static_folder=os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static'))
@@ -51,6 +55,9 @@ app.register_blueprint(appointment_bp, url_prefix='/api/appointments')
 app.register_blueprint(prescription_bp, url_prefix='/api/prescriptions')
 app.register_blueprint(lab_radiology_bp, url_prefix='/api')
 app.register_blueprint(emergency_bp, url_prefix='/api')
+app.register_blueprint(ai_bp)
+app.register_blueprint(family_bp)
+app.register_blueprint(medication_bp)
 
 # Database
 db_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'src', 'database', 'app.db')
