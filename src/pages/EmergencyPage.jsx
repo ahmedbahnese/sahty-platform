@@ -1,473 +1,700 @@
-import { useState, useEffect } from 'react'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Alert, AlertDescription } from '@/components/ui/alert'
-import { 
-  Phone, 
-  MapPin, 
-  Clock, 
-  AlertTriangle,
-  Ambulance,
-  Heart,
-  Shield,
-  Navigation,
-  User,
-  Calendar,
-  FileText,
-  Zap,
-  Activity,
-  Stethoscope
+import { useState, useEffect, useCallback, useRef } from 'react'
+import { useAuth } from '../contexts/AuthContext'
+import {
+  AlertTriangle, Ambulance, Phone, MapPin, Navigation, Heart,
+  Zap, Shield, QrCode, Users, Plus, Trash2, CheckCircle,
+  Clock, Activity, Bell, X, ChevronDown, ChevronUp
 } from 'lucide-react'
 
+const API = '/api'
+
+/* ──────────────── helpers ──────────────── */
+const SEVERITY_CFG = {
+  critical: { label: 'حرج — يهدد الحياة',       color: 'text-red-700',    bg: 'bg-red-100'    },
+  urgent:   { label: 'عاجل — تدخل سريع',         color: 'text-orange-700', bg: 'bg-orange-100' },
+  moderate: { label: 'متوسط — رعاية طبية',        color: 'text-yellow-700', bg: 'bg-yellow-100' },
+  minor:    { label: 'بسيط — غير عاجل',           color: 'text-green-700',  bg: 'bg-green-100'  },
+}
+const EMERGENCY_TYPES = [
+  'نوبة قلبية','صعوبة في التنفس','نزيف شديد','فقدان الوعي',
+  'حادث سير','كسور','حروق','تسمم','سكتة دماغية','ألم شديد','أخرى',
+]
+const RELATIONSHIPS = ['أب','أم','زوج/زوجة','ابن/ابنة','أخ/أخت','صديق','أخرى']
+
+/* ──────────────── component ──────────────── */
 export default function EmergencyPage() {
-  const [emergencyForm, setEmergencyForm] = useState({
-    name: '',
-    phone: '',
-    location: '',
-    emergencyType: '',
-    description: '',
-    severity: ''
+  const { token, user, isAuthenticated } = useAuth()
+  const [tab, setTab]     = useState('sos')
+  const [toast, setToast] = useState(null)
+  const [busy, setBusy]   = useState(false)
+
+  /* location */
+  const [coords, setCoords]           = useState(null)
+  const [locStatus, setLocStatus]     = useState('')
+  const [locLoading, setLocLoading]   = useState(false)
+
+  /* SOS */
+  const [sosActive, setSosActive]     = useState(false)
+  const [sosResult, setSosResult]     = useState(null)
+  const [sosCountdown, setSosCountdown] = useState(0)
+  const sosTimer = useRef(null)
+
+  /* ambulance form */
+  const [ambForm, setAmbForm] = useState({
+    caller_name:'', caller_phone:'', location_text:'',
+    emergency_type:'', severity:'urgent', description:'',
   })
-  const [isEmergencyActive, setIsEmergencyActive] = useState(false)
-  const [nearbyHospitals, setNearbyHospitals] = useState([])
-  const [locationStatus, setLocationStatus] = useState('')
-  const [locationLoading, setLocationLoading] = useState(false)
+  const [ambResult, setAmbResult]   = useState(null)
 
-  // أرقام الطوارئ
-  const emergencyNumbers = [
-    { name: 'الإسعاف', number: '123', icon: Ambulance, color: 'bg-red-500' },
-    { name: 'الشرطة', number: '122', icon: Shield, color: 'bg-blue-500' },
-    { name: 'الإطفاء', number: '180', icon: Zap, color: 'bg-orange-500' },
-    { name: 'الغاز الطبيعي', number: '129', icon: AlertTriangle, color: 'bg-yellow-500' }
-  ]
+  /* QR */
+  const [qrData, setQrData]         = useState(null)
+  const [qrLoading, setQrLoading]   = useState(false)
 
-  // أنواع الطوارئ
-  const emergencyTypes = [
-    'حادث سير',
-    'نوبة قلبية',
-    'صعوبة في التنفس',
-    'نزيف شديد',
-    'كسور',
-    'حروق',
-    'تسمم',
-    'فقدان الوعي',
-    'ألم شديد',
-    'أخرى'
-  ]
+  /* family */
+  const [contacts, setContacts]     = useState([])
+  const [contactForm, setContactForm] = useState({ name:'', phone:'', relationship:'أب', is_primary:false })
+  const [showContactForm, setShowContactForm] = useState(false)
 
-  // مستويات الخطورة
-  const severityLevels = [
-    { value: 'critical', label: 'حرج - يهدد الحياة', color: 'text-red-600' },
-    { value: 'urgent', label: 'عاجل - يحتاج تدخل سريع', color: 'text-orange-600' },
-    { value: 'moderate', label: 'متوسط - يحتاج رعاية طبية', color: 'text-yellow-600' },
-    { value: 'minor', label: 'بسيط - غير عاجل', color: 'text-green-600' }
-  ]
+  /* alerts history */
+  const [alerts, setAlerts]         = useState([])
 
-  // المستشفيات القريبة (بيانات وهمية)
-  const mockHospitals = [
-    {
-      id: 1,
-      name: 'مستشفى القاهرة الجديدة',
-      address: 'التجمع الأول، القاهرة الجديدة',
-      distance: '2.5 كم',
-      phone: '0227584000',
-      emergencyAvailable: true,
-      estimatedTime: '8 دقائق',
-      specialties: ['طوارئ', 'قلب', 'جراحة']
-    },
-    {
-      id: 2,
-      name: 'مستشفى دار الفؤاد',
-      address: 'مدينة نصر، القاهرة',
-      distance: '4.2 كم',
-      phone: '0225555555',
-      emergencyAvailable: true,
-      estimatedTime: '12 دقيقة',
-      specialties: ['طوارئ', 'أعصاب', 'عظام']
-    },
-    {
-      id: 3,
-      name: 'مستشفى الشروق',
-      address: 'مدينة الشروق',
-      distance: '6.8 كم',
-      phone: '0244444444',
-      emergencyAvailable: true,
-      estimatedTime: '18 دقيقة',
-      specialties: ['طوارئ', 'أطفال', 'نساء وتوليد']
-    }
-  ]
+  const hdr = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }
 
-  const requestLocation = () => {
-    if (!navigator.geolocation) {
-      setLocationStatus('المتصفح لا يدعم تحديد الموقع')
-      return
-    }
-    setLocationLoading(true)
-    setLocationStatus('جاري تحديد موقعك...')
+  const showToast = (msg, type='success') => {
+    setToast({ msg, type })
+    setTimeout(() => setToast(null), 3500)
+  }
+
+  /* ── Geolocation ── */
+  const getLocation = useCallback(() => {
+    if (!navigator.geolocation) { setLocStatus('المتصفح لا يدعم تحديد الموقع'); return }
+    setLocLoading(true)
+    setLocStatus('جاري تحديد موقعك...')
     navigator.geolocation.getCurrentPosition(
-      ({ coords }) => {
-        setNearbyHospitals(mockHospitals)
-        setEmergencyForm(prev => ({
-          ...prev,
-          location: `${coords.latitude.toFixed(5)}, ${coords.longitude.toFixed(5)}`
-        }))
-        setLocationStatus('تم تحديد موقعك وإظهار المستشفيات القريبة')
-        setLocationLoading(false)
+      ({ coords: c }) => {
+        setCoords({ lat: c.latitude, lng: c.longitude })
+        setAmbForm(f => ({ ...f, location_text: `${c.latitude.toFixed(5)}, ${c.longitude.toFixed(5)}` }))
+        setLocStatus(`تم تحديد الموقع: ${c.latitude.toFixed(4)}, ${c.longitude.toFixed(4)}`)
+        setLocLoading(false)
       },
-      () => {
-        setLocationStatus('تعذر تحديد موقعك. اسمح بالوصول إلى الموقع ثم حاول مرة أخرى.')
-        setLocationLoading(false)
-      }
+      () => { setLocStatus('تعذّر تحديد الموقع. تأكد من الإذن.'); setLocLoading(false) }
     )
-  }
+  }, [])
 
-  const requestSmartAmbulance = () => {
-    if (!nearbyHospitals.length) {
-      setLocationStatus('حدد موقعك أولاً لتفعيل الإسعاف الذكي')
-      return
-    }
-    setIsEmergencyActive(true)
-    setLocationStatus('تم إرسال طلب الإسعاف الذكي مع موقعك إلى أقرب مستشفى')
-  }
-
-  const handleFormChange = (field, value) => {
-    setEmergencyForm(prev => ({
-      ...prev,
-      [field]: value
-    }))
-  }
-
-  const handleEmergencyCall = (number) => {
-    window.location.href = `tel:${number}`
-  }
-
-  const handleEmergencySubmit = async (e) => {
-    e.preventDefault()
-    setIsEmergencyActive(true)
-    
-    // محاكاة إرسال طلب الطوارئ
-    setTimeout(() => {
-      alert('تم إرسال طلب الطوارئ بنجاح! سيتم التواصل معك قريباً')
+  /* ── SOS countdown ── */
+  const startSosCountdown = () => {
+    if (sosCountdown > 0) { cancelSos(); return }
+    setSosCountdown(5)
+    sosTimer.current = setInterval(() => {
+      setSosCountdown(prev => {
+        if (prev <= 1) { clearInterval(sosTimer.current); sendSos(); return 0 }
+        return prev - 1
+      })
     }, 1000)
   }
-
-  const handleHospitalCall = (phone) => {
-    window.location.href = `tel:${phone}`
+  const cancelSos = () => {
+    clearInterval(sosTimer.current)
+    setSosCountdown(0)
+  }
+  const sendSos = async () => {
+    setBusy(true)
+    try {
+      const body = {
+        latitude:      coords?.lat,
+        longitude:     coords?.lng,
+        location_text: coords ? `${coords.lat.toFixed(5)}, ${coords.lng.toFixed(5)}` : '',
+        emergency_type:'SOS',
+        severity:      'critical',
+        description:   'طلب استغاثة طارئة',
+      }
+      const res  = await fetch(`${API}/emergency/sos`, { method:'POST', headers: hdr, body: JSON.stringify(body) })
+      const data = await res.json()
+      if (res.ok) { setSosActive(true); setSosResult(data); loadAlerts() }
+      else showToast(data.message || 'حدث خطأ', 'error')
+    } finally { setBusy(false) }
   }
 
-  const handleGetDirections = (hospitalName) => {
-    // فتح خرائط جوجل للتوجيه
-    const query = encodeURIComponent(hospitalName)
-    window.open(`https://www.google.com/maps/search/${query}`, '_blank')
+  /* ── Ambulance ── */
+  const submitAmbulance = async e => {
+    e.preventDefault()
+    setBusy(true)
+    try {
+      const body = { ...ambForm, latitude: coords?.lat, longitude: coords?.lng }
+      const res  = await fetch(`${API}/emergency/ambulance`, { method:'POST', headers: hdr, body: JSON.stringify(body) })
+      const data = await res.json()
+      if (res.ok) { setAmbResult(data); showToast('تم إرسال طلب الإسعاف'); loadAlerts() }
+      else showToast(data.message || 'حدث خطأ', 'error')
+    } finally { setBusy(false) }
   }
 
+  /* ── QR ── */
+  const loadQR = useCallback(async () => {
+    if (!isAuthenticated) return
+    setQrLoading(true)
+    try {
+      const res = await fetch(`${API}/emergency/qr`, { headers: hdr })
+      if (res.ok) setQrData(await res.json())
+    } finally { setQrLoading(false) }
+  }, [token, isAuthenticated])
+
+  /* ── Family contacts ── */
+  const loadContacts = useCallback(async () => {
+    if (!isAuthenticated) return
+    const res = await fetch(`${API}/emergency/family-contacts`, { headers: hdr })
+    if (res.ok) setContacts(await res.json())
+  }, [token, isAuthenticated])
+
+  const addContact = async e => {
+    e.preventDefault()
+    setBusy(true)
+    try {
+      const res  = await fetch(`${API}/emergency/family-contacts`, { method:'POST', headers: hdr, body: JSON.stringify(contactForm) })
+      const data = await res.json()
+      if (res.ok) { showToast('تم الإضافة'); setShowContactForm(false); setContactForm({ name:'', phone:'', relationship:'أب', is_primary:false }); loadContacts() }
+      else showToast(data.message || 'حدث خطأ', 'error')
+    } finally { setBusy(false) }
+  }
+
+  const deleteContact = async id => {
+    if (!confirm('حذف جهة الاتصال؟')) return
+    const res = await fetch(`${API}/emergency/family-contacts/${id}`, { method:'DELETE', headers: hdr })
+    if (res.ok) { showToast('تم الحذف'); loadContacts() }
+  }
+
+  const notifyFamily = async alertId => {
+    setBusy(true)
+    try {
+      const res  = await fetch(`${API}/emergency/notify-family/${alertId}`, { method:'POST', headers: hdr })
+      const data = await res.json()
+      if (res.ok) { showToast(data.message); loadAlerts() }
+      else showToast(data.message || 'حدث خطأ', 'error')
+    } finally { setBusy(false) }
+  }
+
+  /* ── Alerts ── */
+  const loadAlerts = useCallback(async () => {
+    if (!isAuthenticated) return
+    const res = await fetch(`${API}/emergency/alerts`, { headers: hdr })
+    if (res.ok) setAlerts(await res.json())
+  }, [token, isAuthenticated])
+
+  const resolveAlert = async id => {
+    const res = await fetch(`${API}/emergency/alerts/${id}/resolve`, { method:'PUT', headers: hdr })
+    if (res.ok) { showToast('تم إغلاق التنبيه'); loadAlerts() }
+  }
+
+  useEffect(() => { loadContacts(); loadAlerts() }, [loadContacts, loadAlerts])
+  useEffect(() => { if (tab === 'qr') loadQR() }, [tab, loadQR])
+  useEffect(() => () => clearInterval(sosTimer.current), [])
+
+  /* ──────────────── render helpers ──────────────── */
+  const TabBtn = ({ id, label, icon: Icon, badge }) => (
+    <button onClick={() => setTab(id)}
+      className={`flex-1 flex flex-col items-center gap-1 py-3 text-xs font-medium rounded-xl transition-all
+        ${tab === id ? 'bg-red-600 text-white shadow-md shadow-red-200' : 'text-gray-500 hover:bg-gray-100'}`}>
+      <Icon size={18} />
+      {label}
+      {badge > 0 && <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] rounded-full w-4 h-4 flex items-center justify-center">{badge}</span>}
+    </button>
+  )
+
+  /* ──────────────── main render ──────────────── */
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* الرأس */}
-        <div className="text-center mb-12">
-          <div className="flex justify-center mb-4">
-            <div className="bg-red-100 p-4 rounded-full">
-              <AlertTriangle className="h-12 w-12 text-red-600" />
-            </div>
-          </div>
-          <h1 className="text-4xl font-bold text-gray-900 mb-4">
-            خدمات الطوارئ الطبية
-          </h1>
-          <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-            خدمة طوارئ متاحة على مدار الساعة للحالات العاجلة والطارئة
-          </p>
-        </div>
+    <div dir="rtl" className="min-h-screen bg-red-50/30">
+      {/* Toast */}
+      {toast && (
+        <div className={`fixed top-4 left-1/2 -translate-x-1/2 z-50 px-6 py-3 rounded-xl shadow-lg text-white text-sm font-medium
+          ${toast.type==='error' ? 'bg-red-500' : 'bg-green-500'}`}>{toast.msg}</div>
+      )}
 
-        {/* أرقام الطوارئ السريعة */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-8">
-          <h2 className="text-2xl font-bold text-gray-900 mb-6 text-center">
-            أرقام الطوارئ السريعة
-          </h2>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {emergencyNumbers.map((emergency, index) => {
-              const IconComponent = emergency.icon
-              return (
-                <button
-                  key={index}
-                  onClick={() => handleEmergencyCall(emergency.number)}
-                  className={`${emergency.color} text-white p-6 rounded-xl hover:opacity-90 transition-opacity`}
-                >
-                  <div className="text-center">
-                    <IconComponent className="h-8 w-8 mx-auto mb-2" />
-                    <div className="font-bold text-lg">{emergency.number}</div>
-                    <div className="text-sm">{emergency.name}</div>
-                  </div>
-                </button>
-              )
-            })}
+      {/* ── Hero رأس الصفحة ── */}
+      <div className="bg-gradient-to-br from-red-600 via-red-700 to-red-800 text-white pt-10 pb-6 px-4">
+        <div className="max-w-2xl mx-auto text-center">
+          <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-3">
+            <AlertTriangle size={30} />
+          </div>
+          <h1 className="text-2xl font-bold mb-1">خدمات الطوارئ الطبية</h1>
+          <p className="text-red-100 text-sm">متاح 24/7 للحالات الطارئة</p>
+
+          {/* أرقام سريعة */}
+          <div className="flex justify-center gap-3 mt-5">
+            {[
+              { num:'123', label:'إسعاف', Icon: Ambulance },
+              { num:'122', label:'شرطة', Icon: Shield },
+              { num:'180', label:'إطفاء', Icon: Zap },
+            ].map(({ num, label, Icon }) => (
+              <a key={num} href={`tel:${num}`}
+                className="flex flex-col items-center bg-white/15 hover:bg-white/25 border border-white/25 rounded-xl px-4 py-2.5 transition-colors">
+                <Icon size={18} className="mb-0.5" />
+                <span className="text-lg font-bold leading-none">{num}</span>
+                <span className="text-[10px] opacity-80">{label}</span>
+              </a>
+            ))}
           </div>
         </div>
+      </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* نموذج طلب الطوارئ */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-            <h3 className="text-xl font-bold text-gray-900 mb-6 flex items-center">
-              <Phone className="h-6 w-6 text-red-600 ml-2" />
-              طلب مساعدة طارئة
-            </h3>
+      {/* ── تبويبات ── */}
+      <div className="max-w-2xl mx-auto px-4">
+        <div className="flex gap-2 bg-white rounded-2xl p-1.5 shadow-sm border border-gray-100 -mt-4 mb-5 relative">
+          <TabBtn id="sos"      label="SOS"      icon={AlertTriangle} />
+          <TabBtn id="ambulance"label="إسعاف"    icon={Ambulance}    />
+          <TabBtn id="qr"       label="QR طوارئ" icon={QrCode}       />
+          <TabBtn id="family"   label="العائلة"  icon={Users}        />
+          <TabBtn id="history"  label="السجل"    icon={Clock}  badge={alerts.filter(a=>a.status==='active').length} />
+        </div>
 
-            {isEmergencyActive && (
-              <Alert className="mb-6 border-red-200 bg-red-50">
-                <AlertTriangle className="h-4 w-4" />
-                <AlertDescription className="text-red-700">
-                  تم تفعيل حالة الطوارئ. سيتم التواصل معك خلال دقائق.
-                </AlertDescription>
-              </Alert>
+        {/* ════════════ SOS ════════════ */}
+        {tab === 'sos' && (
+          <div className="space-y-4 pb-10">
+            {!isAuthenticated && (
+              <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 text-sm text-yellow-800 text-center">
+                سجّل دخولك لتفعيل SOS وإشعار العائلة
+              </div>
             )}
 
-            <form onSubmit={handleEmergencySubmit} className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="name">الاسم *</Label>
-                  <Input
-                    id="name"
-                    type="text"
-                    required
-                    value={emergencyForm.name}
-                    onChange={(e) => handleFormChange('name', e.target.value)}
-                    placeholder="اسمك الكامل"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="phone">رقم الهاتف *</Label>
-                  <Input
-                    id="phone"
-                    type="tel"
-                    required
-                    value={emergencyForm.phone}
-                    onChange={(e) => handleFormChange('phone', e.target.value)}
-                    placeholder="01xxxxxxxxx"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <Label htmlFor="location">الموقع الحالي *</Label>
-                <Input
-                  id="location"
-                  type="text"
-                  required
-                  value={emergencyForm.location}
-                  onChange={(e) => handleFormChange('location', e.target.value)}
-                  placeholder="العنوان التفصيلي أو أقرب معلم"
-                />
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="emergencyType">نوع الطارئ *</Label>
-                  <select
-                    id="emergencyType"
-                    required
-                    value={emergencyForm.emergencyType}
-                    onChange={(e) => handleFormChange('emergencyType', e.target.value)}
-                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-red-500 focus:border-red-500"
-                  >
-                    <option value="">اختر نوع الطارئ</option>
-                    {emergencyTypes.map((type, index) => (
-                      <option key={index} value={type}>{type}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <Label htmlFor="severity">مستوى الخطورة *</Label>
-                  <select
-                    id="severity"
-                    required
-                    value={emergencyForm.severity}
-                    onChange={(e) => handleFormChange('severity', e.target.value)}
-                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-red-500 focus:border-red-500"
-                  >
-                    <option value="">اختر مستوى الخطورة</option>
-                    {severityLevels.map((level, index) => (
-                      <option key={index} value={level.value}>{level.label}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <Label htmlFor="description">وصف الحالة *</Label>
-                <textarea
-                  id="description"
-                  required
-                  rows={3}
-                  value={emergencyForm.description}
-                  onChange={(e) => handleFormChange('description', e.target.value)}
-                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-red-500 focus:border-red-500"
-                  placeholder="اشرح الحالة بالتفصيل..."
-                />
-              </div>
-
-              <Button
-                type="submit"
-                className="w-full bg-red-600 hover:bg-red-700 text-lg py-3"
-                disabled={isEmergencyActive}
-              >
-                <AlertTriangle className="h-5 w-5 ml-2" />
-                {isEmergencyActive ? 'تم إرسال الطلب' : 'إرسال طلب طوارئ'}
-              </Button>
-            </form>
-          </div>
-
-           {/* المستشفيات القريبة */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-            <h3 className="text-xl font-bold text-gray-900 mb-6 flex items-center">
-              <MapPin className="h-6 w-6 text-blue-600 ml-2" />
-              المستشفيات القريبة
-            </h3>
-
-             {!nearbyHospitals.length ? (
-               <div className="rounded-lg border border-blue-100 bg-blue-50 p-5">
-                 <p className="text-blue-900 font-semibold mb-2">حدد موقعك أولاً</p>
-                 <p className="text-sm text-blue-700 mb-4">لن نعرض المستشفيات القريبة قبل الحصول على إذنك لتحديد موقعك.</p>
-                 <Button type="button" onClick={requestLocation} disabled={locationLoading} className="bg-blue-600 hover:bg-blue-700">
-                   <MapPin className="h-4 w-4 ml-2" />
-                   {locationLoading ? 'جاري التحديد...' : 'تحديد موقعي'}
-                 </Button>
-                 {locationStatus && <p className="text-sm text-blue-700 mt-3">{locationStatus}</p>}
-               </div>
-             ) : (
-             <div className="space-y-4">
-              {nearbyHospitals.map(hospital => (
-                <div key={hospital.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
-                  <div className="flex items-start justify-between mb-3">
-                    <div>
-                      <h4 className="font-semibold text-gray-900">{hospital.name}</h4>
-                      <p className="text-sm text-gray-600 flex items-center mt-1">
-                        <MapPin className="h-4 w-4 ml-1" />
-                        {hospital.address}
-                      </p>
-                    </div>
-                    <div className="text-left">
-                      <div className="text-sm font-medium text-blue-600">{hospital.distance}</div>
-                      <div className="text-xs text-gray-500">{hospital.estimatedTime}</div>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center mb-3">
-                    <div className="flex items-center text-sm text-gray-600">
-                      <Phone className="h-4 w-4 ml-1" />
-                      <span>{hospital.phone}</span>
-                    </div>
-                    {hospital.emergencyAvailable && (
-                      <span className="bg-green-100 text-green-800 text-xs font-medium px-2 py-1 rounded-full mr-3">
-                        طوارئ متاح
-                      </span>
+            {/* SOS Button */}
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 text-center">
+              {!sosActive ? (
+                <>
+                  <p className="text-gray-500 text-sm mb-5">اضغط مطوّلاً لتفعيل نداء الاستغاثة</p>
+                  <button
+                    onClick={startSosCountdown}
+                    disabled={busy || !isAuthenticated}
+                    className={`relative w-40 h-40 rounded-full mx-auto flex flex-col items-center justify-center font-black text-white text-2xl shadow-2xl transition-all select-none
+                      ${sosCountdown > 0
+                        ? 'bg-orange-500 scale-95 animate-pulse'
+                        : 'bg-red-600 hover:bg-red-700 active:scale-95 hover:shadow-red-300'
+                      } disabled:opacity-50`}>
+                    {sosCountdown > 0 ? (
+                      <>
+                        <span className="text-5xl font-black">{sosCountdown}</span>
+                        <span className="text-xs font-normal mt-1 opacity-80">اضغط للإلغاء</span>
+                      </>
+                    ) : (
+                      <>
+                        <AlertTriangle size={36} />
+                        <span className="text-lg mt-1">SOS</span>
+                      </>
                     )}
+                  </button>
+                  {sosCountdown > 0 && (
+                    <p className="text-orange-600 text-sm mt-4 font-medium animate-pulse">
+                      سيُرسل النداء خلال {sosCountdown} ثوانٍ...
+                    </p>
+                  )}
+                </>
+              ) : (
+                <div className="space-y-3">
+                  <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto">
+                    <CheckCircle size={32} className="text-green-600" />
                   </div>
-
-                  <div className="flex flex-wrap gap-1 mb-3">
-                    {hospital.specialties.map((specialty, index) => (
-                      <span key={index} className="bg-gray-100 text-gray-700 text-xs px-2 py-1 rounded">
-                        {specialty}
-                      </span>
-                    ))}
-                  </div>
-
-                  <div className="flex gap-2">
-                    <Button
-                      size="sm"
-                      onClick={() => handleHospitalCall(hospital.phone)}
-                      className="bg-red-600 hover:bg-red-700 flex-1"
-                    >
-                      <Phone className="h-4 w-4 ml-1" />
-                      اتصال
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handleGetDirections(hospital.name)}
-                      className="flex-1"
-                    >
-                      <Navigation className="h-4 w-4 ml-1" />
-                      الاتجاهات
-                    </Button>
-                  </div>
+                  <p className="text-green-700 font-bold text-lg">تم إرسال SOS!</p>
+                  {sosResult && (
+                    <div className="bg-gray-50 rounded-xl p-3 text-sm text-right space-y-1">
+                      <p className="text-gray-600">رقم التنبيه: <span className="font-bold">#{sosResult.alert?.id}</span></p>
+                      <p className="text-gray-600">جهات أسرية مُشعَرة: <span className="font-bold">{sosResult.notified} / {sosResult.contacts_count}</span></p>
+                    </div>
+                  )}
+                  <button onClick={() => { setSosActive(false); setSosResult(null) }}
+                    className="text-sm text-red-600 hover:underline">إلغاء التنبيه</button>
                 </div>
-              ))}
-              </div>
               )}
-          </div>
-        </div>
-
-        {/* نصائح الإسعافات الأولية */}
-        <div className="mt-8 bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-          <h3 className="text-xl font-bold text-gray-900 mb-6 flex items-center">
-            <Heart className="h-6 w-6 text-red-600 ml-2" />
-            نصائح الإسعافات الأولية
-          </h3>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <div className="bg-red-50 p-4 rounded-lg">
-              <h4 className="font-semibold text-red-800 mb-2">النزيف الشديد</h4>
-              <ul className="text-sm text-red-700 space-y-1">
-                <li>• اضغط مباشرة على الجرح</li>
-                <li>• ارفع العضو المصاب</li>
-                <li>• لا تزيل الضمادة المشبعة</li>
-                <li>• اطلب المساعدة فوراً</li>
-              </ul>
             </div>
 
-            <div className="bg-blue-50 p-4 rounded-lg">
-              <h4 className="font-semibold text-blue-800 mb-2">صعوبة التنفس</h4>
-              <ul className="text-sm text-blue-700 space-y-1">
-                <li>• اجعل المريض يجلس منتصباً</li>
-                <li>• فك الملابس الضيقة</li>
-                <li>• تأكد من وضوح مجرى الهواء</li>
-                <li>• ابق هادئاً وطمئن المريض</li>
-              </ul>
+            {/* تحديد الموقع */}
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
+              <h3 className="font-semibold text-gray-800 mb-3 flex items-center gap-2"><MapPin size={16} className="text-red-500" /> تحديد الموقع</h3>
+              <button onClick={getLocation} disabled={locLoading}
+                className="w-full flex items-center justify-center gap-2 border border-red-200 bg-red-50 hover:bg-red-100 text-red-700 rounded-xl py-2.5 text-sm font-medium transition-colors disabled:opacity-60">
+                <Navigation size={15} />
+                {locLoading ? 'جاري التحديد...' : coords ? 'تحديث الموقع' : 'تحديد موقعي الآن'}
+              </button>
+              {locStatus && <p className="text-xs text-gray-500 mt-2 text-center">{locStatus}</p>}
+              {coords && (
+                <div className="mt-3 flex items-center justify-between bg-green-50 rounded-lg px-3 py-2">
+                  <span className="text-xs text-green-700 font-mono">{coords.lat.toFixed(5)}, {coords.lng.toFixed(5)}</span>
+                  <a href={`https://maps.google.com/?q=${coords.lat},${coords.lng}`} target="_blank" rel="noopener noreferrer"
+                    className="text-xs text-blue-600 hover:underline flex items-center gap-1">
+                    <Navigation size={11} /> خرائط
+                  </a>
+                </div>
+              )}
             </div>
 
-            <div className="bg-green-50 p-4 rounded-lg">
-              <h4 className="font-semibold text-green-800 mb-2">فقدان الوعي</h4>
-              <ul className="text-sm text-green-700 space-y-1">
-                <li>• تحقق من الاستجابة</li>
-                <li>• ضع المريض في وضع الإفاقة</li>
-                <li>• تأكد من التنفس</li>
-                <li>• لا تترك المريض وحده</li>
-              </ul>
-            </div>
-          </div>
-        </div>
-
-        {/* معلومات مهمة */}
-        <div className="mt-8 bg-gradient-to-r from-red-50 to-orange-50 border border-red-200 rounded-xl p-6">
-          <div className="flex items-start">
-            <AlertTriangle className="h-6 w-6 text-red-600 ml-3 mt-1 flex-shrink-0" />
-            <div>
-              <h3 className="text-lg font-semibold text-red-800 mb-2">معلومات مهمة</h3>
-              <div className="text-red-700 space-y-2">
-                <p>• في حالات الطوارئ الحرجة، اتصل بالإسعاف (123) مباشرة</p>
-                <p>• احتفظ بهدوئك وتحدث بوضوح عند الاتصال</p>
-                <p>• اذكر موقعك بدقة ونوع الطارئ</p>
-                <p>• لا تنقل المصاب إلا إذا كان في خطر إضافي</p>
-                <p>• ابق مع المصاب حتى وصول المساعدة</p>
+            {/* إسعافات أولية */}
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
+              <h3 className="font-semibold text-gray-800 mb-3 flex items-center gap-2"><Heart size={16} className="text-red-500" /> إسعافات أولية سريعة</h3>
+              <div className="grid grid-cols-1 gap-2.5">
+                {[
+                  { title:'نزيف شديد', color:'bg-red-50 border-red-100', tc:'text-red-800',
+                    steps:['اضغط مباشرة على الجرح','ارفع العضو المصاب','لا تزيل الضمادة المشبعة','اطلب مساعدة فوراً'] },
+                  { title:'توقف التنفس', color:'bg-blue-50 border-blue-100', tc:'text-blue-800',
+                    steps:['تحقق من الاستجابة','افتح مجرى الهواء','ابدأ الإنعاش (30 ضغطة + 2 نفخة)','استمر حتى وصول الإسعاف'] },
+                  { title:'فقدان الوعي', color:'bg-purple-50 border-purple-100', tc:'text-purple-800',
+                    steps:['تحقق من التنفس','ضع في وضع الإفاقة الجانبي','لا تترك المريض وحده','اتصل بالإسعاف فوراً'] },
+                ].map(item => (
+                  <div key={item.title} className={`${item.color} border rounded-xl p-3`}>
+                    <p className={`font-semibold text-sm ${item.tc} mb-1.5`}>{item.title}</p>
+                    <ul className="space-y-0.5">
+                      {item.steps.map((s,i) => (
+                        <li key={i} className={`text-xs ${item.tc} opacity-80 flex items-start gap-1.5`}>
+                          <span className="font-bold mt-px">{i+1}.</span>{s}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
               </div>
             </div>
           </div>
-        </div>
+        )}
 
-        <div className="mt-8 rounded-xl bg-gradient-to-r from-indigo-600 to-blue-700 p-6 text-white">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-            <div>
-              <h3 className="text-xl font-bold flex items-center"><Ambulance className="h-6 w-6 ml-2" />الإسعاف الذكي</h3>
-              <p className="text-blue-100 mt-1">إرسال موقعك فوراً وتنسيق الوصول مع أقرب مستشفى.</p>
+        {/* ════════════ إسعاف ════════════ */}
+        {tab === 'ambulance' && (
+          <div className="pb-10">
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+              <h2 className="font-bold text-gray-800 mb-4 flex items-center gap-2">
+                <Ambulance size={18} className="text-red-500" /> طلب إسعاف
+              </h2>
+
+              {ambResult ? (
+                <div className="text-center space-y-4 py-4">
+                  <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto">
+                    <CheckCircle size={30} className="text-green-600" />
+                  </div>
+                  <p className="text-green-700 font-bold">تم إرسال طلب الإسعاف!</p>
+                  <div className="bg-gray-50 rounded-xl p-3 text-sm text-right space-y-1">
+                    <p>رقم المرجع: <span className="font-mono font-bold text-red-600">{ambResult.ref_number}</span></p>
+                    <p className="text-gray-500 text-xs">احتفظ بهذا الرقم للمتابعة</p>
+                  </div>
+                  <button onClick={() => setAmbResult(null)} className="text-sm text-blue-600 hover:underline">طلب جديد</button>
+                </div>
+              ) : (
+                <form onSubmit={submitAmbulance} className="space-y-4">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">الاسم *</label>
+                      <input required className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-400"
+                        value={ambForm.caller_name} onChange={e => setAmbForm(f=>({...f,caller_name:e.target.value}))} placeholder="اسمك الكامل" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">الهاتف *</label>
+                      <input required type="tel" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-400"
+                        value={ambForm.caller_phone} onChange={e => setAmbForm(f=>({...f,caller_phone:e.target.value}))} placeholder="01xxxxxxxxx" />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">الموقع *</label>
+                    <div className="flex gap-2">
+                      <input required className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-400"
+                        value={ambForm.location_text} onChange={e => setAmbForm(f=>({...f,location_text:e.target.value}))} placeholder="العنوان التفصيلي" />
+                      <button type="button" onClick={getLocation} disabled={locLoading}
+                        className="border border-red-200 bg-red-50 text-red-600 rounded-lg px-3 py-2 text-xs hover:bg-red-100 disabled:opacity-60">
+                        {locLoading ? '...' : <><Navigation size={14}/></>}
+                      </button>
+                    </div>
+                    {coords && <p className="text-xs text-green-600 mt-1">✓ تم تحديد الإحداثيات</p>}
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">نوع الطارئ *</label>
+                      <select required className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-400"
+                        value={ambForm.emergency_type} onChange={e => setAmbForm(f=>({...f,emergency_type:e.target.value}))}>
+                        <option value="">اختر...</option>
+                        {EMERGENCY_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">الخطورة *</label>
+                      <select required className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-400"
+                        value={ambForm.severity} onChange={e => setAmbForm(f=>({...f,severity:e.target.value}))}>
+                        {Object.entries(SEVERITY_CFG).map(([v,c]) => <option key={v} value={v}>{c.label}</option>)}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">وصف الحالة</label>
+                    <textarea rows={2} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-400"
+                      value={ambForm.description} onChange={e => setAmbForm(f=>({...f,description:e.target.value}))} placeholder="وصف مختصر للحالة..." />
+                  </div>
+
+                  <button type="submit" disabled={busy}
+                    className="w-full bg-red-600 hover:bg-red-700 text-white rounded-xl py-3 font-bold text-sm flex items-center justify-center gap-2 disabled:opacity-60">
+                    <Ambulance size={16} />
+                    {busy ? 'جاري الإرسال...' : 'إرسال طلب الإسعاف'}
+                  </button>
+                </form>
+              )}
             </div>
-            <Button type="button" onClick={requestSmartAmbulance} className="bg-white text-blue-700 hover:bg-blue-50">
-              تفعيل الإسعاف الذكي
-            </Button>
+
+            {/* مستشفيات قريبة */}
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 mt-4">
+              <h3 className="font-semibold text-gray-800 mb-3 flex items-center gap-2"><MapPin size={16} className="text-blue-500" /> مستشفيات قريبة</h3>
+              {!coords ? (
+                <div className="text-center py-4">
+                  <p className="text-gray-500 text-sm mb-3">حدّد موقعك لعرض المستشفيات القريبة</p>
+                  <button onClick={getLocation} disabled={locLoading}
+                    className="flex items-center gap-2 mx-auto bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm">
+                    <Navigation size={14}/> {locLoading ? 'جاري...' : 'تحديد موقعي'}
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {[
+                    { name:'مستشفى القاهرة الجديدة', addr:'التجمع الأول', dist:'2.5 كم', time:'8 د', phone:'0227584000', specs:['طوارئ','قلب','جراحة'] },
+                    { name:'مستشفى دار الفؤاد',       addr:'مدينة نصر',   dist:'4.2 كم', time:'12 د', phone:'0225555555', specs:['طوارئ','أعصاب','عظام'] },
+                    { name:'مستشفى الشروق',           addr:'مدينة الشروق',dist:'6.8 كم', time:'18 د', phone:'0244444444', specs:['طوارئ','أطفال'] },
+                  ].map((h,i) => (
+                    <div key={i} className="border border-gray-100 rounded-xl p-3">
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <p className="font-semibold text-sm text-gray-800">{h.name}</p>
+                          <p className="text-xs text-gray-500 mt-0.5">{h.addr}</p>
+                        </div>
+                        <div className="text-left">
+                          <p className="text-blue-600 text-sm font-medium">{h.dist}</p>
+                          <p className="text-gray-400 text-xs">{h.time}</p>
+                        </div>
+                      </div>
+                      <div className="flex flex-wrap gap-1 my-2">
+                        {h.specs.map(s => <span key={s} className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded">{s}</span>)}
+                      </div>
+                      <div className="flex gap-2">
+                        <a href={`tel:${h.phone}`} className="flex-1 flex items-center justify-center gap-1 bg-red-600 hover:bg-red-700 text-white rounded-lg py-1.5 text-xs">
+                          <Phone size={12}/> اتصال
+                        </a>
+                        <a href={`https://www.google.com/maps/search/${encodeURIComponent(h.name)}`} target="_blank" rel="noopener noreferrer"
+                          className="flex-1 flex items-center justify-center gap-1 border border-gray-200 hover:bg-gray-50 text-gray-600 rounded-lg py-1.5 text-xs">
+                          <Navigation size={12}/> الاتجاهات
+                        </a>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
-        </div>
+        )}
+
+        {/* ════════════ QR ════════════ */}
+        {tab === 'qr' && (
+          <div className="pb-10">
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+              <h2 className="font-bold text-gray-800 mb-1 flex items-center gap-2"><QrCode size={18} className="text-red-500" /> بطاقة الطوارئ الذكية</h2>
+              <p className="text-xs text-gray-500 mb-4">يحتوي QR على بياناتك الطارئة — يمكن لأي هاتف قراءته فوراً</p>
+
+              {!isAuthenticated ? (
+                <p className="text-center text-gray-500 text-sm py-8">سجّل دخولك لعرض بطاقتك</p>
+              ) : qrLoading ? (
+                <div className="flex justify-center py-10"><div className="animate-spin rounded-full h-10 w-10 border-b-2 border-red-600"/></div>
+              ) : qrData ? (
+                <div className="space-y-4">
+                  {/* QR Image */}
+                  <div className="flex flex-col items-center bg-gray-50 rounded-2xl p-5">
+                    <img src={`data:image/png;base64,${qrData.qr_base64}`} alt="QR طوارئ"
+                      className="w-48 h-48 rounded-xl shadow-sm" />
+                    <p className="text-xs text-gray-400 mt-2">امسح بأي هاتف في حالة الطوارئ</p>
+                  </div>
+
+                  {/* بيانات البطاقة */}
+                  <div className="border border-red-100 rounded-xl overflow-hidden">
+                    <div className="bg-red-600 text-white px-4 py-2.5 flex items-center gap-2">
+                      <Heart size={14}/>
+                      <span className="font-semibold text-sm">بيانات الطوارئ</span>
+                    </div>
+                    <div className="p-3 space-y-2 text-sm">
+                      {[
+                        ['الاسم',           qrData.card.name],
+                        ['فصيلة الدم',      qrData.card.blood_type],
+                        ['تاريخ الميلاد',   qrData.card.dob],
+                        ['الهاتف',          qrData.card.phone],
+                        ['الحساسية',        qrData.card.allergies?.join(', ') || 'لا يوجد'],
+                        ['الأدوية الحالية', qrData.card.medications?.join(', ') || 'لا يوجد'],
+                        ['اتصال الطوارئ',   `${qrData.card.ec_name} — ${qrData.card.ec_phone}`],
+                      ].map(([label, val]) => (
+                        <div key={label} className="flex justify-between items-start border-b border-gray-50 pb-1.5 last:border-0 last:pb-0">
+                          <span className="text-gray-500 text-xs">{label}</span>
+                          <span className="font-medium text-gray-800 text-xs text-left max-w-[55%]">{val}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <button onClick={loadQR} className="w-full text-sm text-blue-600 hover:underline py-1">تحديث البيانات</button>
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <p className="text-gray-500 text-sm mb-3">لا يوجد ملف مريض مرتبط</p>
+                  <p className="text-xs text-gray-400">أكمل ملفك الطبي أولاً لتوليد بطاقة الطوارئ</p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ════════════ العائلة ════════════ */}
+        {tab === 'family' && (
+          <div className="pb-10 space-y-4">
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="font-bold text-gray-800 flex items-center gap-2"><Users size={18} className="text-red-500"/> جهات الاتصال الأسرية</h2>
+                {!showContactForm && contacts.length < 5 && (
+                  <button onClick={() => setShowContactForm(true)}
+                    className="flex items-center gap-1 bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded-lg text-xs font-medium">
+                    <Plus size={13}/> إضافة
+                  </button>
+                )}
+              </div>
+
+              {/* نموذج الإضافة */}
+              {showContactForm && (
+                <form onSubmit={addContact} className="bg-red-50 rounded-xl p-4 mb-4 space-y-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">الاسم *</label>
+                      <input required className="w-full border border-gray-200 bg-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-400"
+                        value={contactForm.name} onChange={e => setContactForm(f=>({...f,name:e.target.value}))} placeholder="الاسم الكامل" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">الهاتف *</label>
+                      <input required type="tel" className="w-full border border-gray-200 bg-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-400"
+                        value={contactForm.phone} onChange={e => setContactForm(f=>({...f,phone:e.target.value}))} placeholder="01xxxxxxxxx" />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">صلة القرابة</label>
+                      <select className="w-full border border-gray-200 bg-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-400"
+                        value={contactForm.relationship} onChange={e => setContactForm(f=>({...f,relationship:e.target.value}))}>
+                        {RELATIONSHIPS.map(r => <option key={r} value={r}>{r}</option>)}
+                      </select>
+                    </div>
+                    <div className="flex items-end pb-1">
+                      <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
+                        <input type="checkbox" className="accent-red-600" checked={contactForm.is_primary}
+                          onChange={e => setContactForm(f=>({...f,is_primary:e.target.checked}))} />
+                        جهة أساسية
+                      </label>
+                    </div>
+                  </div>
+                  <div className="flex gap-2 justify-end">
+                    <button type="button" onClick={() => setShowContactForm(false)} className="text-sm text-gray-500 px-3 py-1.5">إلغاء</button>
+                    <button type="submit" disabled={busy} className="bg-red-600 hover:bg-red-700 text-white px-4 py-1.5 rounded-lg text-sm disabled:opacity-60">
+                      {busy ? '...' : 'حفظ'}
+                    </button>
+                  </div>
+                </form>
+              )}
+
+              {/* القائمة */}
+              {contacts.length === 0 ? (
+                <div className="text-center py-8 text-gray-400">
+                  <Users size={32} className="mx-auto mb-2 opacity-40"/>
+                  <p className="text-sm">لا توجد جهات مضافة</p>
+                  <p className="text-xs mt-1">أضف أفراد عائلتك لإشعارهم عند حالات الطوارئ</p>
+                </div>
+              ) : (
+                <div className="space-y-2.5">
+                  {contacts.map(c => (
+                    <div key={c.id} className="flex items-center justify-between bg-gray-50 rounded-xl px-3 py-2.5">
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 bg-red-100 text-red-600 rounded-full flex items-center justify-center font-bold text-sm">
+                          {c.name[0]}
+                        </div>
+                        <div>
+                          <p className="text-sm font-semibold text-gray-800 flex items-center gap-1.5">
+                            {c.name}
+                            {c.is_primary && <span className="text-[10px] bg-red-100 text-red-600 px-1.5 py-0.5 rounded-full">أساسي</span>}
+                          </p>
+                          <p className="text-xs text-gray-500">{c.phone} · {c.relationship}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <a href={`tel:${c.phone}`} className="p-1.5 text-green-600 hover:bg-green-50 rounded-lg">
+                          <Phone size={14}/>
+                        </a>
+                        <button onClick={() => deleteContact(c.id)} className="p-1.5 text-red-400 hover:bg-red-50 rounded-lg">
+                          <Trash2 size={14}/>
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {contacts.length > 0 && (
+              <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-800">
+                <p className="font-semibold mb-1 flex items-center gap-1.5"><Bell size={14}/> ملاحظة</p>
+                <p className="text-xs">يُرسل الإشعار التلقائي عند SOS للجهات المسجلة في التطبيق بنفس رقم الهاتف المدخل.</p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ════════════ السجل ════════════ */}
+        {tab === 'history' && (
+          <div className="pb-10">
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+              <h2 className="font-bold text-gray-800 mb-4 flex items-center gap-2"><Clock size={18} className="text-red-500"/> سجل تنبيهات الطوارئ</h2>
+
+              {alerts.length === 0 ? (
+                <div className="text-center py-8 text-gray-400">
+                  <Activity size={32} className="mx-auto mb-2 opacity-40"/>
+                  <p className="text-sm">لا توجد تنبيهات مسجلة</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {alerts.map(a => {
+                    const sev = SEVERITY_CFG[a.severity] || SEVERITY_CFG.urgent
+                    const typeLabel = { sos:'SOS', ambulance_request:'طلب إسعاف', family_notify:'إشعار عائلة' }[a.alert_type] || a.alert_type
+                    return (
+                      <div key={a.id} className={`rounded-xl border p-3 ${a.status==='active' ? 'border-red-200 bg-red-50' : 'border-gray-100 bg-gray-50'}`}>
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${sev.bg} ${sev.color}`}>{sev.label}</span>
+                              <span className="text-xs bg-gray-200 text-gray-700 px-2 py-0.5 rounded-full">{typeLabel}</span>
+                              {a.status === 'active' && <span className="text-xs bg-red-200 text-red-700 px-2 py-0.5 rounded-full animate-pulse">نشط</span>}
+                              {a.status === 'resolved' && <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">مُغلق</span>}
+                            </div>
+                            <p className="text-sm font-semibold text-gray-800 mt-1">{a.emergency_type}</p>
+                            {a.location_text && <p className="text-xs text-gray-500 flex items-center gap-1 mt-0.5"><MapPin size={10}/>{a.location_text}</p>}
+                            <p className="text-xs text-gray-400 mt-1">{new Date(a.created_at).toLocaleString('ar-SA')}</p>
+                          </div>
+                          <div className="flex flex-col gap-1.5">
+                            {a.status === 'active' && (
+                              <>
+                                <button onClick={() => notifyFamily(a.id)} disabled={busy}
+                                  className="flex items-center gap-1 text-xs bg-blue-600 hover:bg-blue-700 text-white px-2.5 py-1.5 rounded-lg disabled:opacity-60">
+                                  <Bell size={11}/> إشعار
+                                </button>
+                                <button onClick={() => resolveAlert(a.id)}
+                                  className="flex items-center gap-1 text-xs border border-gray-200 hover:bg-gray-100 text-gray-600 px-2.5 py-1.5 rounded-lg">
+                                  <CheckCircle size={11}/> إغلاق
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                        {a.family_notified && (
+                          <p className="text-xs text-green-600 mt-2 flex items-center gap-1">
+                            <CheckCircle size={11}/> تم إشعار العائلة
+                          </p>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )
 }
-
