@@ -12,6 +12,8 @@ import ServicesPage from './pages/ServicesPage'
 import BloodBankPage from './pages/BloodBankPage'
 import EmergencyPage from './pages/EmergencyPage'
 import MedicalRecordPage from './pages/MedicalRecordPage'
+import AppointmentsPage from './pages/AppointmentsPage'
+import PrescriptionsPage from './pages/PrescriptionsPage'
 import './App.css'
 
 // مكون للحماية - يتطلب تسجيل الدخول
@@ -89,6 +91,22 @@ function AppContent() {
             element={
               <ProtectedRoute>
                 <MedicalRecordPage />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/appointments" 
+            element={
+              <ProtectedRoute>
+                <AppointmentsPage />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/prescriptions" 
+            element={
+              <ProtectedRoute>
+                <PrescriptionsPage />
               </ProtectedRoute>
             } 
           />

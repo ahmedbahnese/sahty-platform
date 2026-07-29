@@ -13,7 +13,9 @@ import {
   Shield,
   Phone,
   Droplets,
-  ClipboardList
+  ClipboardList,
+  Calendar,
+  FileText
 } from 'lucide-react'
 
 export default function Navbar() {
@@ -102,6 +104,22 @@ export default function Navbar() {
                     >
                       <ClipboardList className="h-4 w-4 ml-2" />
                       الملف الطبي
+                    </Link>
+                    <Link
+                      to="/appointments"
+                      className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                      onClick={() => setUserMenuOpen(false)}
+                    >
+                      <Calendar className="h-4 w-4 ml-2" />
+                      المواعيد
+                    </Link>
+                    <Link
+                      to="/prescriptions"
+                      className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                      onClick={() => setUserMenuOpen(false)}
+                    >
+                      <FileText className="h-4 w-4 ml-2" />
+                      الوصفات الطبية
                     </Link>
                     <div className="border-t my-1" />
                     <button

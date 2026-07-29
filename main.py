@@ -20,6 +20,10 @@ from src.models.provider import ProviderRegistration
 from src.models.medical_record import Disease, Surgery, Vaccination, LabTest, Radiology, MedicalHistory
 from src.routes.admin import admin_bp
 from src.routes.medical_record import medical_record_bp
+from src.routes.appointment import appointment_bp
+from src.routes.prescription import prescription_bp
+from src.models.prescription import Prescription, PrescriptionItem
+from src.models.notification import Notification
 from werkzeug.security import generate_password_hash
 
 app = Flask(__name__, static_folder=os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static'))
@@ -39,6 +43,8 @@ app.register_blueprint(user_bp, url_prefix='/api')
 app.register_blueprint(auth_bp, url_prefix='/api/auth')
 app.register_blueprint(admin_bp, url_prefix='/api/admin')
 app.register_blueprint(medical_record_bp, url_prefix='/api/medical-record')
+app.register_blueprint(appointment_bp, url_prefix='/api/appointments')
+app.register_blueprint(prescription_bp, url_prefix='/api/prescriptions')
 
 # Database
 db_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'src', 'database', 'app.db')

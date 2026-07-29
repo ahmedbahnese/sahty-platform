@@ -354,6 +354,75 @@ def logout(current_user):
         db.session.rollback()
         return jsonify({'message': f'خطأ في تسجيل الخروج: {str(e)}'}), 500
 
+@auth_bp.route('/doctors', methods=['GET'])
+@token_required
+def list_doctors(current_user):
+    """
+    قائمة الأطباء النشطين — للمرضى عند حجز المواعيد.
+    يُرجع فقط الحقول الضرورية لواجهة الحجز (لا بيانات حساسة).
+    """
+    from src.models.doctor import Doctor
+    doctors = Doctor.query.filter_by(is_active=True).all()
+    safe = [
+        {
+            'id':                   d.id,
+            'first_name':           d.first_name,
+            'last_name':            d.last_name,
+            'specialization':       d.specialization,
+            'sub_specialization':   d.sub_specialization,
+            'clinic_name':          d.clinic_name,
+            'clinic_address':       d.clinic_address,
+            'consultation_fee':     d.consultation_fee,
+            'consultation_duration': d.consultation_duration,
+            'available_for_telemedicine': d.available_for_telemedicine,
+            'rating':               d.rating,
+            'total_reviews':        d.total_reviews,
+            'is_verified':          d.is_verified,
+        }
+        for d in doctors
+    ]
+    return jsonify({'doctors': safe}), 200
+
+
+@auth_bp.route('/patients', methods=['GET'])
+@token_required
+def list_patients(current_user):
+    """
+    قائمة المرضى — للأطباء عند إنشاء الوصفات.
+    يُرجع فقط الحقول الضرورية لتعريف المريض (لا رقم هوية ولا بيانات حساسة).
+    مقيد بالأطباء والمديرين فقط.
+    """
+    if current_user.user_type not in ('doctor', 'admin', 'super_admin'):
+        return jsonify({'message': 'غير مصرح'}), 403
+    from src.models.patient import Patient
+    from src.models.appointment import Appointment
+    from src.models.doctor import Doctor
+
+    # الأطباء يرون مرضاهم فقط (من لديهم موعد سابق أو حالي معهم)
+    if current_user.user_type == 'doctor':
+        doctor = Doctor.query.filter_by(user_id=current_user.id).first()
+        if not doctor:
+            return jsonify({'patients': []}), 200
+        patient_ids = db.session.query(Appointment.patient_id)\
+            .filter_by(doctor_id=doctor.id).distinct().all()
+        patient_ids = [pid for (pid,) in patient_ids]
+        patients = Patient.query.filter(Patient.id.in_(patient_ids)).all()
+    else:
+        patients = Patient.query.all()
+
+    safe = [
+        {
+            'id':         p.id,
+            'first_name': p.first_name,
+            'last_name':  p.last_name,
+            'phone':      p.phone,
+            'gender':     p.gender,
+        }
+        for p in patients
+    ]
+    return jsonify({'patients': safe}), 200
+
+
 @auth_bp.route('/change-password', methods=['POST'])
 @token_required
 def change_password(current_user):
