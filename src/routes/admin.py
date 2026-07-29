@@ -117,6 +117,26 @@ def update_user_status(current_user, user_id):
     return jsonify(user.to_dict())
 
 
+@admin_bp.route('/audit-logs', methods=['GET'])
+@admin_only
+def audit_logs(current_user):
+    from src.models.admin import AuditLog
+    limit = min(int(request.args.get('limit', 100)), 500)
+    logs = AuditLog.query.order_by(AuditLog.created_at.desc()).limit(limit).all()
+    return jsonify([{
+        'id': log.id,
+        'user_id': log.user_id,
+        'user_email': log.user_email,
+        'user_type': log.user_type,
+        'action': log.action,
+        'resource': log.resource,
+        'resource_id': log.resource_id,
+        'description': log.description,
+        'ip_address': log.ip_address,
+        'created_at': log.created_at.isoformat() if log.created_at else None,
+    } for log in logs])
+
+
 @admin_bp.route('/stats', methods=['GET'])
 @admin_only
 def stats(current_user):

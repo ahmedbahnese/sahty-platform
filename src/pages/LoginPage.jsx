@@ -36,7 +36,8 @@ export default function LoginPage() {
       const result = await login(formData.identifier, formData.password)
 
       if (result.success) {
-        navigate('/dashboard')
+        const type = result.user?.user_type
+        navigate(type === 'admin' || type === 'super_admin' ? '/admin' : '/dashboard')
       } else {
         setError(result.message)
       }

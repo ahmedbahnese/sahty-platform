@@ -12,6 +12,7 @@ import ServicesPage from './pages/ServicesPage'
 import BloodBankPage from './pages/BloodBankPage'
 import EmergencyPage from './pages/EmergencyPage'
 import AIAssistantPage from './pages/AIAssistantPage'
+import AdminDashboardPage from './pages/AdminDashboardPage'
 import './App.css'
 
 // مكون للحماية - يتطلب تسجيل الدخول
@@ -86,6 +87,16 @@ function AppContent() {
             } 
           />
           
+          {/* لوحة الإدارة */}
+          <Route
+            path="/admin"
+            element={
+              <ProtectedRoute>
+                <AdminDashboardPage />
+              </ProtectedRoute>
+            }
+          />
+
           {/* إعادة توجيه للصفحة الرئيسية */}
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>
