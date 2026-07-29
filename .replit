@@ -54,3 +54,10 @@ externalPort = 5000
 [[ports]]
 localPort = 5001
 externalPort = 80
+
+[userenv]
+
+[userenv.shared]
+ADMIN_EMAIL = "ahmedbahnese@yahoo.com"
+ADMIN_FIRST_NAME = "Ahmed"
+ADMIN_LAST_NAME = "Bahnasy"
