@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { 
@@ -13,12 +14,16 @@ import {
   ArrowLeft,
   Bot,
   Activity,
-  Star,
   ChevronLeft,
   FlaskConical,
   Scan,
   Pill,
-  FileText
+  FileText,
+  MessageSquare,
+  Lightbulb,
+  HelpCircle,
+  Send,
+  AlertCircle
 } from 'lucide-react'
 
 export default function HomePage() {
@@ -85,11 +90,41 @@ export default function HomePage() {
     { icon: Users, title: 'صحة الأسرة', desc: 'متابعة الصحة لجميع أفراد العائلة', link: '/dashboard' },
   ]
 
-  const testimonials = [
-    { name: 'أحمد محمد', role: 'مريض', text: 'منصة رائعة ساعدتني في حجز مواعيد الأطباء بسهولة تامة', stars: 5 },
-    { name: 'د. سارة أحمد', role: 'طبيبة عامة', text: 'النظام يوفر علي الكثير من الوقت في إدارة المواعيد والوصفات', stars: 5 },
-    { name: 'نورة علي', role: 'مريضة', text: 'المساعد الذكي أجاب على استفساراتي الطبية بدقة واحترافية', stars: 5 },
-  ]
+  const [feedbackForm, setFeedbackForm] = useState({ name: '', email: '', phone: '', type: 'inquiry', subject: '', message: '' })
+  const [feedbackLoading, setFeedbackLoading] = useState(false)
+  const [feedbackResult, setFeedbackResult] = useState(null)
+
+  const handleFeedbackChange = (e) => {
+    setFeedbackForm(prev => ({ ...prev, [e.target.name]: e.target.value }))
+    setFeedbackResult(null)
+  }
+
+  const handleFeedbackSubmit = async (e) => {
+    e.preventDefault()
+    setFeedbackLoading(true)
+    try {
+      const token = localStorage.getItem('token')
+      const res = await fetch('/api/feedback', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {})
+        },
+        body: JSON.stringify(feedbackForm)
+      })
+      const data = await res.json()
+      if (res.ok) {
+        setFeedbackResult({ success: true, message: data.message })
+        setFeedbackForm({ name: '', email: '', phone: '', type: 'inquiry', subject: '', message: '' })
+      } else {
+        setFeedbackResult({ success: false, message: data.message })
+      }
+    } catch {
+      setFeedbackResult({ success: false, message: 'حدث خطأ في الاتصال' })
+    } finally {
+      setFeedbackLoading(false)
+    }
+  }
 
   return (
     <div className="min-h-screen" dir="rtl">
@@ -222,33 +257,149 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Testimonials */}
-      <section className="py-24 bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl font-bold text-gray-900 mb-4">ماذا يقول مستخدمونا؟</h2>
+      {/* Feedback / Customer Service */}
+      <section className="py-24 bg-white" id="contact">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-14">
+            <div className="inline-flex items-center gap-2 bg-blue-50 text-blue-700 rounded-full px-4 py-2 text-sm font-medium mb-4">
+              <MessageSquare className="h-4 w-4" />
+              <span>تواصل معنا</span>
+            </div>
+            <h2 className="text-4xl font-bold text-gray-900 mb-4">خدمة العملاء والشكاوى والاقتراحات</h2>
+            <p className="text-lg text-gray-500 max-w-2xl mx-auto">
+              رأيك يهمنا — نتابع جميع الرسائل ونرد عليها في أقرب وقت
+            </p>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {testimonials.map((t, i) => (
-              <div key={i} className="bg-white rounded-2xl p-8 border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
-                <div className="flex gap-1 mb-4">
-                  {[...Array(t.stars)].map((_, j) => (
-                    <Star key={j} className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                  ))}
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            {/* Type cards */}
+            <div className="space-y-4">
+              {[
+                { icon: AlertCircle, type: 'complaint', label: 'شكوى', desc: 'للإبلاغ عن أي مشكلة أو تجربة سيئة', color: 'bg-red-50 text-red-600 border-red-100' },
+                { icon: Lightbulb, type: 'suggestion', label: 'اقتراح', desc: 'شارك أفكارك لتحسين خدماتنا', color: 'bg-yellow-50 text-yellow-600 border-yellow-100' },
+                { icon: HelpCircle, type: 'inquiry', label: 'استفسار', desc: 'لأي سؤال أو طلب معلومات', color: 'bg-blue-50 text-blue-600 border-blue-100' },
+              ].map(item => {
+                const Icon = item.icon
+                return (
+                  <button
+                    key={item.type}
+                    onClick={() => setFeedbackForm(prev => ({ ...prev, type: item.type }))}
+                    className={`w-full flex items-start gap-4 p-4 rounded-2xl border-2 transition-all text-right ${
+                      feedbackForm.type === item.type
+                        ? `${item.color} border-current shadow-sm`
+                        : 'bg-white border-gray-100 hover:border-gray-200'
+                    }`}
+                  >
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${feedbackForm.type === item.type ? '' : 'bg-gray-50'}`}>
+                      <Icon className={`h-5 w-5 ${feedbackForm.type === item.type ? '' : 'text-gray-400'}`} />
+                    </div>
+                    <div>
+                      <p className="font-semibold text-gray-900">{item.label}</p>
+                      <p className="text-xs text-gray-500 mt-0.5">{item.desc}</p>
+                    </div>
+                  </button>
+                )
+              })}
+
+              <div className="p-4 rounded-2xl border border-gray-100 bg-gray-50 text-sm text-gray-500 leading-relaxed">
+                <p className="font-medium text-gray-700 mb-1">🔒 خصوصية تامة</p>
+                جميع الرسائل تصل مباشرة للمسؤولين فقط ولا تُنشر علناً.
+              </div>
+            </div>
+
+            {/* Form */}
+            <div className="lg:col-span-2">
+              {feedbackResult?.success ? (
+                <div className="flex flex-col items-center justify-center h-full text-center py-16 bg-green-50 rounded-2xl border border-green-200">
+                  <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center mb-4">
+                    <CheckCircle className="h-8 w-8 text-green-600" />
+                  </div>
+                  <h3 className="text-xl font-bold text-gray-900 mb-2">تم الإرسال بنجاح!</h3>
+                  <p className="text-gray-600 max-w-sm">{feedbackResult.message}</p>
+                  <button
+                    onClick={() => setFeedbackResult(null)}
+                    className="mt-6 px-6 py-2.5 rounded-xl text-sm font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 transition-colors"
+                  >
+                    إرسال رسالة أخرى
+                  </button>
                 </div>
-                <p className="text-gray-600 leading-relaxed mb-6 text-sm">"{t.text}"</p>
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm"
-                    style={{ background: 'linear-gradient(135deg, #1e3a5f, #2563eb)' }}>
-                    {t.name.charAt(0)}
+              ) : (
+                <form onSubmit={handleFeedbackSubmit} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1.5">الاسم *</label>
+                      <input
+                        name="name" value={feedbackForm.name} onChange={handleFeedbackChange} required
+                        placeholder="أدخل اسمك الكامل"
+                        className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-100"
+                        style={{ direction: 'rtl' }}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1.5">البريد الإلكتروني</label>
+                      <input
+                        name="email" value={feedbackForm.email} onChange={handleFeedbackChange} type="email"
+                        placeholder="للرد عليك (اختياري)"
+                        className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-100"
+                        style={{ direction: 'rtl' }}
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1.5">رقم الهاتف</label>
+                      <input
+                        name="phone" value={feedbackForm.phone} onChange={handleFeedbackChange}
+                        placeholder="للتواصل السريع (اختياري)"
+                        className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-100"
+                        style={{ direction: 'rtl' }}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1.5">الموضوع *</label>
+                      <input
+                        name="subject" value={feedbackForm.subject} onChange={handleFeedbackChange} required
+                        placeholder="عنوان مختصر لرسالتك"
+                        className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-100"
+                        style={{ direction: 'rtl' }}
+                      />
+                    </div>
                   </div>
                   <div>
-                    <p className="font-semibold text-gray-900 text-sm">{t.name}</p>
-                    <p className="text-gray-400 text-xs">{t.role}</p>
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5">الرسالة *</label>
+                    <textarea
+                      name="message" value={feedbackForm.message} onChange={handleFeedbackChange} required
+                      placeholder="اكتب رسالتك بالتفصيل..."
+                      rows={5}
+                      className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-100 resize-none"
+                      style={{ direction: 'rtl' }}
+                    />
                   </div>
-                </div>
-              </div>
-            ))}
+                  {feedbackResult?.success === false && (
+                    <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm text-red-700">
+                      {feedbackResult.message}
+                    </div>
+                  )}
+                  <button
+                    type="submit" disabled={feedbackLoading}
+                    className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-white font-semibold text-sm transition-all hover:opacity-90 disabled:opacity-50"
+                    style={{ background: 'linear-gradient(135deg, #0f2444 0%, #2563eb 100%)' }}
+                  >
+                    {feedbackLoading ? (
+                      <span className="flex items-center gap-2">
+                        <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
+                        جاري الإرسال...
+                      </span>
+                    ) : (
+                      <>
+                        <Send className="h-4 w-4" />
+                        إرسال الرسالة
+                      </>
+                    )}
+                  </button>
+                </form>
+              )}
+            </div>
           </div>
         </div>
       </section>

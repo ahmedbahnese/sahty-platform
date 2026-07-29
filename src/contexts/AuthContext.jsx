@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect } from 'react'
+import { createContext, useContext, useState, useEffect, useRef } from 'react'
 
 const AuthContext = createContext()
 
@@ -13,28 +13,37 @@ export function useAuth() {
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [token, setToken] = useState(localStorage.getItem('token'))
+  const [token, setToken] = useState(() => localStorage.getItem('token'))
+  // نستخدم ref للـ token حتى يمكن استخدامه داخل fetchUserProfile بدون closures قديمة
+  const tokenRef = useRef(token)
 
-  // API Base URL
   const API_BASE = '/api'
 
   useEffect(() => {
-    // التحقق من وجود token فقط عند التحميل الأولي (وليس عند كل تغيير للـ token)
-    // نتجنب إعادة الجلب عند تسجيل الدخول لأن بيانات المستخدم وصلت مع الـ token
+    tokenRef.current = token
+  }, [token])
+
+  // يعمل مرة واحدة عند التحميل الأولي فقط لاستعادة الجلسة
+  useEffect(() => {
     const storedToken = localStorage.getItem('token')
-    if (storedToken && storedToken === token) {
-      fetchUserProfile()
+    if (storedToken) {
+      fetchUserProfile(storedToken)
     } else {
       setLoading(false)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const fetchUserProfile = async () => {
+  const fetchUserProfile = async (tokenToUse) => {
+    const activeToken = tokenToUse || tokenRef.current
+    if (!activeToken) {
+      setLoading(false)
+      return
+    }
     try {
       const response = await fetch(`${API_BASE}/auth/profile`, {
         headers: {
-          'Authorization': `Bearer ${token}`,
+          'Authorization': `Bearer ${activeToken}`,
           'Content-Type': 'application/json'
         }
       })
@@ -42,31 +51,37 @@ export function AuthProvider({ children }) {
       if (response.ok) {
         const data = await response.json()
         setUser(data.user)
-      } else {
-        // Token غير صالح
-        logout()
+      } else if (response.status === 401) {
+        // Token منتهي الصلاحية أو غير صالح — تسجيل خروج صامت
+        _clearSession()
       }
-    } catch (error) {
-      console.error('خطأ في جلب الملف الشخصي:', error)
-      logout()
+      // أي خطأ آخر (500، network error) → نبقي المستخدم مسجلاً دخوله
+    } catch {
+      // خطأ شبكة أو الخادم غير متاح — لا نسجّل خروج المستخدم
+      console.warn('تعذّر التحقق من الجلسة — الخادم غير متاح مؤقتاً')
     } finally {
       setLoading(false)
     }
+  }
+
+  const _clearSession = () => {
+    setUser(null)
+    setToken(null)
+    tokenRef.current = null
+    localStorage.removeItem('token')
   }
 
   const login = async (identifier, password) => {
     try {
       const response = await fetch(`${API_BASE}/auth/login`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ identifier, password })
       })
-
       const data = await response.json()
 
       if (response.ok) {
+        tokenRef.current = data.token
         setToken(data.token)
         setUser(data.user)
         localStorage.setItem('token', data.token)
@@ -74,8 +89,7 @@ export function AuthProvider({ children }) {
       } else {
         return { success: false, message: data.message }
       }
-    } catch (error) {
-      console.error('خطأ في تسجيل الدخول:', error)
+    } catch {
       return { success: false, message: 'خطأ في الاتصال بالخادم' }
     }
   }
@@ -84,16 +98,14 @@ export function AuthProvider({ children }) {
     try {
       const response = await fetch(`${API_BASE}/auth/register`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(userData)
       })
-
       const data = await response.json()
 
       if (response.ok) {
         if (data.token && data.user) {
+          tokenRef.current = data.token
           setToken(data.token)
           setUser(data.user)
           localStorage.setItem('token', data.token)
@@ -102,29 +114,26 @@ export function AuthProvider({ children }) {
       } else {
         return { success: false, message: data.message }
       }
-    } catch (error) {
-      console.error('خطأ في التسجيل:', error)
+    } catch {
       return { success: false, message: 'خطأ في الاتصال بالخادم' }
     }
   }
 
   const logout = async () => {
+    const currentToken = tokenRef.current
+    _clearSession()
     try {
-      if (token) {
+      if (currentToken) {
         await fetch(`${API_BASE}/auth/logout`, {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${token}`,
+            'Authorization': `Bearer ${currentToken}`,
             'Content-Type': 'application/json'
           }
         })
       }
-    } catch (error) {
-      console.error('خطأ في تسجيل الخروج:', error)
-    } finally {
-      setUser(null)
-      setToken(null)
-      localStorage.removeItem('token')
+    } catch {
+      // تجاهل أخطاء الشبكة عند تسجيل الخروج
     }
   }
 
@@ -133,24 +142,16 @@ export function AuthProvider({ children }) {
       const response = await fetch(`${API_BASE}/auth/change-password`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${token}`,
+          'Authorization': `Bearer ${tokenRef.current}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({
-          current_password: currentPassword,
-          new_password: newPassword
-        })
+        body: JSON.stringify({ current_password: currentPassword, new_password: newPassword })
       })
-
       const data = await response.json()
-
-      if (response.ok) {
-        return { success: true, message: data.message }
-      } else {
-        return { success: false, message: data.message }
-      }
-    } catch (error) {
-      console.error('خطأ في تغيير كلمة المرور:', error)
+      return response.ok
+        ? { success: true, message: data.message }
+        : { success: false, message: data.message }
+    } catch {
       return { success: false, message: 'خطأ في الاتصال بالخادم' }
     }
   }
@@ -187,4 +188,3 @@ export function AuthProvider({ children }) {
     </AuthContext.Provider>
   )
 }
-

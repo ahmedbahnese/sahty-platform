@@ -32,6 +32,7 @@ from src.models.family_health import FamilyGroup, FamilyMember, FamilyMemberHeal
 from src.routes.ai import ai_bp
 from src.routes.family_health import family_bp
 from src.routes.medication import medication_bp
+from src.routes.feedback import feedback_bp, Feedback
 from werkzeug.security import generate_password_hash
 
 app = Flask(__name__, static_folder=os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static'))
@@ -58,6 +59,7 @@ app.register_blueprint(emergency_bp, url_prefix='/api')
 app.register_blueprint(ai_bp)
 app.register_blueprint(family_bp)
 app.register_blueprint(medication_bp)
+app.register_blueprint(feedback_bp)
 
 # Database
 db_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'src', 'database', 'app.db')
