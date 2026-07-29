@@ -19,13 +19,16 @@ export function AuthProvider({ children }) {
   const API_BASE = '/api'
 
   useEffect(() => {
-    // التحقق من وجود token عند تحميل التطبيق
-    if (token) {
+    // التحقق من وجود token فقط عند التحميل الأولي (وليس عند كل تغيير للـ token)
+    // نتجنب إعادة الجلب عند تسجيل الدخول لأن بيانات المستخدم وصلت مع الـ token
+    const storedToken = localStorage.getItem('token')
+    if (storedToken && storedToken === token) {
       fetchUserProfile()
     } else {
       setLoading(false)
     }
-  }, [token])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const fetchUserProfile = async () => {
     try {
