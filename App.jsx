@@ -13,6 +13,8 @@ import BloodBankPage from './pages/BloodBankPage'
 import EmergencyPage from './pages/EmergencyPage'
 import AIAssistantPage from './pages/AIAssistantPage'
 import AdminDashboardPage from './pages/AdminDashboardPage'
+import LabRequestsPage from './pages/LabRequestsPage'
+import RadiologyRequestsPage from './pages/RadiologyRequestsPage'
 import './App.css'
 
 // مكون للحماية - يتطلب تسجيل الدخول
@@ -93,6 +95,26 @@ function AppContent() {
             element={
               <ProtectedRoute>
                 <AdminDashboardPage />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* التحاليل */}
+          <Route
+            path="/lab-requests"
+            element={
+              <ProtectedRoute>
+                <LabRequestsPage />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* الأشعة */}
+          <Route
+            path="/radiology"
+            element={
+              <ProtectedRoute>
+                <RadiologyRequestsPage />
               </ProtectedRoute>
             }
           />

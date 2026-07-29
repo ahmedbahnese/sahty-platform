@@ -15,7 +15,9 @@ import {
   Droplets,
   ClipboardList,
   Calendar,
-  FileText
+  FileText,
+  FlaskConical,
+  Scan
 } from 'lucide-react'
 
 export default function Navbar() {
@@ -120,6 +122,22 @@ export default function Navbar() {
                     >
                       <FileText className="h-4 w-4 ml-2" />
                       الوصفات الطبية
+                    </Link>
+                    <Link
+                      to="/lab-requests"
+                      className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                      onClick={() => setUserMenuOpen(false)}
+                    >
+                      <FlaskConical className="h-4 w-4 ml-2" />
+                      التحاليل المخبرية
+                    </Link>
+                    <Link
+                      to="/radiology"
+                      className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                      onClick={() => setUserMenuOpen(false)}
+                    >
+                      <Scan className="h-4 w-4 ml-2" />
+                      الأشعة والتصوير
                     </Link>
                     <div className="border-t my-1" />
                     <button
