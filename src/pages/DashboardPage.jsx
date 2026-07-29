@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { Button } from '@/components/ui/button'
 import {
   Activity, BarChart3, Building2, CheckCircle2, Clock3, Heart,
   Hospital, Languages, Loader2, LogOut, ShieldCheck, Stethoscope,
-  TestTube2, Users, XCircle
+  TestTube2, Users, XCircle, ClipboardList, Pill, Syringe
 } from 'lucide-react'
 
 const providerLabels = {
@@ -75,17 +76,29 @@ function ProviderDashboard({ user }) {
 }
 
 function PatientDashboard() {
+  const quickLinks = [
+    { label: 'الملف الطبي الإلكتروني', desc: 'الأمراض، العمليات، التحاليل، الأشعة والمزيد', icon: ClipboardList, color: 'blue', to: '/medical-record' },
+    { label: 'الأطباء', desc: 'ابحث عن طبيب وحجز موعد', icon: Stethoscope, color: 'purple', to: '/doctors' },
+    { label: 'بنك الدم', desc: 'التبرع بالدم وطلبات الدم', icon: Heart, color: 'red', to: '/blood-bank' },
+  ]
+  const tones = { blue: 'bg-blue-600', purple: 'bg-purple-600', red: 'bg-rose-600' }
   return (
     <div className="space-y-6">
       <div className="grid gap-5 md:grid-cols-3">
         <StatCard label="المواعيد القادمة" value="0" icon={Clock3} />
-        <StatCard label="الأدوية النشطة" value="0" icon={Heart} tone="green" />
-        <StatCard label="التقارير الطبية" value="0" icon={Activity} tone="purple" />
+        <StatCard label="الأدوية النشطة" value="0" icon={Pill} tone="green" />
+        <StatCard label="التطعيمات" value="0" icon={Syringe} tone="purple" />
       </div>
-      <div className="rounded-2xl border border-gray-100 bg-white p-8 text-center shadow-sm">
-        <Heart className="mx-auto h-12 w-12 text-blue-500" />
-        <h2 className="mt-4 text-xl font-bold text-gray-900">ملفك الصحي في أمان</h2>
-        <p className="mt-2 text-gray-500">ستظهر هنا مواعيدك وتقاريرك الطبية عند إضافتها.</p>
+      <div className="grid gap-4 md:grid-cols-3">
+        {quickLinks.map(l => (
+          <Link key={l.to} to={l.to} className="group rounded-2xl border border-gray-100 bg-white p-6 shadow-sm hover:shadow-md hover:border-blue-200 transition-all">
+            <div className={`w-12 h-12 rounded-xl ${tones[l.color]} flex items-center justify-center mb-4 group-hover:scale-110 transition-transform`}>
+              <l.icon className="w-6 h-6 text-white" />
+            </div>
+            <h3 className="font-bold text-gray-900">{l.label}</h3>
+            <p className="text-sm text-gray-500 mt-1">{l.desc}</p>
+          </Link>
+        ))}
       </div>
     </div>
   )

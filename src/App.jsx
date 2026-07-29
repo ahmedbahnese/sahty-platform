@@ -11,6 +11,7 @@ import DoctorsPage from './pages/DoctorsPage'
 import ServicesPage from './pages/ServicesPage'
 import BloodBankPage from './pages/BloodBankPage'
 import EmergencyPage from './pages/EmergencyPage'
+import MedicalRecordPage from './pages/MedicalRecordPage'
 import './App.css'
 
 // مكون للحماية - يتطلب تسجيل الدخول
@@ -80,6 +81,14 @@ function AppContent() {
             element={
               <ProtectedRoute>
                 <DashboardPage />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/medical-record" 
+            element={
+              <ProtectedRoute>
+                <MedicalRecordPage />
               </ProtectedRoute>
             } 
           />

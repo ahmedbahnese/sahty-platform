@@ -17,7 +17,9 @@ from src.models.blood_bank import BloodDonor, BloodRequest, BloodRequestResponse
 from src.models.hospital import Hospital, HospitalDepartment, EmergencyService, HospitalReview
 from src.models.admin import Admin, SystemOwner, SystemSettings, AuditLog
 from src.models.provider import ProviderRegistration
+from src.models.medical_record import Disease, Surgery, Vaccination, LabTest, Radiology, MedicalHistory
 from src.routes.admin import admin_bp
+from src.routes.medical_record import medical_record_bp
 from werkzeug.security import generate_password_hash
 
 app = Flask(__name__, static_folder=os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static'))
@@ -36,6 +38,7 @@ CORS(app, origins=['http://localhost:5000', 'http://localhost:5173', 'https://*.
 app.register_blueprint(user_bp, url_prefix='/api')
 app.register_blueprint(auth_bp, url_prefix='/api/auth')
 app.register_blueprint(admin_bp, url_prefix='/api/admin')
+app.register_blueprint(medical_record_bp, url_prefix='/api/medical-record')
 
 # Database
 db_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'src', 'database', 'app.db')

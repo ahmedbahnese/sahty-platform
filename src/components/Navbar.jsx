@@ -12,7 +12,8 @@ import {
   Stethoscope,
   Shield,
   Phone,
-  Droplets
+  Droplets,
+  ClipboardList
 } from 'lucide-react'
 
 export default function Navbar() {
@@ -85,7 +86,7 @@ export default function Navbar() {
                 </Button>
 
                 {userMenuOpen && (
-                  <div className="absolute left-0 rtl:right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50">
+                  <div className="absolute left-0 rtl:right-0 mt-2 w-56 bg-white rounded-md shadow-lg py-1 z-50 border border-gray-100">
                     <Link
                       to="/dashboard"
                       className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
@@ -94,6 +95,15 @@ export default function Navbar() {
                       <Settings className="h-4 w-4 ml-2" />
                       لوحة التحكم
                     </Link>
+                    <Link
+                      to="/medical-record"
+                      className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                      onClick={() => setUserMenuOpen(false)}
+                    >
+                      <ClipboardList className="h-4 w-4 ml-2" />
+                      الملف الطبي
+                    </Link>
+                    <div className="border-t my-1" />
                     <button
                       onClick={handleLogout}
                       className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
