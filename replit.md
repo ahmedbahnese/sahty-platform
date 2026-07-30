@@ -1,59 +1,45 @@
-# صحتك في أمان — Sahty Healthcare Platform
+# صحتك في أمان — Sehaty Healthcare Platform
 
-## نظرة عامة
-منصة رعاية صحية متكاملة تجمع بين:
-- **الواجهة الأمامية**: React 19 + Vite + Tailwind CSS 4
-- **الواجهة الخلفية**: Flask (Python) + SQLAlchemy + JWT
+A full-stack Arabic-language healthcare web application.
 
-## كيفية التشغيل
+## Stack
+- **Frontend**: React 19 + Vite (port 5000), Tailwind CSS v4, Radix UI, React Router v7
+- **Backend**: Flask 3 (port 5001), SQLAlchemy, SQLite (dev) / PostgreSQL (prod)
+- **Auth**: JWT via PyJWT + bcrypt
 
-### الخادمان:
-| الخادم | الأمر | المنفذ |
-|--------|-------|--------|
-| Flask API | `python main.py` | 5001 |
-| Vite (React) | `npm run dev` | 5000 |
+## Running the app
+Two workflows must both be running:
+1. **Flask API** — `python main.py` (port 5001)
+2. **Start application** — `npm run dev` (port 5000, proxies `/api/*` → port 5001)
 
-الواجهة الأمامية (5000) تُحيل طلبات `/api/*` تلقائياً إلى Flask (5001) عبر Vite proxy.
+Open the preview on **port 5000** to see the app.
 
-## المتغيرات والأسرار المطلوبة
-
-| المفتاح | النوع | الوصف |
-|---------|-------|-------|
-| `SESSION_SECRET` | Secret | مفتاح تشفير الجلسات والـ JWT |
-| `ADMIN_EMAIL` | EnvVar | بريد حساب المؤسس |
-| `ADMIN_PASSWORD` | Secret | كلمة مرور المؤسس — يُحدَّث تلقائياً عند كل إعادة تشغيل |
-| `ADMIN_FIRST_NAME` | EnvVar | الاسم الأول للمؤسس |
-| `ADMIN_LAST_NAME` | EnvVar | الاسم الأخير للمؤسس |
-| `OPENAI_API_KEY` | Secret | مطلوب لميزات المساعد الذكي |
-
-## البنية الأساسية
+## Project structure
 ```
-/
-├── main.py              # Flask entry point (port 5001)
-├── src/
-│   ├── models/          # SQLAlchemy models
-│   ├── routes/          # Flask blueprints (API)
-│   ├── services/        # AI service, etc.
-│   ├── pages/           # React pages
-│   ├── components/      # React components
-│   └── contexts/        # React contexts (Auth)
-├── App.jsx              # React router + FloatingAIChat
-└── main.jsx             # React entry point
+main.py              Flask entry point
+requirements.txt     Python dependencies
+package.json         Node dependencies
+vite.config.js       Vite config (proxy, host)
+index.html           Vite HTML entry
+src/
+  main.jsx           React entry
+  App.jsx            Router + layout
+  index.css          Global styles
+  pages/             Page components
+  components/        Shared UI components (ui/ = shadcn/radix)
+  contexts/          AuthContext
+  models/            SQLAlchemy models
+  routes/            Flask blueprint routes
+  services/          Business logic services
+  database/app.db    SQLite database file
 ```
 
-## ميزات رئيسية
-- ✅ تسجيل دخول JWT مع جلسات خادمية
-- ✅ أنواع مستخدمين: مريض، طبيب، صيدلية، معمل، مستشفى، مشرف
-- ✅ مساعد ذكي عائم قابل للسحب على جميع الصفحات
-- ✅ لوحة إدارة للمشرف (super_admin)
-- ✅ بنك الدم، الطوارئ، التحاليل، الأشعة، الوصفات
+## Environment variables / secrets
+| Name | Purpose | Required |
+|------|---------|----------|
+| `SESSION_SECRET` | Flask secret key + JWT signing | ✅ Required |
+| `DATABASE_URL` | Override SQLite with PostgreSQL | Optional |
+| `ADMIN_EMAIL` | Bootstrap admin account email (default: admin@sehaty.com) | Optional |
+| `ADMIN_PASSWORD` | Bootstrap admin account password | Optional |
 
-## ملاحظات تقنية
-- كلمة مرور المؤسس تُحدَّث تلقائياً من `ADMIN_PASSWORD` عند كل بدء تشغيل Flask
-- قاعدة البيانات: PostgreSQL (Replit-managed) أو SQLite كبديل
-- المساعد الذكي يحتاج `OPENAI_API_KEY` — بدونه يُظهر رسالة خطأ واضحة
-
-## تفضيلات المستخدم
-- اللغة العربية للواجهة (RTL)
-- ألوان: أبيض + كحلي داكن (`#0f2444`) + أزرق (`#2563eb`)
-- المساعد الذكي عائم ويمكن سحبه في كل صفحة
+## User preferences
