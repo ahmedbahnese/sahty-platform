@@ -85,6 +85,29 @@ def token_required(f):
         return f(current_user, *args, **kwargs)
     return decorated
 
+def optional_token(f):
+    """Like token_required but passes None when no valid token provided."""
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        token = request.headers.get('Authorization')
+        current_user = None
+        if token:
+            try:
+                if token.startswith('Bearer '):
+                    token = token[7:]
+                data = jwt.decode(token, JWT_SECRET, algorithms=['HS256'])
+                user = db.session.get(User, data['user_id'])
+                session = UserSession.query.filter_by(
+                    token_hash=_hash_token(token), user_id=data['user_id']
+                ).first()
+                if user and session and session.is_valid and user.is_active:
+                    current_user = user
+            except Exception:
+                pass
+        return f(current_user, *args, **kwargs)
+    return decorated
+
+
 def admin_required(f):
     @wraps(f)
     def decorated(current_user, *args, **kwargs):

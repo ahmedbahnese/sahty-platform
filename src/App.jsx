@@ -18,6 +18,7 @@ import AIAssistantPage from './pages/AIAssistantPage'
 import MedicationTrackingPage from './pages/MedicationTrackingPage'
 import FamilyHealthPage from './pages/FamilyHealthPage'
 import AdminDashboardPage from './pages/AdminDashboardPage'
+import FloatingAIChat from './components/FloatingAIChat'
 import './App.css'
 
 // مكون للحماية - يتطلب تسجيل الدخول
@@ -149,6 +150,7 @@ function AppContent() {
         </Routes>
       </main>
       <Footer />
+      <FloatingAIChat />
     </div>
   )
 }

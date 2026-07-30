@@ -93,9 +93,9 @@ with app.app_context():
 
     # Bootstrap the first system administrator only when explicitly configured.
     # This keeps admin creation out of the public registration flow.
-    bootstrap_email = os.environ.get('ADMIN_EMAIL')
+    bootstrap_email = os.environ.get('ADMIN_EMAIL', 'admin@sehaty.com')
     bootstrap_password = os.environ.get('ADMIN_PASSWORD')
-    if bootstrap_email and bootstrap_password:
+    if bootstrap_password:
         bootstrap_user = User.query.filter_by(email=bootstrap_email).first()
         if not bootstrap_user:
             bootstrap_user = User(

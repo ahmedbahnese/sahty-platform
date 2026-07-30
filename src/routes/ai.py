@@ -7,7 +7,7 @@ from werkzeug.utils import secure_filename
 from datetime import datetime
 import json
 
-from src.routes.auth import token_required
+from src.routes.auth import token_required, optional_token
 from src.models.patient import Patient
 from src.models.medication import Medication, MedicationLog
 from src.models.user import db
@@ -37,7 +37,7 @@ def _allowed(filename, allowed_set):
 # المساعد الذكي (نصي)
 # ────────────────────────────────────────────────────
 @ai_bp.route('/chat', methods=['POST'])
-@token_required
+@optional_token
 def ai_chat(current_user):
     """المساعد الطبي الذكي - نصي"""
     data = request.get_json()
@@ -61,9 +61,9 @@ def ai_chat(current_user):
     return jsonify(result)
 
 
-# backward-compat alias
+# backward-compat alias — works with or without login
 @ai_bp.route('/voice-assistant', methods=['POST'])
-@token_required
+@optional_token
 def voice_assistant(current_user):
     return ai_chat(current_user)
 

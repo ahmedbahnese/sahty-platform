@@ -78,8 +78,15 @@ export default function DoctorsPage() {
     { name: 'طب النساء والتوليد', icon: Stethoscope },
     { name: 'طب العيون', icon: Eye },
     { name: 'طب الأعصاب', icon: Brain },
-    { name: 'طب عام', icon: Stethoscope },
+    { name: 'طب الصدر والجهاز التنفسي', icon: Stethoscope },
+    { name: 'طب الجهاز الهضمي', icon: Stethoscope },
+    { name: 'الأمراض الجلدية', icon: Stethoscope },
+    { name: 'طب المسالك البولية', icon: Stethoscope },
+    { name: 'الغدد الصماء والسكري', icon: Stethoscope },
+    { name: 'الطب النفسي', icon: Brain },
     { name: 'طب الأسنان', icon: Stethoscope },
+    { name: 'أنف وأذن وحنجرة', icon: Stethoscope },
+    { name: 'طب عام', icon: Stethoscope },
   ]
 
   const cities = ['القاهرة', 'الإسكندرية', 'الجيزة', 'الشرقية', 'البحيرة', 'المنوفية']
