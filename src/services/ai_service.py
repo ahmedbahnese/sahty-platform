@@ -141,8 +141,12 @@ class AIService:
     # ──────────────────────────────────────────────
     # المساعد الذكي
     # ──────────────────────────────────────────────
-    def voice_assistant(self, user_input: str, context: Dict = None) -> Dict:
-        """المساعد الذكي للاستشارات الطبية"""
+    def voice_assistant(self, user_input: str, context: Dict = None,
+                        history: List[Dict] = None) -> Dict:
+        """
+        المساعد الذكي للاستشارات الطبية مع دعم سياق المحادثة متعددة الأدوار.
+        history: قائمة رسائل سابقة بصيغة [{'role': 'user'|'assistant', 'content': '...'}]
+        """
         try:
             system_prompt = (
                 "أنت مساعد طبي ذكي متخصص في تقديم المشورة الطبية الأولية باللغة العربية.\n\n"
@@ -165,6 +169,14 @@ class AIService:
                     f"أدوية حالية={context.get('current_medications','لا توجد')}"
                 )
                 messages.append({"role": "system", "content": ctx})
+
+            # إضافة سياق المحادثة السابقة (حتى 10 رسائل للتوازن بين السياق والتكلفة)
+            if history:
+                for msg in history[-10:]:
+                    role = msg.get('role')
+                    content = msg.get('content', '')
+                    if role in ('user', 'assistant') and content:
+                        messages.append({"role": role, "content": content})
 
             messages.append({"role": "user", "content": user_input})
 

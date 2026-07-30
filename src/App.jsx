@@ -21,6 +21,7 @@ import AdminDashboardPage from './pages/AdminDashboardPage'
 import LabRequestsPage from './pages/LabRequestsPage'
 import RadiologyRequestsPage from './pages/RadiologyRequestsPage'
 import HospitalsPage from './pages/HospitalsPage'
+import DoctorProfilePage from './pages/DoctorProfilePage'
 import FloatingAIChat from './components/FloatingAIChat'
 import './App.css'
 
@@ -168,6 +169,9 @@ function AppContent() {
 
           {/* المستشفيات — عامة */}
           <Route path="/hospitals" element={<HospitalsPage />} />
+
+          {/* ملف الطبيب — عام */}
+          <Route path="/doctors/:id" element={<DoctorProfilePage />} />
 
           {/* إعادة توجيه للصفحة الرئيسية */}
           <Route path="*" element={<Navigate to="/" />} />

@@ -51,11 +51,21 @@ def _build_chat_context(current_user):
 @ai_bp.route('/chat', methods=['POST'])
 @optional_token
 def ai_chat(current_user):
-    """المساعد الطبي الذكي - نصي"""
+    """المساعد الطبي الذكي - نصي مع دعم سياق المحادثة"""
     data = request.get_json()
     if not data or 'message' not in data:
         return jsonify({'success': False, 'error': 'الرسالة مطلوبة'}), 400
-    result = get_ai_service().voice_assistant(data['message'], _build_chat_context(current_user))
+
+    # history: [{'role': 'user'|'assistant', 'content': '...'}] — اختياري
+    history = data.get('history', [])
+    if not isinstance(history, list):
+        history = []
+
+    result = get_ai_service().voice_assistant(
+        data['message'],
+        _build_chat_context(current_user),
+        history=history,
+    )
     return jsonify(result)
 
 
@@ -66,7 +76,14 @@ def voice_assistant(current_user):
     data = request.get_json()
     if not data or 'message' not in data:
         return jsonify({'success': False, 'error': 'الرسالة مطلوبة'}), 400
-    result = get_ai_service().voice_assistant(data['message'], _build_chat_context(current_user))
+    history = data.get('history', [])
+    if not isinstance(history, list):
+        history = []
+    result = get_ai_service().voice_assistant(
+        data['message'],
+        _build_chat_context(current_user),
+        history=history,
+    )
     return jsonify(result)
 
 

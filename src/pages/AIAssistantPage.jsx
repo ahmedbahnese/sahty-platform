@@ -80,7 +80,15 @@ export default function AIAssistantPage() {
     setIsLoading(true)
 
     try {
-      // محاكاة استدعاء API
+      // إرسال سياق المحادثة الكاملة للحصول على ردود أكثر دقة
+      const conversationHistory = messages
+        .filter(m => m.type === 'user' || m.type === 'bot')
+        .slice(-10)  // آخر 10 رسائل
+        .map(m => ({
+          role: m.type === 'user' ? 'user' : 'assistant',
+          content: m.content,
+        }))
+
       const response = await fetch('/api/ai/voice-assistant', {
         method: 'POST',
         headers: {
@@ -88,7 +96,8 @@ export default function AIAssistantPage() {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         },
         body: JSON.stringify({
-          message: inputMessage
+          message: inputMessage,
+          history: conversationHistory,
         })
       })
 

@@ -1,42 +1,41 @@
+# Core
 Flask==3.0.3
-Flask-SQLAlchemy==3.1.1
 Flask-Cors==4.0.1
+Flask-SQLAlchemy==3.1.1
+Flask-Migrate==4.1.0
+Flask-Limiter==4.1.1
 Werkzeug==3.0.3
 gunicorn==22.0.0
+
+# Auth & Security
 PyJWT==2.8.0
-SQLAlchemy==2.0.36
-requests==2.32.3
-pandas==2.2.2
-numpy==1.26.4
-scikit-learn==1.5.1
-matplotlib==3.9.2
-reportlab==4.2.2
-psycopg2-binary==2.9.9
 bcrypt
-boto3
 cryptography
-dropbox
-Flask==3.0.3
-Flask-Cors==4.0.1
-Flask-SQLAlchemy==3.1.1
-gtts
+
+# Database
+SQLAlchemy==2.0.36
+psycopg2-binary==2.9.9
+
+# AI & ML
 openai
-PyJWT==2.8.0
+scikit-learn==1.5.1
+numpy==1.26.4
+pandas==2.2.2
+matplotlib==3.9.2
+
+# Reports
+reportlab==4.2.2
+
+# Storage
+boto3
+dropbox
+
+# Utilities
+requests==2.32.3
 pyotp
-pyttsx3
 qrcode
 schedule
-sift-stack-py
+gtts
+pyttsx3
 speechrecognition
-SQLAlchemy==2.0.36
-Werkzeug==3.0.3
-Flask==3.0.3
-Flask-Cors==4.0.1
-Flask-SQLAlchemy==3.1.1
-PyJWT==2.8.0
-Werkzeug==3.0.3
-Flask==3.0.3
-Flask-Cors==4.0.1
-Flask-SQLAlchemy==3.1.1
-PyJWT==2.8.0
-Werkzeug==3.0.3
+sift-stack-py

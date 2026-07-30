@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
+import NotificationBell from './NotificationBell'
 import { 
   Menu, 
   X, 
@@ -95,6 +96,9 @@ export default function Navbar() {
 
           {/* Desktop User */}
           <div className="hidden md:flex items-center gap-3">
+            {/* Notification Bell — shows only when logged in */}
+            <NotificationBell />
+
             {isAuthenticated ? (
               <div className="relative">
                 <button
