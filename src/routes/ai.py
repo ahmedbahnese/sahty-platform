@@ -159,9 +159,9 @@ def analyze_voice(current_user):
 # اقتراح التشخيص (فحص الأعراض)
 # ────────────────────────────────────────────────────
 @ai_bp.route('/symptom-checker', methods=['POST'])
-@token_required
+@optional_token
 def symptom_checker(current_user):
-    """فحص الأعراض واقتراح التشخيص"""
+    """فحص الأعراض واقتراح التشخيص — متاح للضيوف أيضاً"""
     data = request.get_json()
     if not data or 'symptoms' not in data:
         return jsonify({'success': False, 'error': 'الأعراض مطلوبة'}), 400
@@ -171,7 +171,7 @@ def symptom_checker(current_user):
         symptoms = [s.strip() for s in symptoms.split('،') if s.strip()]
 
     patient_info = None
-    if current_user.user_type == 'patient':
+    if current_user and current_user.user_type == 'patient':
         patient = Patient.query.filter_by(user_id=current_user.id).first()
         if patient:
             from datetime import date
@@ -210,9 +210,9 @@ def medication_adherence(current_user):
 
 
 @ai_bp.route('/drug-interaction', methods=['POST'])
-@token_required
+@optional_token
 def drug_interaction(current_user):
-    """فحص تفاعلات الأدوية"""
+    """فحص تفاعلات الأدوية — متاح للضيوف أيضاً"""
     data = request.get_json()
     if not data or 'medications' not in data:
         return jsonify({'success': False, 'error': 'قائمة الأدوية مطلوبة'}), 400
