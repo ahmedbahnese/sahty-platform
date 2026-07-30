@@ -36,6 +36,18 @@ def _allowed(filename, allowed_set):
 # ────────────────────────────────────────────────────
 # المساعد الذكي (نصي)
 # ────────────────────────────────────────────────────
+def _build_chat_context(current_user):
+    """Build patient context dict for AI calls."""
+    context = {'user_id': current_user.id, 'user_type': current_user.user_type}
+    if current_user.user_type == 'patient':
+        patient = Patient.query.filter_by(user_id=current_user.id).first()
+        if patient:
+            from datetime import date
+            age = (date.today() - patient.date_of_birth).days // 365 if patient.date_of_birth else None
+            context.update({'age': age, 'gender': patient.gender, 'blood_type': patient.blood_type})
+    return context
+
+
 @ai_bp.route('/chat', methods=['POST'])
 @optional_token
 def ai_chat(current_user):
@@ -43,21 +55,7 @@ def ai_chat(current_user):
     data = request.get_json()
     if not data or 'message' not in data:
         return jsonify({'success': False, 'error': 'الرسالة مطلوبة'}), 400
-
-    context = {'user_id': current_user.id, 'user_type': current_user.user_type}
-
-    if current_user.user_type == 'patient':
-        patient = Patient.query.filter_by(user_id=current_user.id).first()
-        if patient:
-            from datetime import date
-            age = (date.today() - patient.date_of_birth).days // 365 if patient.date_of_birth else None
-            context.update({
-                'age': age,
-                'gender': patient.gender,
-                'blood_type': patient.blood_type
-            })
-
-    result = get_ai_service().voice_assistant(data['message'], context)
+    result = get_ai_service().voice_assistant(data['message'], _build_chat_context(current_user))
     return jsonify(result)
 
 
@@ -65,7 +63,11 @@ def ai_chat(current_user):
 @ai_bp.route('/voice-assistant', methods=['POST'])
 @optional_token
 def voice_assistant(current_user):
-    return ai_chat(current_user)
+    data = request.get_json()
+    if not data or 'message' not in data:
+        return jsonify({'success': False, 'error': 'الرسالة مطلوبة'}), 400
+    result = get_ai_service().voice_assistant(data['message'], _build_chat_context(current_user))
+    return jsonify(result)
 
 
 # ────────────────────────────────────────────────────

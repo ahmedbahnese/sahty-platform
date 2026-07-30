@@ -18,6 +18,9 @@ import AIAssistantPage from './pages/AIAssistantPage'
 import MedicationTrackingPage from './pages/MedicationTrackingPage'
 import FamilyHealthPage from './pages/FamilyHealthPage'
 import AdminDashboardPage from './pages/AdminDashboardPage'
+import LabRequestsPage from './pages/LabRequestsPage'
+import RadiologyRequestsPage from './pages/RadiologyRequestsPage'
+import HospitalsPage from './pages/HospitalsPage'
 import FloatingAIChat from './components/FloatingAIChat'
 import './App.css'
 
@@ -135,7 +138,25 @@ function AppContent() {
             }
           />
 
-              {/* لوحة الإدارة */}
+              {/* صفحات مقدمي الخدمة */}
+          <Route
+            path="/lab-requests"
+            element={
+              <ProtectedRoute>
+                <LabRequestsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/radiology"
+            element={
+              <ProtectedRoute>
+                <RadiologyRequestsPage />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* لوحة الإدارة */}
           <Route
             path="/admin"
             element={
@@ -144,6 +165,9 @@ function AppContent() {
               </ProtectedRoute>
             }
           />
+
+          {/* المستشفيات — عامة */}
+          <Route path="/hospitals" element={<HospitalsPage />} />
 
           {/* إعادة توجيه للصفحة الرئيسية */}
           <Route path="*" element={<Navigate to="/" />} />

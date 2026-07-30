@@ -40,6 +40,7 @@ export default function Navbar() {
   const navLinks = [
     { path: '/', label: 'الرئيسية', icon: Heart },
     { path: '/doctors', label: 'الأطباء', icon: Stethoscope },
+    { path: '/hospitals', label: 'المستشفيات', icon: LayoutDashboard },
     { path: '/services', label: 'الخدمات', icon: Shield },
     { path: '/blood-bank', label: 'بنك الدم', icon: Droplets },
     { path: '/emergency', label: 'الطوارئ', icon: Phone }

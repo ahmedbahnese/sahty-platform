@@ -49,6 +49,8 @@ export default function EmergencyPage() {
   /* QR */
   const [qrData, setQrData]         = useState(null)
   const [qrLoading, setQrLoading]   = useState(false)
+  const [qrEditing, setQrEditing]   = useState(false)
+  const [qrEditForm, setQrEditForm] = useState({ blood_type:'', phone:'', ec_name:'', ec_phone:'' })
 
   /* family */
   const [contacts, setContacts]     = useState([])
@@ -483,8 +485,31 @@ export default function EmergencyPage() {
         {/* ════════════ QR ════════════ */}
         {tab === 'qr' && (
           <div className="pb-10">
+            {/* print styles injected inline */}
+            <style>{`
+              @media print {
+                body > *:not(#emergency-print-card) { display: none !important; }
+                #emergency-print-card { display: block !important; page-break-inside: avoid; }
+                nav, footer, button { display: none !important; }
+              }
+            `}</style>
+
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
-              <h2 className="font-bold text-gray-800 mb-1 flex items-center gap-2"><QrCode size={18} className="text-red-500" /> بطاقة الطوارئ الذكية</h2>
+              <div className="flex items-center justify-between mb-1">
+                <h2 className="font-bold text-gray-800 flex items-center gap-2"><QrCode size={18} className="text-red-500" /> بطاقة الطوارئ الذكية</h2>
+                {qrData && !qrEditing && (
+                  <div className="flex gap-2">
+                    <button onClick={() => { setQrEditForm({ blood_type: qrData.card.blood_type||'', phone: qrData.card.phone||'', ec_name: qrData.card.ec_name||'', ec_phone: qrData.card.ec_phone||'' }); setQrEditing(true) }}
+                      className="text-xs bg-blue-50 text-blue-600 border border-blue-200 px-3 py-1.5 rounded-lg hover:bg-blue-100 font-medium">
+                      تعديل
+                    </button>
+                    <button onClick={() => window.print()}
+                      className="text-xs bg-gray-50 text-gray-700 border border-gray-200 px-3 py-1.5 rounded-lg hover:bg-gray-100 font-medium flex items-center gap-1">
+                      🖨 طباعة PDF
+                    </button>
+                  </div>
+                )}
+              </div>
               <p className="text-xs text-gray-500 mb-4">يحتوي QR على بياناتك الطارئة — يمكن لأي هاتف قراءته فوراً</p>
 
               {!isAuthenticated ? (
@@ -493,38 +518,108 @@ export default function EmergencyPage() {
                 <div className="flex justify-center py-10"><div className="animate-spin rounded-full h-10 w-10 border-b-2 border-red-600"/></div>
               ) : qrData ? (
                 <div className="space-y-4">
-                  {/* QR Image */}
-                  <div className="flex flex-col items-center bg-gray-50 rounded-2xl p-5">
-                    <img src={`data:image/png;base64,${qrData.qr_base64}`} alt="QR طوارئ"
-                      className="w-48 h-48 rounded-xl shadow-sm" />
-                    <p className="text-xs text-gray-400 mt-2">امسح بأي هاتف في حالة الطوارئ</p>
-                  </div>
-
-                  {/* بيانات البطاقة */}
-                  <div className="border border-red-100 rounded-xl overflow-hidden">
-                    <div className="bg-red-600 text-white px-4 py-2.5 flex items-center gap-2">
-                      <Heart size={14}/>
-                      <span className="font-semibold text-sm">بيانات الطوارئ</span>
-                    </div>
-                    <div className="p-3 space-y-2 text-sm">
-                      {[
-                        ['الاسم',           qrData.card.name],
-                        ['فصيلة الدم',      qrData.card.blood_type],
-                        ['تاريخ الميلاد',   qrData.card.dob],
-                        ['الهاتف',          qrData.card.phone],
-                        ['الحساسية',        qrData.card.allergies?.join(', ') || 'لا يوجد'],
-                        ['الأدوية الحالية', qrData.card.medications?.join(', ') || 'لا يوجد'],
-                        ['اتصال الطوارئ',   `${qrData.card.ec_name} — ${qrData.card.ec_phone}`],
-                      ].map(([label, val]) => (
-                        <div key={label} className="flex justify-between items-start border-b border-gray-50 pb-1.5 last:border-0 last:pb-0">
-                          <span className="text-gray-500 text-xs">{label}</span>
-                          <span className="font-medium text-gray-800 text-xs text-left max-w-[55%]">{val}</span>
+                  {/* Edit form */}
+                  {qrEditing && (
+                    <form className="bg-blue-50 rounded-xl p-4 space-y-3 border border-blue-200"
+                      onSubmit={async e => {
+                        e.preventDefault()
+                        setBusy(true)
+                        try {
+                          const res = await fetch(`${API}/auth/profile`, {
+                            method: 'PUT',
+                            headers: hdr,
+                            body: JSON.stringify({
+                              blood_type: qrEditForm.blood_type,
+                              phone: qrEditForm.phone,
+                              emergency_contact_name: qrEditForm.ec_name,
+                              emergency_contact_phone: qrEditForm.ec_phone,
+                            })
+                          })
+                          if (res.ok) { showToast('تم تحديث البطاقة'); setQrEditing(false); loadQR() }
+                          else { const d = await res.json(); showToast(d.message || 'حدث خطأ', 'error') }
+                        } finally { setBusy(false) }
+                      }}>
+                      <h3 className="text-sm font-semibold text-blue-800 mb-2">تعديل بيانات الطوارئ</h3>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-xs text-gray-600 mb-1">فصيلة الدم</label>
+                          <select value={qrEditForm.blood_type} onChange={e => setQrEditForm(f => ({...f, blood_type: e.target.value}))}
+                            className="w-full border border-gray-200 bg-white rounded-lg px-3 py-2 text-sm focus:ring-red-400 focus:outline-none">
+                            <option value="">—</option>
+                            {['A+','A-','B+','B-','AB+','AB-','O+','O-'].map(t => <option key={t} value={t}>{t}</option>)}
+                          </select>
                         </div>
-                      ))}
+                        <div>
+                          <label className="block text-xs text-gray-600 mb-1">رقم الهاتف</label>
+                          <input value={qrEditForm.phone} onChange={e => setQrEditForm(f => ({...f, phone: e.target.value}))}
+                            className="w-full border border-gray-200 bg-white rounded-lg px-3 py-2 text-sm focus:ring-red-400 focus:outline-none"
+                            placeholder="01xxxxxxxxx" dir="ltr" />
+                        </div>
+                        <div>
+                          <label className="block text-xs text-gray-600 mb-1">اسم جهة الاتصال الطارئة</label>
+                          <input value={qrEditForm.ec_name} onChange={e => setQrEditForm(f => ({...f, ec_name: e.target.value}))}
+                            className="w-full border border-gray-200 bg-white rounded-lg px-3 py-2 text-sm focus:ring-red-400 focus:outline-none"
+                            placeholder="الاسم" />
+                        </div>
+                        <div>
+                          <label className="block text-xs text-gray-600 mb-1">هاتف الاتصال الطارئ</label>
+                          <input value={qrEditForm.ec_phone} onChange={e => setQrEditForm(f => ({...f, ec_phone: e.target.value}))}
+                            className="w-full border border-gray-200 bg-white rounded-lg px-3 py-2 text-sm focus:ring-red-400 focus:outline-none"
+                            placeholder="01xxxxxxxxx" dir="ltr" />
+                        </div>
+                      </div>
+                      <p className="text-xs text-blue-600">لتعديل الحساسية والأدوية، اذهب إلى الملف الطبي.</p>
+                      <div className="flex gap-2 pt-1">
+                        <button type="submit" disabled={busy}
+                          className="flex-1 bg-red-600 text-white text-sm py-2 rounded-lg hover:bg-red-700 font-medium">
+                          {busy ? 'جاري الحفظ...' : 'حفظ التغييرات'}
+                        </button>
+                        <button type="button" onClick={() => setQrEditing(false)}
+                          className="flex-1 border border-gray-200 text-gray-700 text-sm py-2 rounded-lg hover:bg-gray-50">
+                          إلغاء
+                        </button>
+                      </div>
+                    </form>
+                  )}
+
+                  {/* Printable card */}
+                  <div id="emergency-print-card">
+                    {/* QR Image */}
+                    <div className="flex flex-col items-center bg-gray-50 rounded-2xl p-5">
+                      <img src={`data:image/png;base64,${qrData.qr_base64}`} alt="QR طوارئ"
+                        className="w-48 h-48 rounded-xl shadow-sm" />
+                      <p className="text-xs text-gray-400 mt-2">امسح بأي هاتف في حالة الطوارئ</p>
+                    </div>
+
+                    {/* بيانات البطاقة */}
+                    <div className="border border-red-100 rounded-xl overflow-hidden mt-4">
+                      <div className="bg-red-600 text-white px-4 py-2.5 flex items-center gap-2">
+                        <Heart size={14}/>
+                        <span className="font-semibold text-sm">بيانات الطوارئ — صحتك في أمان</span>
+                      </div>
+                      <div className="p-3 space-y-2 text-sm">
+                        {[
+                          ['الاسم',           qrData.card.name],
+                          ['فصيلة الدم',      qrData.card.blood_type],
+                          ['تاريخ الميلاد',   qrData.card.dob],
+                          ['الهاتف',          qrData.card.phone],
+                          ['الحساسية',        qrData.card.allergies?.join(', ') || 'لا يوجد'],
+                          ['الأدوية الحالية', qrData.card.medications?.join(', ') || 'لا يوجد'],
+                          ['اتصال الطوارئ',   `${qrData.card.ec_name || '—'} — ${qrData.card.ec_phone || '—'}`],
+                        ].map(([label, val]) => (
+                          <div key={label} className="flex justify-between items-start border-b border-gray-50 pb-1.5 last:border-0 last:pb-0">
+                            <span className="text-gray-500 text-xs">{label}</span>
+                            <span className="font-medium text-gray-800 text-xs text-left max-w-[55%]">{val}</span>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   </div>
 
-                  <button onClick={loadQR} className="w-full text-sm text-blue-600 hover:underline py-1">تحديث البيانات</button>
+                  <div className="flex gap-2">
+                    <button onClick={loadQR} className="flex-1 text-sm text-blue-600 border border-blue-200 rounded-lg py-2 hover:bg-blue-50">تحديث البيانات</button>
+                    <button onClick={() => window.print()} className="flex-1 text-sm text-gray-700 border border-gray-200 rounded-lg py-2 hover:bg-gray-50">🖨 طباعة / PDF</button>
+                  </div>
                 </div>
               ) : (
                 <div className="text-center py-8">

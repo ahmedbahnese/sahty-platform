@@ -42,26 +42,76 @@ function StatCard({ label, value, icon: Icon, tone = 'blue' }) {
   )
 }
 
+const PROVIDER_QUICK_LINKS = {
+  doctor: [
+    { label: 'المواعيد',          desc: 'استعرض وأدر مواعيد مرضاك',        icon: Clock3,       color: 'blue',   to: '/appointments' },
+    { label: 'الوصفات الطبية',    desc: 'اكتب ووافق على الوصفات',           icon: ClipboardList, color: 'purple', to: '/prescriptions' },
+    { label: 'طلبات التحاليل',    desc: 'راجع نتائج التحاليل',              icon: TestTube2,    color: 'green',  to: '/lab-requests' },
+    { label: 'طلبات الأشعة',      desc: 'راجع طلبات الأشعة والتقارير',     icon: Languages,    color: 'amber',  to: '/radiology' },
+  ],
+  lab: [
+    { label: 'طلبات التحاليل',    desc: 'ارفع النتائج وأدر الطلبات',        icon: TestTube2,    color: 'green',  to: '/lab-requests' },
+    { label: 'المواعيد',          desc: 'جدولة المواعيد',                   icon: Clock3,       color: 'blue',   to: '/appointments' },
+  ],
+  radiology_center: [
+    { label: 'طلبات الأشعة',      desc: 'ارفع الصور والتقارير',             icon: Languages,    color: 'amber',  to: '/radiology' },
+    { label: 'المواعيد',          desc: 'جدولة المواعيد',                   icon: Clock3,       color: 'blue',   to: '/appointments' },
+  ],
+  pharmacy: [
+    { label: 'الوصفات الطبية',    desc: 'استعرض الوصفات المرسلة إليك',      icon: ClipboardList, color: 'purple', to: '/prescriptions' },
+    { label: 'متابعة الأدوية',    desc: 'سجل إخراج الأدوية',               icon: Activity,     color: 'green',  to: '/medications' },
+  ],
+  hospital: [
+    { label: 'المواعيد',          desc: 'إدارة مواعيد المستشفى',            icon: Clock3,       color: 'blue',   to: '/appointments' },
+    { label: 'التحاليل',          desc: 'إدارة طلبات التحاليل',             icon: TestTube2,    color: 'green',  to: '/lab-requests' },
+    { label: 'الأشعة',            desc: 'إدارة طلبات الأشعة',              icon: Languages,    color: 'amber',  to: '/radiology' },
+  ],
+}
+
+const LINK_COLORS = {
+  blue:   'bg-blue-600',
+  purple: 'bg-purple-600',
+  green:  'bg-emerald-600',
+  amber:  'bg-amber-500',
+}
+
 function ProviderDashboard({ user }) {
-  const label = {
-    doctor: 'الطبيب',
-    pharmacy: 'الصيدلية',
-    lab: 'المعمل',
-    radiology_center: 'مركز الأشعة',
-    hospital: 'المستشفى',
-  }[user.user_type]
+  const typeLabel = {
+    doctor: 'الطبيب', pharmacy: 'الصيدلية',
+    lab: 'المعمل', radiology_center: 'مركز الأشعة', hospital: 'المستشفى',
+  }[user.user_type] || 'مزود الخدمة'
+
+  const quickLinks = PROVIDER_QUICK_LINKS[user.user_type] || []
+
   return (
     <div className="space-y-6">
       <div className="rounded-2xl bg-gradient-to-l from-blue-700 to-indigo-600 p-7 text-white">
-        <p className="text-blue-100">لوحة {label}</p>
+        <p className="text-blue-100">لوحة {typeLabel}</p>
         <h2 className="mt-2 text-2xl font-bold">{user.profile?.legal_name || user.profile?.first_name || user.email}</h2>
-        <p className="mt-2 text-sm text-blue-100">يمكنك من هنا متابعة الخدمات والطلبات الخاصة بجهتك.</p>
+        <p className="mt-2 text-sm text-blue-100">استخدم الروابط أدناه لأداء عملك مباشرة.</p>
       </div>
+
+      {quickLinks.length > 0 && (
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          {quickLinks.map(l => (
+            <Link key={l.to} to={l.to}
+              className="group rounded-2xl border border-gray-100 bg-white p-6 shadow-sm hover:shadow-md hover:border-blue-200 transition-all">
+              <div className={`w-12 h-12 rounded-xl ${LINK_COLORS[l.color]} flex items-center justify-center mb-4 group-hover:scale-110 transition-transform`}>
+                <l.icon className="w-6 h-6 text-white" />
+              </div>
+              <h3 className="font-bold text-gray-900">{l.label}</h3>
+              <p className="text-sm text-gray-500 mt-1">{l.desc}</p>
+            </Link>
+          ))}
+        </div>
+      )}
+
       <div className="grid gap-5 md:grid-cols-3">
         <StatCard label="الطلبات الجديدة" value="0" icon={Clock3} tone="amber" />
         <StatCard label="الخدمات النشطة" value="0" icon={Activity} tone="green" />
         <StatCard label="التقييم العام" value="—" icon={Heart} tone="purple" />
       </div>
+
       <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
         <h3 className="text-lg font-bold text-gray-900">بيانات الاعتماد</h3>
         <div className="mt-4 grid gap-4 text-sm text-gray-600 md:grid-cols-2">
