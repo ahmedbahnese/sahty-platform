@@ -24,6 +24,7 @@ class Disease(db.Model):
     hospital = db.Column(db.String(200))
     treatment_summary = db.Column(db.Text)
     notes = db.Column(db.Text)
+    attachment_data = db.Column(db.Text)                      # base64 صورة الروشتة
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -41,6 +42,7 @@ class Disease(db.Model):
             'hospital': self.hospital,
             'treatment_summary': self.treatment_summary,
             'notes': self.notes,
+            'attachment_data': self.attachment_data,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None,
         }
@@ -107,6 +109,7 @@ class Vaccination(db.Model):
     administration_site = db.Column(db.String(100))           # ذراع يمين / ذراع يسار / فخذ
     reaction = db.Column(db.Text)                             # تفاعل ما بعد التطعيم
     notes = db.Column(db.Text)
+    attachment_data = db.Column(db.Text)                      # base64 صورة شهادة التطعيم
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     def to_dict(self):
@@ -124,6 +127,7 @@ class Vaccination(db.Model):
             'administration_site': self.administration_site,
             'reaction': self.reaction,
             'notes': self.notes,
+            'attachment_data': self.attachment_data,
             'created_at': self.created_at.isoformat() if self.created_at else None,
         }
 
@@ -146,6 +150,7 @@ class LabTest(db.Model):
     status = db.Column(db.String(20), default='normal')       # normal / abnormal / critical
     interpretation = db.Column(db.Text)
     notes = db.Column(db.Text)
+    attachment_data = db.Column(db.Text)                      # base64 صورة نتيجة التحليل
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -164,6 +169,7 @@ class LabTest(db.Model):
             'status': self.status,
             'interpretation': self.interpretation,
             'notes': self.notes,
+            'attachment_data': self.attachment_data,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None,
         }
@@ -187,6 +193,8 @@ class Radiology(db.Model):
     impression = db.Column(db.Text)                           # التفسير النهائي
     recommendation = db.Column(db.Text)                       # التوصيات
     notes = db.Column(db.Text)
+    attachment_data = db.Column(db.Text)                      # base64 صورة الأشعة
+    report_data = db.Column(db.Text)                          # base64 صورة التقرير
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -205,6 +213,8 @@ class Radiology(db.Model):
             'impression': self.impression,
             'recommendation': self.recommendation,
             'notes': self.notes,
+            'attachment_data': self.attachment_data,
+            'report_data': self.report_data,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None,
         }

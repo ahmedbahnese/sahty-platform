@@ -32,6 +32,7 @@ class Medication(db.Model):
     side_effects = db.Column(db.Text)
     warnings = db.Column(db.Text)
     interactions = db.Column(db.Text)
+    attachment_data = db.Column(db.Text)                      # base64 صورة الروشتة
     
     # تواريخ
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
@@ -60,6 +61,7 @@ class Medication(db.Model):
             'side_effects': self.side_effects,
             'warnings': self.warnings,
             'interactions': self.interactions,
+            'attachment_data': self.attachment_data,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None
         }

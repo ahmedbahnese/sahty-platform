@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -15,7 +16,10 @@ import {
 } from 'lucide-react'
 
 export default function BloodBankPage() {
-  const [activeTab, setActiveTab] = useState('requests')
+  const [searchParams] = useSearchParams()
+  const [activeTab, setActiveTab] = useState(
+    searchParams.get('tab') === 'donate' ? 'donate' : 'requests'
+  )
   const [donationForm, setDonationForm] = useState({
     name: '',
     phone: '',

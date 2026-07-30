@@ -17,6 +17,7 @@ import PrescriptionsPage from './pages/PrescriptionsPage'
 import AIAssistantPage from './pages/AIAssistantPage'
 import MedicationTrackingPage from './pages/MedicationTrackingPage'
 import FamilyHealthPage from './pages/FamilyHealthPage'
+import AdminDashboardPage from './pages/AdminDashboardPage'
 import './App.css'
 
 // مكون للحماية - يتطلب تسجيل الدخول
@@ -129,6 +130,16 @@ function AppContent() {
             element={
               <ProtectedRoute>
                 <FamilyHealthPage />
+              </ProtectedRoute>
+            }
+          />
+
+              {/* لوحة الإدارة */}
+          <Route
+            path="/admin"
+            element={
+              <ProtectedRoute>
+                <AdminDashboardPage />
               </ProtectedRoute>
             }
           />

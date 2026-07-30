@@ -92,6 +92,7 @@ def add_disease(current_user):
         hospital=data.get('hospital'),
         treatment_summary=data.get('treatment_summary'),
         notes=data.get('notes'),
+        attachment_data=data.get('attachment_data'),
     )
     db.session.add(disease)
     db.session.commit()
@@ -108,7 +109,7 @@ def update_disease(current_user, disease_id):
     if not disease:
         return jsonify({'message': 'لم يتم العثور على المرض'}), 404
     data = request.get_json(silent=True) or {}
-    for field in ('name', 'icd_code', 'status', 'severity', 'treating_doctor', 'hospital', 'treatment_summary', 'notes'):
+    for field in ('name', 'icd_code', 'status', 'severity', 'treating_doctor', 'hospital', 'treatment_summary', 'notes', 'attachment_data'):
         if field in data:
             setattr(disease, field, data[field])
     for date_field in ('diagnosis_date', 'resolution_date'):
@@ -310,6 +311,7 @@ def add_medication(current_user):
         is_active=data.get('is_active', True),
         side_effects=data.get('side_effects'),
         warnings=data.get('warnings'),
+        attachment_data=data.get('attachment_data'),
     )
     db.session.add(med)
     db.session.commit()
@@ -327,7 +329,7 @@ def update_medication(current_user, med_id):
         return jsonify({'message': 'لم يتم العثور على الدواء'}), 404
     data = request.get_json(silent=True) or {}
     for field in ('name', 'generic_name', 'dosage', 'form', 'frequency', 'duration',
-                  'instructions', 'is_active', 'is_completed', 'side_effects', 'warnings'):
+                  'instructions', 'is_active', 'is_completed', 'side_effects', 'warnings', 'attachment_data'):
         if field in data:
             setattr(med, field, data[field])
     for date_field in ('start_date', 'end_date'):
@@ -386,6 +388,7 @@ def add_vaccination(current_user):
         administration_site=data.get('administration_site'),
         reaction=data.get('reaction'),
         notes=data.get('notes'),
+        attachment_data=data.get('attachment_data'),
     )
     db.session.add(vaccination)
     db.session.commit()
@@ -403,7 +406,7 @@ def update_vaccination(current_user, vacc_id):
         return jsonify({'message': 'لم يتم العثور على التطعيم'}), 404
     data = request.get_json(silent=True) or {}
     for field in ('vaccine_name', 'disease_prevented', 'dose_number', 'total_doses',
-                  'provider', 'batch_number', 'administration_site', 'reaction', 'notes'):
+                  'provider', 'batch_number', 'administration_site', 'reaction', 'notes', 'attachment_data'):
         if field in data:
             setattr(vaccination, field, data[field])
     for date_field in ('date_given', 'next_due_date'):
@@ -462,9 +465,19 @@ def add_lab_test(current_user):
         status=data.get('status', 'normal'),
         interpretation=data.get('interpretation'),
         notes=data.get('notes'),
+        attachment_data=data.get('attachment_data'),
     )
     db.session.add(test)
     db.session.commit()
+    # Auto-detect blood type from lab test name/result
+    blood_type_val = data.get('result_value', '')
+    if blood_type_val and any(k in data.get('test_name', '').lower() for k in ('blood type', 'فصيلة', 'blood group', 'abo')):
+        valid_types = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-']
+        for bt in valid_types:
+            if bt.lower() in blood_type_val.lower() or bt in blood_type_val:
+                patient.blood_type = bt
+                db.session.commit()
+                break
     return jsonify(test.to_dict()), 201
 
 
@@ -479,7 +492,7 @@ def update_lab_test(current_user, test_id):
         return jsonify({'message': 'لم يتم العثور على التحليل'}), 404
     data = request.get_json(silent=True) or {}
     for field in ('test_name', 'test_category', 'lab_name', 'ordering_doctor',
-                  'result_value', 'unit', 'reference_range', 'status', 'interpretation', 'notes'):
+                  'result_value', 'unit', 'reference_range', 'status', 'interpretation', 'notes', 'attachment_data'):
         if field in data:
             setattr(test, field, data[field])
     if 'test_date' in data:
@@ -537,6 +550,8 @@ def add_radiology(current_user):
         impression=data.get('impression'),
         recommendation=data.get('recommendation'),
         notes=data.get('notes'),
+        attachment_data=data.get('attachment_data'),
+        report_data=data.get('report_data'),
     )
     db.session.add(scan)
     db.session.commit()
@@ -554,7 +569,8 @@ def update_radiology(current_user, scan_id):
         return jsonify({'message': 'لم يتم العثور على الأشعة'}), 404
     data = request.get_json(silent=True) or {}
     for field in ('scan_type', 'body_part', 'facility', 'radiologist', 'ordering_doctor',
-                  'reason', 'findings', 'impression', 'recommendation', 'notes'):
+                  'reason', 'findings', 'impression', 'recommendation', 'notes',
+                  'attachment_data', 'report_data'):
         if field in data:
             setattr(scan, field, data[field])
     if 'scan_date' in data:
@@ -607,3 +623,88 @@ def upsert_medical_history(current_user):
             setattr(history, field, data[field])
     db.session.commit()
     return jsonify(history.to_dict()), 200
+
+
+# ──────────────────────────────────────────────
+# بيانات المريض الحيوية (وزن، طول، فصيلة الدم)
+# ──────────────────────────────────────────────
+@medical_record_bp.route('/patient-profile', methods=['GET'])
+@token_required
+def get_patient_profile(current_user):
+    patient = Patient.query.filter_by(user_id=current_user.id).first()
+    if not patient:
+        return jsonify({'message': 'لم يتم العثور على ملف المريض'}), 404
+    allergies = [a.to_dict() for a in Allergy.query.filter_by(patient_id=patient.id).all()]
+    return jsonify({
+        'id': patient.id,
+        'first_name': patient.first_name,
+        'last_name': patient.last_name,
+        'date_of_birth': patient.date_of_birth.isoformat() if patient.date_of_birth else None,
+        'gender': patient.gender,
+        'blood_type': patient.blood_type,
+        'height': patient.height,
+        'weight': patient.weight,
+        'allergies': allergies,
+    }), 200
+
+
+@medical_record_bp.route('/patient-vitals', methods=['PUT'])
+@token_required
+def update_patient_vitals(current_user):
+    patient = Patient.query.filter_by(user_id=current_user.id).first()
+    if not patient:
+        return jsonify({'message': 'لم يتم العثور على ملف المريض'}), 404
+    data = request.get_json(silent=True) or {}
+    if 'height' in data and data['height'] is not None:
+        patient.height = float(data['height'])
+    if 'weight' in data and data['weight'] is not None:
+        patient.weight = float(data['weight'])
+    if 'blood_type' in data and data['blood_type']:
+        patient.blood_type = data['blood_type']
+    db.session.commit()
+    return jsonify({'height': patient.height, 'weight': patient.weight, 'blood_type': patient.blood_type}), 200
+
+
+# ──────────────────────────────────────────────
+# تقرير طبي شامل (JSON)
+# ──────────────────────────────────────────────
+@medical_record_bp.route('/report', methods=['GET'])
+@token_required
+def get_medical_report(current_user):
+    patient = Patient.query.filter_by(user_id=current_user.id).first()
+    if not patient:
+        return jsonify({'message': 'لم يتم العثور على ملف المريض'}), 404
+    allergies = [a.to_dict() for a in Allergy.query.filter_by(patient_id=patient.id).all()]
+    diseases = [d.to_dict() for d in Disease.query.filter_by(patient_id=patient.id).all()]
+    medications = [m.to_dict() for m in Medication.query.filter_by(patient_id=patient.id, is_active=True).all()]
+    vaccinations = [v.to_dict() for v in Vaccination.query.filter_by(patient_id=patient.id).all()]
+    lab_tests = [l.to_dict() for l in LabTest.query.filter_by(patient_id=patient.id).order_by(LabTest.test_date.desc()).limit(20).all()]
+    radiology = [r.to_dict() for r in Radiology.query.filter_by(patient_id=patient.id).order_by(Radiology.scan_date.desc()).limit(10).all()]
+    history = MedicalHistory.query.filter_by(patient_id=patient.id).first()
+    from datetime import date as dt_date
+    today = dt_date.today()
+    age = None
+    if patient.date_of_birth:
+        age = today.year - patient.date_of_birth.year - (
+            (today.month, today.day) < (patient.date_of_birth.month, patient.date_of_birth.day)
+        )
+    return jsonify({
+        'generated_at': datetime.utcnow().isoformat(),
+        'patient': {
+            'name': f'{patient.first_name} {patient.last_name}',
+            'date_of_birth': patient.date_of_birth.isoformat() if patient.date_of_birth else None,
+            'age': age,
+            'gender': patient.gender,
+            'blood_type': patient.blood_type,
+            'height': patient.height,
+            'weight': patient.weight,
+            'bmi': round(patient.weight / ((patient.height / 100) ** 2), 1) if patient.height and patient.weight else None,
+        },
+        'allergies': allergies,
+        'active_diseases': [d for d in diseases if d.get('status') in ('active', 'chronic')],
+        'current_medications': medications,
+        'vaccinations': vaccinations,
+        'recent_lab_tests': lab_tests,
+        'recent_radiology': radiology,
+        'medical_history': history.to_dict() if history else {},
+    }), 200

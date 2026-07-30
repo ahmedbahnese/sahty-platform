@@ -73,6 +73,24 @@ db.init_app(app)
 with app.app_context():
     db.create_all()
 
+    # ── ترحيل الأعمدة الجديدة (آمن على قواعد البيانات الموجودة) ──
+    from sqlalchemy import text
+    migrations = [
+        "ALTER TABLE diseases ADD COLUMN IF NOT EXISTS attachment_data TEXT",
+        "ALTER TABLE vaccinations ADD COLUMN IF NOT EXISTS attachment_data TEXT",
+        "ALTER TABLE lab_tests ADD COLUMN IF NOT EXISTS attachment_data TEXT",
+        "ALTER TABLE radiology_scans ADD COLUMN IF NOT EXISTS attachment_data TEXT",
+        "ALTER TABLE radiology_scans ADD COLUMN IF NOT EXISTS report_data TEXT",
+        "ALTER TABLE medications ADD COLUMN IF NOT EXISTS attachment_data TEXT",
+    ]
+    with db.engine.connect() as conn:
+        for stmt in migrations:
+            try:
+                conn.execute(text(stmt))
+                conn.commit()
+            except Exception:
+                conn.rollback()  # reset transaction state on any failure
+
     # Bootstrap the first system administrator only when explicitly configured.
     # This keeps admin creation out of the public registration flow.
     bootstrap_email = os.environ.get('ADMIN_EMAIL')
