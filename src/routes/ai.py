@@ -37,7 +37,9 @@ def _allowed(filename, allowed_set):
 # المساعد الذكي (نصي)
 # ────────────────────────────────────────────────────
 def _build_chat_context(current_user):
-    """Build patient context dict for AI calls."""
+    """Build patient context dict for AI calls. Safe to call with current_user=None."""
+    if current_user is None:
+        return {'user_id': None, 'user_type': 'guest'}
     context = {'user_id': current_user.id, 'user_type': current_user.user_type}
     if current_user.user_type == 'patient':
         patient = Patient.query.filter_by(user_id=current_user.id).first()
