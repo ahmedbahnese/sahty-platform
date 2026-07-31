@@ -105,8 +105,8 @@ def list_feedback(current_user):
             query = query.filter_by(type=type_filter)
         items = query.limit(200).all()
         return jsonify({'feedback': [f.to_dict() for f in items], 'total': len(items)}), 200
-    except Exception as e:
-        return jsonify({'message': str(e)}), 500
+    except Exception:
+        return jsonify({'message': 'خطأ في جلب الرسائل'}), 500
 
 
 @feedback_bp.route('/api/feedback/<int:feedback_id>', methods=['PATCH'])
@@ -119,12 +119,15 @@ def update_feedback(current_user, feedback_id):
         if not fb:
             return jsonify({'message': 'الرسالة غير موجودة'}), 404
         data = request.get_json(silent=True) or {}
+        allowed_statuses = ('new', 'reviewed', 'resolved')
         if 'status' in data:
+            if data['status'] not in allowed_statuses:
+                return jsonify({'message': 'حالة غير صالحة'}), 400
             fb.status = data['status']
         if 'admin_notes' in data:
             fb.admin_notes = data['admin_notes']
         db.session.commit()
         return jsonify({'message': 'تم التحديث', 'feedback': fb.to_dict()}), 200
-    except Exception as e:
+    except Exception:
         db.session.rollback()
-        return jsonify({'message': str(e)}), 500
+        return jsonify({'message': 'خطأ في التحديث'}), 500

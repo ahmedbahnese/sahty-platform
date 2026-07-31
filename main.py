@@ -41,6 +41,7 @@ from src.routes.blood_bank import blood_bank_bp
 from src.routes.doctor import doctor_bp
 from src.routes.notification import notification_bp
 from src.routes.vaccination import vaccination_bp
+from src.routes.hospital import hospital_bp, emergency_service_bp
 from werkzeug.security import generate_password_hash
 
 app = Flask(__name__, static_folder=os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static'))
@@ -99,6 +100,8 @@ app.register_blueprint(blood_bank_bp)
 app.register_blueprint(doctor_bp)
 app.register_blueprint(notification_bp)
 app.register_blueprint(vaccination_bp)
+app.register_blueprint(hospital_bp)
+app.register_blueprint(emergency_service_bp)
 app.register_blueprint(pharmacy_order_bp, url_prefix='/api')
 
 # ── Database ──────────────────────────────────────────────────────────────────
@@ -269,4 +272,5 @@ def serve(path):
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5001))
-    app.run(host='0.0.0.0', port=port, debug=True)
+    debug_mode = os.environ.get('FLASK_ENV', 'production') == 'development'
+    app.run(host='0.0.0.0', port=port, debug=debug_mode)
