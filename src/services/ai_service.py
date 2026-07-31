@@ -460,3 +460,135 @@ class AIService:
 
         except Exception as e:
             return {'success': False, 'error': str(e), 'timestamp': datetime.now().isoformat()}
+
+    # ──────────────────────────────────────────────
+    # تحليل المستندات الطبية (تقارير، وصفات، نتائج)
+    # ──────────────────────────────────────────────
+    def analyze_medical_document(self, image_data: bytes, doc_type: str = 'general',
+                                  patient_info: dict = None) -> dict:
+        """تحليل مستند طبي بلغة مبسطة"""
+        try:
+            image_base64 = base64.b64encode(image_data).decode('utf-8')
+            doc_prompts = {
+                'lab': (
+                    "أنت متخصص في تفسير نتائج التحاليل المخبرية. حلل هذه النتيجة وقدم:\n"
+                    "1. ملخص النتائج بلغة بسيطة\n"
+                    "2. القيم الطبيعية والقيم الشاذة مع التمييز الواضح\n"
+                    "3. ماذا تعني هذه النتائج للمريض\n"
+                    "4. التوصيات العامة\n"
+                    "5. هل يحتاج المريض استشارة طبيب فوراً؟\n\n"
+                    "⚠️ لا تقدم تشخيصاً نهائياً."
+                ),
+                'radiology': (
+                    "أنت متخصص في قراءة تقارير الأشعة. حلل هذا التقرير وقدم:\n"
+                    "1. ملخص ما تم تصويره\n"
+                    "2. الملاحظات الرئيسية بلغة مبسطة\n"
+                    "3. النتائج غير الطبيعية إن وجدت\n"
+                    "4. الخطوات المقترحة التالية\n\n"
+                    "⚠️ لا تقدم تشخيصاً نهائياً."
+                ),
+                'prescription': (
+                    "أنت صيدلاني متخصص. حلل هذه الوصفة وقدم:\n"
+                    "1. قائمة الأدوية واستخداماتها\n"
+                    "2. الجرعة وطريقة الاستخدام\n"
+                    "3. التحذيرات والتفاعلات الدوائية\n"
+                    "4. نصائح للمريض\n"
+                    "5. متى يجب مراجعة الطبيب\n\n"
+                    "⚠️ لا تقدم نصائح تغيير الجرعة."
+                ),
+                'general': (
+                    "أنت طبيب متخصص. حلل هذا المستند الطبي وقدم:\n"
+                    "1. ملخص المحتوى بلغة مبسطة\n"
+                    "2. النقاط الرئيسية والمعلومات المهمة\n"
+                    "3. القيم أو النتائج غير الطبيعية إن وجدت\n"
+                    "4. التوصيات العامة\n"
+                    "5. هل يحتاج متابعة عاجلة؟\n\n"
+                    "⚠️ هذا للتوعية فقط ولا يغني عن استشارة الطبيب."
+                ),
+            }
+            system_prompt = doc_prompts.get(doc_type, doc_prompts['general'])
+            user_text = f"قم بتحليل هذا المستند الطبي من نوع: {doc_type}"
+            if patient_info:
+                user_text += (
+                    f"\n\nمعلومات المريض:\n"
+                    f"- العمر: {patient_info.get('age', 'غير محدد')}\n"
+                    f"- الجنس: {patient_info.get('gender', 'غير محدد')}\n"
+                )
+            messages = [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": [
+                    {"type": "text", "text": user_text},
+                    {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_base64}"}}
+                ]}
+            ]
+            response = self.client.chat.completions.create(
+                model="gpt-4o", messages=messages, max_tokens=1500, temperature=0.3,
+            )
+            result_text = response.choices[0].message.content
+            return {
+                'success': True,
+                'analysis': result_text,
+                'doc_type': doc_type,
+                'urgency_level': self._assess_urgency(result_text),
+                'recommendations': self._extract_recommendations(result_text),
+                'timestamp': datetime.now().isoformat(),
+            }
+        except Exception as e:
+            return {'success': False, 'error': str(e), 'timestamp': datetime.now().isoformat()}
+
+    def symptom_checker_with_followup(self, symptoms: list, patient_info: dict = None,
+                                       conversation_history: list = None,
+                                       image_data: bytes = None) -> dict:
+        """فحص الأعراض مع أسئلة متابعة ودعم الصور"""
+        try:
+            system_prompt = (
+                "أنت طبيب متخصص في فحص الأعراض. دورك:\n"
+                "1. تقييم الأعراض المذكورة بدقة\n"
+                "2. طرح أسئلة متابعة دقيقة لتحسين التقييم\n"
+                "3. تقدير مستوى الإلحاح: عاجل / متوسط / عادي\n"
+                "4. اقتراح التخصص الطبي المناسب\n"
+                "5. اقتراح الخطوات التالية الواضحة\n\n"
+                "قواعد:\n"
+                "- لا تقدم تشخيصاً نهائياً قاطعاً\n"
+                "- اعرض دائماً: 'هذا تقييم أولي — يجب مراجعة طبيب مختص'\n"
+                "- في حالات الطوارئ: وجّه فوراً لاستدعاء الإسعاف (920)\n"
+                "- اطرح سؤالاً أو سؤالين في نهاية كل رد لتوضيح الصورة"
+            )
+            messages = [{"role": "system", "content": system_prompt}]
+            if patient_info:
+                ctx = (
+                    f"معلومات المريض: عمر={patient_info.get('age','غير محدد')}, "
+                    f"جنس={patient_info.get('gender','غير محدد')}, "
+                    f"تاريخ مرضي={patient_info.get('medical_history','غير محدد')}"
+                )
+                messages.append({"role": "system", "content": ctx})
+            if conversation_history:
+                for msg in conversation_history[-8:]:
+                    role = msg.get('role')
+                    content = msg.get('content', '')
+                    if role in ('user', 'assistant') and content:
+                        messages.append({"role": role, "content": content})
+            symptom_text = "الأعراض التي أشعر بها:\n" + "\n".join(f"- {s}" for s in symptoms if s)
+            if image_data:
+                image_base64 = base64.b64encode(image_data).decode('utf-8')
+                messages.append({"role": "user", "content": [
+                    {"type": "text", "text": symptom_text + "\n\nأرفقت صورة للمنطقة المصابة."},
+                    {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_base64}"}}
+                ]})
+            else:
+                messages.append({"role": "user", "content": symptom_text})
+            response = self.client.chat.completions.create(
+                model="gpt-4o", messages=messages, max_tokens=1000, temperature=0.5,
+            )
+            result_text = response.choices[0].message.content
+            analysis = self._analyze_assistant_response(result_text)
+            return {
+                'success': True,
+                'analysis': result_text,
+                'urgency_assessment': analysis['urgency_level'],
+                'recommended_specialty': analysis['recommended_specialty'],
+                'follow_up_needed': analysis['follow_up_needed'],
+                'timestamp': datetime.now().isoformat(),
+            }
+        except Exception as e:
+            return {'success': False, 'error': str(e), 'timestamp': datetime.now().isoformat()}

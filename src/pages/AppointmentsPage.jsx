@@ -53,6 +53,11 @@ function AppointmentCard({ appt, onAction, userType }) {
               ) : (
                 <p className="font-semibold text-gray-900">{appt.patient?.name || 'مريض'}</p>
               )}
+              {appt.for_member_name && (
+                <span className="inline-flex items-center gap-1 text-xs bg-purple-50 text-purple-700 border border-purple-100 px-2 py-0.5 rounded-full mt-0.5">
+                  👨‍👩‍👧 لصالح: {appt.for_member_name}
+                </span>
+              )}
               <p className="text-sm text-gray-500">{appt.doctor?.specialization || ''}</p>
               <div className="flex flex-wrap items-center gap-3 mt-1.5 text-sm text-gray-600">
                 <span className="flex items-center gap-1">
@@ -115,9 +120,13 @@ function AppointmentCard({ appt, onAction, userType }) {
 
 function BookingModal({ onClose, onBooked, token }) {
   const [doctors, setDoctors] = useState([])
+  const [familyMembers, setFamilyMembers] = useState([])
   const [form, setForm] = useState({
     doctor_id: '', appointment_date: '', appointment_type: 'in_person',
-    reason: '', symptoms: ''
+    reason: '', symptoms: '',
+    for_whom: 'self',          // 'self' | 'member_id' | 'manual'
+    for_family_member_id: null,
+    for_member_name: '',
   })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -127,22 +136,63 @@ function BookingModal({ onClose, onBooked, token }) {
       .then(r => r.json())
       .then(d => setDoctors(d.doctors || []))
       .catch(() => {})
+
+    // Load family members
+    fetch('/api/family/groups', { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.json())
+      .then(async grpData => {
+        if (grpData.success && grpData.groups.length > 0) {
+          const g = grpData.groups[0]
+          const memRes = await fetch(`/api/family/groups/${g.id}`, { headers: { Authorization: `Bearer ${token}` } })
+          const memData = await memRes.json()
+          if (memData.success) setFamilyMembers(memData.members)
+        }
+      })
+      .catch(() => {})
   }, [token])
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
+
+  const handleForWhom = (val) => {
+    if (val === 'self') {
+      setForm(f => ({ ...f, for_whom: 'self', for_family_member_id: null, for_member_name: '' }))
+    } else if (val === 'manual') {
+      setForm(f => ({ ...f, for_whom: 'manual', for_family_member_id: null }))
+    } else {
+      // It's a member id
+      const member = familyMembers.find(m => m.id === parseInt(val))
+      setForm(f => ({ ...f, for_whom: val, for_family_member_id: parseInt(val), for_member_name: member ? member.full_name : '' }))
+    }
+  }
 
   const submit = async () => {
     if (!form.doctor_id || !form.appointment_date || !form.appointment_type) {
       setError('يرجى تعبئة جميع الحقول المطلوبة')
       return
     }
+    if (form.for_whom === 'manual' && !form.for_member_name.trim()) {
+      setError('يرجى إدخال اسم الفرد')
+      return
+    }
     setLoading(true)
     setError('')
     try {
+      const payload = {
+        doctor_id: parseInt(form.doctor_id),
+        appointment_date: form.appointment_date,
+        appointment_type: form.appointment_type,
+        reason: form.reason,
+        symptoms: form.symptoms,
+      }
+      if (form.for_whom !== 'self') {
+        if (form.for_family_member_id) payload.for_family_member_id = form.for_family_member_id
+        if (form.for_member_name) payload.for_member_name = form.for_member_name
+      }
+
       const res = await fetch(`${API}/appointments`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...form, doctor_id: parseInt(form.doctor_id) })
+        body: JSON.stringify(payload)
       })
       const data = await res.json()
       if (res.ok) { onBooked(data.appointment) }
@@ -152,12 +202,40 @@ function BookingModal({ onClose, onBooked, token }) {
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg" dir="rtl">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto" dir="rtl">
         <div className="p-6 border-b">
           <h2 className="text-xl font-bold text-gray-900">حجز موعد جديد</h2>
         </div>
         <div className="p-6 space-y-4">
           {error && <div className="bg-red-50 text-red-600 rounded-xl p-3 text-sm">{error}</div>}
+
+          {/* Book for whom */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">الحجز لـ *</label>
+            <div className="space-y-2">
+              <label className={`flex items-center gap-3 border rounded-xl p-3 cursor-pointer transition-colors ${form.for_whom === 'self' ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:bg-gray-50'}`}>
+                <input type="radio" className="text-blue-600" checked={form.for_whom === 'self'} onChange={() => handleForWhom('self')} />
+                <span className="text-sm font-medium text-gray-700">🧑 أنا شخصياً</span>
+              </label>
+              {familyMembers.map(m => (
+                <label key={m.id} className={`flex items-center gap-3 border rounded-xl p-3 cursor-pointer transition-colors ${form.for_whom === String(m.id) ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:bg-gray-50'}`}>
+                  <input type="radio" className="text-blue-600" checked={form.for_whom === String(m.id)} onChange={() => handleForWhom(String(m.id))} />
+                  <span className="text-sm font-medium text-gray-700">
+                    👨‍👩‍👧 {m.full_name} <span className="text-gray-500 font-normal">({m.relationship})</span>
+                  </span>
+                </label>
+              ))}
+              <label className={`flex items-center gap-3 border rounded-xl p-3 cursor-pointer transition-colors ${form.for_whom === 'manual' ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:bg-gray-50'}`}>
+                <input type="radio" className="text-blue-600" checked={form.for_whom === 'manual'} onChange={() => handleForWhom('manual')} />
+                <span className="text-sm font-medium text-gray-700">✏️ فرد آخر (أدخل الاسم)</span>
+              </label>
+              {form.for_whom === 'manual' && (
+                <Input value={form.for_member_name} onChange={e => set('for_member_name', e.target.value)}
+                  placeholder="اسم الفرد كاملاً" className="mr-6" />
+              )}
+            </div>
+          </div>
+
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">الطبيب *</label>
             <select value={form.doctor_id} onChange={e => set('doctor_id', e.target.value)}

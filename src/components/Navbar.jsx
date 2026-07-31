@@ -56,6 +56,8 @@ export default function Navbar() {
     { path: '/radiology', label: 'الأشعة والتصوير', icon: Scan },
     { path: '/medications', label: 'متابعة الأدوية', icon: Pill },
     { path: '/family-health', label: 'صحة الأسرة', icon: Users },
+    { path: '/vaccinations', label: 'التطعيمات', icon: Shield },
+    { path: '/symptom-checker', label: 'فاحص الأعراض', icon: Stethoscope },
   ]
 
   return (

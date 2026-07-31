@@ -251,6 +251,98 @@ def health_report(current_user):
 
 
 # ────────────────────────────────────────────────────
+# تحليل المستندات الطبية (تقارير، وصفات، نتائج)
+# ────────────────────────────────────────────────────
+@ai_bp.route('/analyze-document', methods=['POST'])
+@optional_token
+def analyze_medical_document(current_user):
+    """
+    تحليل مستند طبي مرفوع كصورة: تقرير مخبري، أشعة، وصفة، تقرير عام.
+    يشرح المحتوى بلغة مبسطة ويبرز القيم غير الطبيعية.
+    doc_type: lab | radiology | prescription | general
+    """
+    if 'file' not in request.files:
+        return jsonify({'success': False, 'error': 'لم يتم رفع أي ملف'}), 400
+
+    file = request.files['file']
+    if not file.filename or not _allowed(file.filename, ALLOWED_IMAGE_EXTENSIONS):
+        return jsonify({'success': False, 'error': 'نوع الملف غير مدعوم (PNG, JPG, JPEG, WEBP)'}), 400
+
+    file_data = file.read()
+    if len(file_data) > MAX_FILE_SIZE:
+        return jsonify({'success': False, 'error': 'حجم الملف كبير جداً (الحد 20 MB)'}), 400
+
+    doc_type = request.form.get('doc_type', 'general')
+    patient_info = None
+    if current_user and current_user.user_type == 'patient':
+        patient = Patient.query.filter_by(user_id=current_user.id).first()
+        if patient:
+            from datetime import date
+            age = (date.today() - patient.date_of_birth).days // 365 if patient.date_of_birth else None
+            patient_info = {'age': age, 'gender': patient.gender}
+
+    result = get_ai_service().analyze_medical_document(file_data, doc_type, patient_info)
+    return jsonify(result)
+
+
+# ────────────────────────────────────────────────────
+# فحص الأعراض المتطور مع أسئلة متابعة وصور
+# ────────────────────────────────────────────────────
+@ai_bp.route('/symptom-checker-v2', methods=['POST'])
+@optional_token
+def symptom_checker_v2(current_user):
+    """
+    فحص الأعراض المتطور: يدعم الصور + محادثة متعددة الأدوار + أسئلة متابعة.
+    """
+    # يمكن إرسال بيانات كـ multipart (مع صورة) أو JSON (بدون صورة)
+    image_data = None
+    if 'image' in request.files:
+        img_file = request.files['image']
+        if img_file and _allowed(img_file.filename or '', ALLOWED_IMAGE_EXTENSIONS):
+            image_data = img_file.read()
+            if len(image_data) > MAX_FILE_SIZE:
+                image_data = None
+
+    if request.content_type and 'multipart' in request.content_type:
+        symptoms_raw = request.form.get('symptoms', '[]')
+        history_raw = request.form.get('history', '[]')
+        medical_history = request.form.get('medical_history', '')
+        try:
+            import json as _json
+            symptoms = _json.loads(symptoms_raw) if symptoms_raw.startswith('[') else [symptoms_raw]
+            history = _json.loads(history_raw) if history_raw.startswith('[') else []
+        except Exception:
+            symptoms = [symptoms_raw] if symptoms_raw else []
+            history = []
+    else:
+        data = request.get_json() or {}
+        symptoms = data.get('symptoms', [])
+        if isinstance(symptoms, str):
+            symptoms = [s.strip() for s in symptoms.split('،') if s.strip()]
+        history = data.get('history', [])
+        medical_history = data.get('medical_history', '')
+
+    if not symptoms:
+        return jsonify({'success': False, 'error': 'الأعراض مطلوبة'}), 400
+
+    patient_info = None
+    if current_user and current_user.user_type == 'patient':
+        patient = Patient.query.filter_by(user_id=current_user.id).first()
+        if patient:
+            from datetime import date
+            age = (date.today() - patient.date_of_birth).days // 365 if patient.date_of_birth else None
+            patient_info = {'age': age, 'gender': patient.gender, 'medical_history': medical_history}
+
+    result = get_ai_service().symptom_checker_with_followup(
+        symptoms=symptoms,
+        patient_info=patient_info,
+        conversation_history=history,
+        image_data=image_data,
+    )
+    return jsonify(result)
+
+
+# ────────────────────────────────────────────────────
 # نصائح صحية عامة
 # ────────────────────────────────────────────────────
 @ai_bp.route('/health-tips', methods=['GET'])

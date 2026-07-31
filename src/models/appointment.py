@@ -34,7 +34,11 @@ class Appointment(db.Model):
     # تذكيرات
     reminder_sent = db.Column(db.Boolean, default=False)
     reminder_sent_at = db.Column(db.DateTime)
-    
+
+    # ── حجز لفرد من الأسرة ────────────────────────────────────────────────────
+    for_family_member_id = db.Column(db.Integer, db.ForeignKey('family_members.id'), nullable=True)
+    for_member_name = db.Column(db.String(200), nullable=True)   # اسم الفرد حتى بدون linked profile
+
     # تواريخ
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -58,6 +62,8 @@ class Appointment(db.Model):
             'meeting_id': self.meeting_id,
             'reminder_sent': self.reminder_sent,
             'reminder_sent_at': self.reminder_sent_at.isoformat() if self.reminder_sent_at else None,
+            'for_family_member_id': self.for_family_member_id,
+            'for_member_name': self.for_member_name,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None
         }

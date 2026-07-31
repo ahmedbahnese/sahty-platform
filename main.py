@@ -40,6 +40,7 @@ from src.routes.feedback import feedback_bp, Feedback
 from src.routes.blood_bank import blood_bank_bp
 from src.routes.doctor import doctor_bp
 from src.routes.notification import notification_bp
+from src.routes.vaccination import vaccination_bp
 from werkzeug.security import generate_password_hash
 
 app = Flask(__name__, static_folder=os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static'))
@@ -97,6 +98,7 @@ app.register_blueprint(feedback_bp)
 app.register_blueprint(blood_bank_bp)
 app.register_blueprint(doctor_bp)
 app.register_blueprint(notification_bp)
+app.register_blueprint(vaccination_bp)
 app.register_blueprint(pharmacy_order_bp, url_prefix='/api')
 
 # ── Database ──────────────────────────────────────────────────────────────────
@@ -159,6 +161,10 @@ with app.app_context():
         "ALTER TABLE medications ADD COLUMN IF NOT EXISTS notify_family BOOLEAN DEFAULT 0",
         "ALTER TABLE medications ADD COLUMN IF NOT EXISTS notify_doctor_on_missed BOOLEAN DEFAULT 0",
         "ALTER TABLE medications ADD COLUMN IF NOT EXISTS missed_dose_threshold INTEGER DEFAULT 3",
+
+        # Sprint 5-8 — Family member in appointments, vaccination tracking
+        "ALTER TABLE appointments ADD COLUMN IF NOT EXISTS for_family_member_id INTEGER REFERENCES family_members(id)",
+        "ALTER TABLE appointments ADD COLUMN IF NOT EXISTS for_member_name VARCHAR(200)",
     ]
     with db.engine.connect() as conn:
         for stmt in migrations:

@@ -173,6 +173,26 @@ def book_appointment(current_user):
     if appt_date < datetime.utcnow():
         return jsonify({'message': 'لا يمكن حجز موعد في الماضي'}), 400
 
+    # ── دعم الحجز لفرد من الأسرة ──────────────────────────────────────────────
+    for_member_id = data.get('for_family_member_id')
+    for_member_name = None
+
+    if for_member_id:
+        from src.models.family_health import FamilyMember, FamilyGroup
+        member = FamilyMember.query.get(for_member_id)
+        if member:
+            group = FamilyGroup.query.filter_by(id=member.group_id, owner_user_id=current_user.id).first()
+            if group:
+                for_member_name = f"{member.first_name} {member.last_name}"
+            else:
+                for_member_id = None  # لا صلاحية
+        else:
+            for_member_id = None
+
+    # إذا لم يُحدد فرد من القائمة لكن أرسل اسم يدوي
+    if not for_member_id and data.get('for_member_name'):
+        for_member_name = data['for_member_name']
+
     appt = Appointment(
         patient_id=patient.id,
         doctor_id=doctor.id,
@@ -183,6 +203,8 @@ def book_appointment(current_user):
         symptoms=data.get('symptoms'),
         fee=doctor.consultation_fee,
         status='scheduled',
+        for_family_member_id=for_member_id,
+        for_member_name=for_member_name,
     )
     db.session.add(appt)
     db.session.flush()
@@ -190,12 +212,33 @@ def book_appointment(current_user):
     _record_history(appt, 'scheduled', 'حجز جديد من المريض', current_user.id)
 
     # إشعار الطبيب
+    patient_label = (
+        f"{patient.first_name} {patient.last_name} (لفرد الأسرة: {for_member_name})"
+        if for_member_name else f"{patient.first_name} {patient.last_name}"
+    )
     _notify(
         doctor.user_id,
         'طلب موعد جديد',
-        f'المريض {patient.first_name} {patient.last_name} يطلب موعداً بتاريخ {appt_date.strftime("%Y-%m-%d %H:%M")}',
+        f'المريض {patient_label} يطلب موعداً بتاريخ {appt_date.strftime("%Y-%m-%d %H:%M")}',
         ref_id=appt.id,
     )
+
+    # إضافة سجل تلقائي لملف الفرد في الأسرة
+    if for_member_id and for_member_name:
+        try:
+            from src.models.family_health import FamilyMemberHealthRecord
+            from datetime import date as _date
+            health_rec = FamilyMemberHealthRecord(
+                member_id=for_member_id,
+                record_type='checkup',
+                title=f'موعد طبي — {appt_date.strftime("%Y-%m-%d")}',
+                description=data.get('reason', ''),
+                date=appt_date.date(),
+                doctor_name=f"د. {doctor.first_name} {doctor.last_name}" if doctor else None,
+            )
+            db.session.add(health_rec)
+        except Exception:
+            pass
 
     db.session.commit()
     return jsonify({'message': 'تم حجز الموعد بنجاح', 'appointment': _enrich(appt)}), 201

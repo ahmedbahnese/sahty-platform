@@ -23,6 +23,8 @@ import MedicationOrderPage from './pages/MedicationOrderPage'
 import HospitalsPage from './pages/HospitalsPage'
 import DoctorProfilePage from './pages/DoctorProfilePage'
 import PendingApprovalPage from './pages/PendingApprovalPage'
+import VaccinationPage from './pages/VaccinationPage'
+import SymptomCheckerPage from './pages/SymptomCheckerPage'
 import FloatingAIChat from './components/FloatingAIChat'
 import './App.css'
 
@@ -116,6 +118,8 @@ function AppContent() {
           {/* ── صفحات المريض ── */}
           <Route path="/medical-record" element={<RoleRoute roles={['patient']}><MedicalRecordPage /></RoleRoute>} />
           <Route path="/family-health" element={<RoleRoute roles={['patient']}><FamilyHealthPage /></RoleRoute>} />
+          <Route path="/vaccinations" element={<RoleRoute roles={['patient']}><VaccinationPage /></RoleRoute>} />
+          <Route path="/symptom-checker" element={<SymptomCheckerPage />} />
           <Route path="/medications" element={<RoleRoute roles={['patient', 'pharmacy']}><MedicationTrackingPage /></RoleRoute>} />
           <Route path="/medication-orders" element={<RoleRoute roles={['patient', 'pharmacy']}><MedicationOrderPage /></RoleRoute>} />
 
