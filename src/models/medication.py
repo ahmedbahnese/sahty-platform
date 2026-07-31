@@ -8,6 +8,8 @@ class Medication(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     patient_id = db.Column(db.Integer, db.ForeignKey('patients.id'), nullable=False)
     doctor_id = db.Column(db.Integer, db.ForeignKey('doctors.id'))
+    prescription_id = db.Column(db.Integer, db.ForeignKey('prescriptions.id'))   # مصدر الوصفة
+    source = db.Column(db.String(30), default='manual')  # manual / prescription / import
     
     # معلومات الدواء
     name = db.Column(db.String(200), nullable=False)
@@ -34,6 +36,11 @@ class Medication(db.Model):
     interactions = db.Column(db.Text)
     attachment_data = db.Column(db.Text)                      # base64 صورة الروشتة
     
+    # إعدادات الإشعارات
+    notify_family = db.Column(db.Boolean, default=False)
+    notify_doctor_on_missed = db.Column(db.Boolean, default=False)
+    missed_dose_threshold = db.Column(db.Integer, default=3)  # عدد الجرعات الفائتة قبل إشعار الطبيب
+    
     # تواريخ
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -47,6 +54,8 @@ class Medication(db.Model):
             'id': self.id,
             'patient_id': self.patient_id,
             'doctor_id': self.doctor_id,
+            'prescription_id': self.prescription_id,
+            'source': self.source,
             'name': self.name,
             'generic_name': self.generic_name,
             'dosage': self.dosage,
@@ -62,6 +71,9 @@ class Medication(db.Model):
             'warnings': self.warnings,
             'interactions': self.interactions,
             'attachment_data': self.attachment_data,
+            'notify_family': self.notify_family,
+            'notify_doctor_on_missed': self.notify_doctor_on_missed,
+            'missed_dose_threshold': self.missed_dose_threshold,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None
         }
@@ -128,6 +140,71 @@ class MedicationLog(db.Model):
             'created_at': self.created_at.isoformat() if self.created_at else None
         }
 
+
+class PharmacyOrder(db.Model):
+    """طلبات أدوية المريض من الصيدلية."""
+    __tablename__ = 'pharmacy_orders'
+
+    id = db.Column(db.Integer, primary_key=True)
+    patient_id = db.Column(db.Integer, db.ForeignKey('patients.id'), nullable=False)
+
+    # نوع الطلب: paper_prescription / manual / from_prescription
+    order_type = db.Column(db.String(30), nullable=False, default='manual')
+
+    # الوصفة الورقية (رفع صورة)
+    prescription_image_path = db.Column(db.String(500))
+    prescription_image_name = db.Column(db.String(200))
+
+    # الوصفة من المنصة (from_prescription)
+    source_prescription_id = db.Column(db.Integer, db.ForeignKey('prescriptions.id'))
+
+    # الأدوية المدخلة يدوياً أو المعدّلة
+    # JSON: [{"name":"...", "dosage":"...", "quantity":"...", "notes":"..."}]
+    medications_json = db.Column(db.Text, default='[]')
+
+    # الصيدلية المفضّلة
+    preferred_pharmacy_name = db.Column(db.String(200))
+    preferred_pharmacy_id   = db.Column(db.Integer)   # قد يُربط بجدول مزودين مستقبلاً
+
+    # ملاحظات عامة
+    notes = db.Column(db.Text)
+
+    # سير العمل: pending → confirmed → dispensed | cancelled
+    status = db.Column(db.String(30), default='pending')
+    dispensed_at = db.Column(db.DateTime)
+    cancelled_reason = db.Column(db.Text)
+
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    @property
+    def medications(self):
+        import json as _json
+        try:
+            return _json.loads(self.medications_json or '[]')
+        except Exception:
+            return []
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'patient_id': self.patient_id,
+            'order_type': self.order_type,
+            'prescription_image_path': self.prescription_image_path,
+            'prescription_image_name': self.prescription_image_name,
+            'source_prescription_id': self.source_prescription_id,
+            'medications': self.medications,
+            'preferred_pharmacy_name': self.preferred_pharmacy_name,
+            'preferred_pharmacy_id': self.preferred_pharmacy_id,
+            'notes': self.notes,
+            'status': self.status,
+            'dispensed_at': self.dispensed_at.isoformat() if self.dispensed_at else None,
+            'cancelled_reason': self.cancelled_reason,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+
 class DrugDatabase(db.Model):
     __tablename__ = 'drug_database'
     
@@ -184,4 +261,3 @@ class DrugDatabase(db.Model):
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None
         }
-

@@ -1,6 +1,10 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '../contexts/AuthContext'
-import { Scan, Plus, Upload, Share2, XCircle, ChevronDown, ChevronUp, Clock, CheckCircle, AlertTriangle, FileText, Image } from 'lucide-react'
+import {
+  Scan, Plus, Upload, Share2, XCircle, ChevronDown, ChevronUp,
+  Clock, CheckCircle, AlertTriangle, FileText, Image, Calendar,
+  Building2, Paperclip,
+} from 'lucide-react'
 
 const API = '/api'
 
@@ -22,6 +26,15 @@ const SCAN_TYPES = {
   other:      'أخرى',
 }
 
+const RADIOLOGY_CENTERS = [
+  'مركز الأشعة الطبي المتكامل',
+  'مركز إم آر آي للأشعة',
+  'مركز بصر للتصوير الطبي',
+  'مركز الضوء للأشعة',
+  'مستشفى الملك فيصل التخصصي',
+  'أخرى',
+]
+
 export default function RadiologyRequestsPage() {
   const { token, user } = useAuth()
   const [requests, setRequests]   = useState([])
@@ -33,8 +46,9 @@ export default function RadiologyRequestsPage() {
   const [busy, setBusy]           = useState(false)
   const [toast, setToast]         = useState(null)
 
-  const isAdmin    = ['admin','super_admin','radiology_center'].includes(user?.user_type)
-  const isPatient  = user?.user_type === 'patient'
+  const isAdmin   = ['admin','super_admin','radiology_center'].includes(user?.user_type)
+  const isPatient = user?.user_type === 'patient'
+  const isDoctor  = user?.user_type === 'doctor'
 
   const headers = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }
 
@@ -59,24 +73,32 @@ export default function RadiologyRequestsPage() {
 
   // ── نموذج الطلب الجديد ──────────────────────────────────
   const [form, setForm] = useState({
-    scan_type: 'xray', body_part: '', urgency: 'normal',
+    scan_type: 'xray', body_part: '', urgency: 'routine',
     clinical_reason: '', ordering_doctor: '', patient_id: '',
+    radiology_center_name: '', scheduled_datetime: '',
   })
+  const [requestDoc, setRequestDoc] = useState(null)
 
   const submitRequest = async e => {
     e.preventDefault()
     setBusy(true)
     try {
-      const body = { ...form }
-      if (isPatient) delete body.patient_id
+      const fd = new FormData()
+      Object.entries(form).forEach(([k, v]) => { if (v) fd.append(k, v) })
+      if (isPatient) fd.delete('patient_id')
+      if (requestDoc) fd.append('request_doc', requestDoc)
+
       const res = await fetch(`${API}/radiology-requests`, {
-        method: 'POST', headers, body: JSON.stringify(body),
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        body: fd,
       })
       const data = await res.json()
       if (res.ok) {
         showToast('تم إرسال طلب الأشعة بنجاح')
         setShowForm(false)
-        setForm({ scan_type:'xray', body_part:'', urgency:'normal', clinical_reason:'', ordering_doctor:'', patient_id:'' })
+        setForm({ scan_type:'xray', body_part:'', urgency:'routine', clinical_reason:'', ordering_doctor:'', patient_id:'', radiology_center_name:'', scheduled_datetime:'' })
+        setRequestDoc(null)
         load()
       } else showToast(data.message || 'حدث خطأ', 'error')
     } finally { setBusy(false) }
@@ -136,7 +158,7 @@ export default function RadiologyRequestsPage() {
         method: 'POST', headers,
       })
       const data = await res.json()
-      if (res.ok) { showToast('تم مشاركة النتائج بنجاح'); load() }
+      if (res.ok) { showToast('تم مشاركة النتائج وحفظها في السجل الطبي'); load() }
       else showToast(data.message || 'حدث خطأ', 'error')
     } finally { setBusy(false) }
   }
@@ -167,9 +189,13 @@ export default function RadiologyRequestsPage() {
   }
 
   const UrgencyBadge = ({ urgency }) => {
-    const cfg = { urgent:'bg-red-100 text-red-700', normal:'bg-blue-50 text-blue-700', routine:'bg-gray-100 text-gray-600' }
-    const lbl = { urgent:'عاجل', normal:'عادي', routine:'روتيني' }
-    return <span className={`text-xs px-2 py-0.5 rounded-full ${cfg[urgency]||cfg.normal}`}>{lbl[urgency]||urgency}</span>
+    const cfg = {
+      emergency: 'bg-red-200 text-red-800',
+      urgent:    'bg-red-100 text-red-700',
+      routine:   'bg-gray-100 text-gray-600',
+    }
+    const lbl = { emergency: 'طارئ', urgent: 'عاجل', routine: 'روتيني' }
+    return <span className={`text-xs px-2 py-0.5 rounded-full ${cfg[urgency] || cfg.routine}`}>{lbl[urgency] || urgency}</span>
   }
 
   const tabs = [
@@ -210,6 +236,8 @@ export default function RadiologyRequestsPage() {
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
           <h2 className="font-semibold text-gray-800 mb-4">طلب أشعة جديد</h2>
           <form onSubmit={submitRequest} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+            {/* نوع الأشعة */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">نوع الأشعة *</label>
               <select required className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
@@ -217,25 +245,49 @@ export default function RadiologyRequestsPage() {
                 {Object.entries(SCAN_TYPES).map(([v,l]) => <option key={v} value={v}>{l}</option>)}
               </select>
             </div>
+
+            {/* الجزء المصوَّر */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">الجزء المصوَّر *</label>
               <input required className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 value={form.body_part} onChange={e => setForm(f=>({...f,body_part:e.target.value}))} placeholder="مثال: الصدر، الركبة اليسرى" />
             </div>
+
+            {/* الأولوية */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">الأولوية</label>
               <select className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 value={form.urgency} onChange={e => setForm(f=>({...f,urgency:e.target.value}))}>
                 <option value="routine">روتيني</option>
-                <option value="normal">عادي</option>
                 <option value="urgent">عاجل</option>
+                <option value="emergency">طارئ</option>
               </select>
             </div>
+
+            {/* مركز الأشعة */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-1"><Building2 size={13}/> مركز الأشعة</label>
+              <select className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                value={form.radiology_center_name} onChange={e => setForm(f=>({...f,radiology_center_name:e.target.value}))}>
+                <option value="">-- اختر مركز --</option>
+                {RADIOLOGY_CENTERS.map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </div>
+
+            {/* موعد الفحص */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-1"><Calendar size={13}/> موعد الفحص</label>
+              <input type="datetime-local" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                value={form.scheduled_datetime} onChange={e => setForm(f=>({...f,scheduled_datetime:e.target.value}))} />
+            </div>
+
+            {/* الطبيب الآمر */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">الطبيب الآمر</label>
               <input className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 value={form.ordering_doctor} onChange={e => setForm(f=>({...f,ordering_doctor:e.target.value}))} placeholder="اسم الطبيب" />
             </div>
+
             {!isPatient && (
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">معرّف المريض *</label>
@@ -243,11 +295,25 @@ export default function RadiologyRequestsPage() {
                   value={form.patient_id} onChange={e => setForm(f=>({...f,patient_id:e.target.value}))} />
               </div>
             )}
+
+            {/* السبب السريري */}
             <div className="md:col-span-2">
               <label className="block text-sm font-medium text-gray-700 mb-1">السبب السريري</label>
               <textarea rows={2} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 value={form.clinical_reason} onChange={e => setForm(f=>({...f,clinical_reason:e.target.value}))} placeholder="سبب طلب الأشعة..." />
             </div>
+
+            {/* رفع وثيقة الطلب */}
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-1">
+                <Paperclip size={13}/> وثيقة الطلب الأصلي (PDF أو صورة — اختياري)
+              </label>
+              <input type="file" accept=".pdf,.jpg,.jpeg,.png"
+                onChange={e => setRequestDoc(e.target.files[0])}
+                className="w-full text-sm text-gray-500 file:ml-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100" />
+              {requestDoc && <p className="text-xs text-indigo-600 mt-1">✓ {requestDoc.name}</p>}
+            </div>
+
             <div className="md:col-span-2 flex gap-3 justify-end">
               <button type="button" onClick={() => setShowForm(false)} className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800">إلغاء</button>
               <button type="submit" disabled={busy} className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2 rounded-lg text-sm font-medium disabled:opacity-60">
@@ -291,7 +357,11 @@ export default function RadiologyRequestsPage() {
                   <div className="bg-indigo-50 text-indigo-600 p-2 rounded-lg"><Scan size={18} /></div>
                   <div>
                     <p className="font-semibold text-gray-800">{SCAN_TYPES[req.scan_type] || req.scan_type}</p>
-                    <p className="text-xs text-gray-500">{req.body_part} · {new Date(req.created_at).toLocaleDateString('ar-SA')}</p>
+                    <p className="text-xs text-gray-500">
+                      {req.body_part}
+                      {req.radiology_center_name && <> · {req.radiology_center_name}</>}
+                      {' · '}{new Date(req.created_at).toLocaleDateString('ar-SA')}
+                    </p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
@@ -305,10 +375,28 @@ export default function RadiologyRequestsPage() {
                 <div className="border-t border-gray-50 p-4 bg-gray-50/50">
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4 text-sm">
                     {req.ordering_doctor && <div><span className="text-gray-500">الطبيب الآمر: </span><span className="font-medium">{req.ordering_doctor}</span></div>}
-                    {req.facility && <div><span className="text-gray-500">المركز: </span><span className="font-medium">{req.facility}</span></div>}
+                    {req.radiology_center_name && <div><span className="text-gray-500">المركز: </span><span className="font-medium">{req.radiology_center_name}</span></div>}
+                    {req.facility && req.facility !== req.radiology_center_name && <div><span className="text-gray-500">المرفق: </span><span className="font-medium">{req.facility}</span></div>}
                     {req.radiologist_name && <div><span className="text-gray-500">الطبيب الشعاعي: </span><span className="font-medium">{req.radiologist_name}</span></div>}
+                    {req.scheduled_datetime && (
+                      <div><span className="text-gray-500">موعد الفحص: </span>
+                        <span className="font-medium">{new Date(req.scheduled_datetime).toLocaleString('ar-SA')}</span>
+                      </div>
+                    )}
                     {req.clinical_reason && <div className="col-span-2"><span className="text-gray-500">السبب: </span><span>{req.clinical_reason}</span></div>}
+                    {req.rejection_reason && <div className="col-span-2 text-red-600"><span className="font-medium">سبب الرفض: </span>{req.rejection_reason}</div>}
                   </div>
+
+                  {/* وثيقة الطلب الأصلي */}
+                  {req.request_doc_path && (
+                    <div className="bg-indigo-50 rounded-xl border border-indigo-100 p-3 mb-3 flex items-center gap-2">
+                      <Paperclip size={14} className="text-indigo-600" />
+                      <a href={`/api/uploads/radiology_request_docs/${req.request_doc_path}`} target="_blank" rel="noopener noreferrer"
+                        className="text-sm text-indigo-600 hover:underline font-medium">
+                        {req.request_doc_name || 'وثيقة الطلب الأصلي'}
+                      </a>
+                    </div>
+                  )}
 
                   {/* الصور المرفوعة */}
                   {req.image_paths?.length > 0 && (
@@ -334,47 +422,42 @@ export default function RadiologyRequestsPage() {
                       {req.recommendation && <div className="text-sm"><span className="text-gray-500 font-medium">التوصيات: </span>{req.recommendation}</div>}
                       {req.report_file_name && (
                         <a href={`/api/uploads/radiology_reports/${req.report_file_path}`} target="_blank" rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 text-indigo-600 hover:underline text-xs mt-2">
+                          className="inline-flex items-center gap-1 mt-2 text-xs text-indigo-600 hover:underline">
                           <FileText size={12}/> {req.report_file_name}
                         </a>
                       )}
                     </div>
                   )}
 
-                  {/* أزرار الإجراءات */}
-                  <div className="flex flex-wrap gap-2">
+                  {/* إجراءات */}
+                  <div className="flex flex-wrap gap-2 mt-2">
                     {isAdmin && req.status === 'requested' && (
                       <>
-                        <button onClick={() => { setImageFiles([]); setFacilityInput(''); setActionModal({ type:'images', request:req }) }}
-                          className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-xs font-medium">
-                          <Upload size={13}/> رفع الصور
+                        <button onClick={() => { setActionModal({ type:'images', request:req }); setImageFiles([]); setFacilityInput('') }}
+                          className="flex items-center gap-1 bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 px-3 py-1.5 rounded-lg text-xs font-medium">
+                          <Upload size={13}/> رفع صور
                         </button>
-                        <button onClick={() => { setRejectReason(''); setActionModal({ type:'reject', request:req }) }}
-                          className="flex items-center gap-1.5 bg-red-500 hover:bg-red-600 text-white px-3 py-1.5 rounded-lg text-xs font-medium">
+                        <button onClick={() => { setActionModal({ type:'reject', request:req }); setRejectReason('') }}
+                          className="flex items-center gap-1 bg-red-50 text-red-700 border border-red-200 hover:bg-red-100 px-3 py-1.5 rounded-lg text-xs font-medium">
                           <XCircle size={13}/> رفض
                         </button>
                       </>
                     )}
                     {isAdmin && req.status === 'images_uploaded' && (
-                      <button onClick={() => { setReportForm({ facility:req.facility||'', radiologist_name:'', findings:'', impression:'', recommendation:'' }); setReportFile(null); setActionModal({ type:'report', request:req }) }}
-                        className="flex items-center gap-1.5 bg-purple-600 hover:bg-purple-700 text-white px-3 py-1.5 rounded-lg text-xs font-medium">
-                        <FileText size={13}/> رفع التقرير
+                      <button onClick={() => { setActionModal({ type:'report', request:req }); setReportForm({facility:'',radiologist_name:'',findings:'',impression:'',recommendation:''}); setReportFile(null) }}
+                        className="flex items-center gap-1 bg-purple-50 text-purple-700 border border-purple-200 hover:bg-purple-100 px-3 py-1.5 rounded-lg text-xs font-medium">
+                        <FileText size={13}/> رفع تقرير
                       </button>
                     )}
                     {isAdmin && req.status === 'report_uploaded' && (
                       <button onClick={() => handleShare(req)} disabled={busy}
-                        className="flex items-center gap-1.5 bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded-lg text-xs font-medium disabled:opacity-60">
-                        <Share2 size={13}/> مشاركة النتائج
+                        className="flex items-center gap-1 bg-green-50 text-green-700 border border-green-200 hover:bg-green-100 px-3 py-1.5 rounded-lg text-xs font-medium disabled:opacity-60">
+                        <Share2 size={13}/> مشاركة وحفظ في السجل الطبي
                       </button>
                     )}
-                    {req.status === 'shared' && (
-                      <span className="flex items-center gap-1 text-green-600 text-xs font-medium">
-                        <CheckCircle size={13}/> تم المشاركة — تم إشعار الطبيب والمريض
-                      </span>
-                    )}
-                    {req.status === 'rejected' && req.rejection_reason && (
-                      <span className="flex items-center gap-1 text-red-500 text-xs">
-                        <AlertTriangle size={12}/> سبب الرفض: {req.rejection_reason}
+                    {req.shared_at && (
+                      <span className="text-xs text-gray-400">
+                        شورك في {new Date(req.shared_at).toLocaleDateString('ar-SA')}
                       </span>
                     )}
                   </div>
@@ -385,104 +468,71 @@ export default function RadiologyRequestsPage() {
         </div>
       )}
 
-      {/* ── Modals ── */}
+      {/* Modals */}
       {actionModal && (
-        <div className="fixed inset-0 bg-black/50 z-40 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
-
-            {/* رفع الصور */}
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-md" dir="rtl">
             {actionModal.type === 'images' && (
               <>
-                <h3 className="font-bold text-gray-800 mb-1">رفع صور الأشعة</h3>
-                <p className="text-sm text-gray-500 mb-4">{SCAN_TYPES[actionModal.request.scan_type]} — {actionModal.request.body_part}</p>
-                <div className="space-y-3">
-                  <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">المركز / المستشفى</label>
-                    <input className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      value={facilityInput} onChange={e => setFacilityInput(e.target.value)} placeholder="اسم المركز" />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">الصور (يمكن اختيار أكثر من صورة)</label>
-                    <input type="file" multiple accept=".jpg,.jpeg,.png,.dcm,.tiff,.tif"
-                      className="w-full text-sm text-gray-600 file:ml-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-medium file:bg-blue-50 file:text-blue-700"
-                      onChange={e => setImageFiles([...e.target.files])} />
-                    {imageFiles.length > 0 && <p className="text-xs text-gray-500 mt-1">{imageFiles.length} ملف محدد</p>}
-                  </div>
+                <h3 className="font-bold text-gray-900 mb-4">رفع صور الأشعة</h3>
+                <div className="mb-3">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">المرفق / المركز</label>
+                  <input className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                    value={facilityInput} onChange={e => setFacilityInput(e.target.value)} placeholder="اسم المركز" />
                 </div>
-                <div className="flex gap-3 justify-end mt-4">
-                  <button onClick={() => setActionModal(null)} className="px-4 py-2 text-sm text-gray-600">إلغاء</button>
-                  <button onClick={handleUploadImages} disabled={busy} className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-lg text-sm disabled:opacity-60">
-                    {busy ? '...' : 'رفع الصور'}
-                  </button>
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">الصور *</label>
+                  <input type="file" multiple accept=".jpg,.jpeg,.png,.dcm,.tiff,.tif"
+                    onChange={e => setImageFiles(Array.from(e.target.files))}
+                    className="w-full text-sm text-gray-500 file:ml-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-sm file:bg-indigo-50 file:text-indigo-700" />
+                  {imageFiles.length > 0 && <p className="text-xs text-indigo-600 mt-1">{imageFiles.length} ملف مختار</p>}
                 </div>
               </>
             )}
-
-            {/* رفع التقرير */}
             {actionModal.type === 'report' && (
               <>
-                <h3 className="font-bold text-gray-800 mb-1">رفع تقرير الأشعة</h3>
-                <p className="text-sm text-gray-500 mb-4">{SCAN_TYPES[actionModal.request.scan_type]} — {actionModal.request.body_part}</p>
-                <div className="space-y-3 max-h-96 overflow-y-auto">
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-xs font-medium text-gray-600 mb-1">المركز</label>
-                      <input className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
-                        value={reportForm.facility} onChange={e => setReportForm(f=>({...f,facility:e.target.value}))} />
+                <h3 className="font-bold text-gray-900 mb-4">رفع تقرير الأشعة</h3>
+                {['facility','radiologist_name','findings','impression','recommendation'].map(k => {
+                  const labels = { facility:'المرفق', radiologist_name:'اسم الطبيب الشعاعي', findings:'النتائج', impression:'التفسير', recommendation:'التوصيات' }
+                  const multiline = ['findings','impression','recommendation'].includes(k)
+                  return (
+                    <div key={k} className="mb-3">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">{labels[k]}</label>
+                      {multiline
+                        ? <textarea rows={2} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500"
+                            value={reportForm[k]} onChange={e => setReportForm(f=>({...f,[k]:e.target.value}))} />
+                        : <input className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500"
+                            value={reportForm[k]} onChange={e => setReportForm(f=>({...f,[k]:e.target.value}))} />
+                      }
                     </div>
-                    <div>
-                      <label className="block text-xs font-medium text-gray-600 mb-1">الطبيب الشعاعي</label>
-                      <input className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
-                        value={reportForm.radiologist_name} onChange={e => setReportForm(f=>({...f,radiologist_name:e.target.value}))} />
-                    </div>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">النتائج (Findings)</label>
-                    <textarea rows={3} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
-                      value={reportForm.findings} onChange={e => setReportForm(f=>({...f,findings:e.target.value}))} />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">التفسير النهائي (Impression)</label>
-                    <textarea rows={2} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
-                      value={reportForm.impression} onChange={e => setReportForm(f=>({...f,impression:e.target.value}))} />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">التوصيات</label>
-                    <textarea rows={2} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
-                      value={reportForm.recommendation} onChange={e => setReportForm(f=>({...f,recommendation:e.target.value}))} />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">ملف التقرير (اختياري)</label>
-                    <input type="file" accept=".pdf,.jpg,.jpeg,.png"
-                      className="w-full text-sm text-gray-600 file:ml-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-medium file:bg-purple-50 file:text-purple-700"
-                      onChange={e => setReportFile(e.target.files[0])} />
-                  </div>
-                </div>
-                <div className="flex gap-3 justify-end mt-4">
-                  <button onClick={() => setActionModal(null)} className="px-4 py-2 text-sm text-gray-600">إلغاء</button>
-                  <button onClick={handleUploadReport} disabled={busy} className="bg-purple-600 hover:bg-purple-700 text-white px-5 py-2 rounded-lg text-sm disabled:opacity-60">
-                    {busy ? '...' : 'رفع التقرير'}
-                  </button>
+                  )
+                })}
+                <div className="mb-3">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">ملف التقرير (اختياري)</label>
+                  <input type="file" accept=".pdf,.jpg,.jpeg,.png"
+                    onChange={e => setReportFile(e.target.files[0])}
+                    className="w-full text-sm text-gray-500 file:ml-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-sm file:bg-purple-50 file:text-purple-700" />
                 </div>
               </>
             )}
-
-            {/* رفض */}
             {actionModal.type === 'reject' && (
               <>
-                <h3 className="font-bold text-gray-800 mb-1">رفض الطلب</h3>
-                <p className="text-sm text-gray-500 mb-4">{SCAN_TYPES[actionModal.request.scan_type]} — {actionModal.request.body_part}</p>
-                <label className="block text-sm font-medium text-gray-700 mb-1">سبب الرفض</label>
-                <textarea rows={3} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm mb-4 focus:outline-none focus:ring-2 focus:ring-red-500"
-                  value={rejectReason} onChange={e => setRejectReason(e.target.value)} />
-                <div className="flex gap-3 justify-end">
-                  <button onClick={() => setActionModal(null)} className="px-4 py-2 text-sm text-gray-600">إلغاء</button>
-                  <button onClick={handleReject} disabled={busy} className="bg-red-500 hover:bg-red-600 text-white px-5 py-2 rounded-lg text-sm disabled:opacity-60">
-                    {busy ? '...' : 'رفض الطلب'}
-                  </button>
-                </div>
+                <h3 className="font-bold text-gray-900 mb-4">رفض طلب الأشعة</h3>
+                <textarea rows={3} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-red-400 mb-4"
+                  value={rejectReason} onChange={e => setRejectReason(e.target.value)} placeholder="سبب الرفض..." />
               </>
             )}
+            <div className="flex gap-3 justify-end">
+              <button onClick={() => setActionModal(null)} className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800">إلغاء</button>
+              <button disabled={busy} onClick={
+                actionModal.type === 'images' ? handleUploadImages :
+                actionModal.type === 'report' ? handleUploadReport :
+                handleReject
+              }
+                className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2 rounded-lg text-sm font-medium disabled:opacity-60">
+                {busy ? 'جاري...' : 'تأكيد'}
+              </button>
+            </div>
           </div>
         </div>
       )}

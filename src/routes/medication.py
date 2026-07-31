@@ -1,8 +1,9 @@
 """
-مسارات متابعة الأدوية
+مسارات متابعة الأدوية — Sprint X Enhancement
+يشمل: الاستيراد من الوصفة، إحصائيات الالتزام، إشعار الطبيب عند تكرار التفويت.
 """
 
-from datetime import datetime, date, time
+from datetime import datetime, date, time, timedelta
 import json
 
 from flask import Blueprint, request, jsonify
@@ -10,8 +11,70 @@ from src.routes.auth import token_required
 from src.models.user import db
 from src.models.medication import Medication, MedicationSchedule, MedicationLog
 from src.models.patient import Patient
+from src.models.notification import Notification
 
 medication_bp = Blueprint('medication', __name__, url_prefix='/api/medications')
+
+
+# ─────────────────────────────────────────
+# مساعدات
+# ─────────────────────────────────────────
+
+def _notify_user(user_id, title, message, ref_type='medication', ref_id=None):
+    db.session.add(Notification(
+        user_id=user_id,
+        title=title,
+        message=message,
+        type=ref_type,
+        reference_id=ref_id,
+        reference_type=ref_type,
+    ))
+
+
+def _check_and_notify_missed(med, patient):
+    """إشعار الطبيب إذا تكررت الجرعات الفائتة أكثر من الحد المسموح."""
+    if not med.notify_doctor_on_missed or not med.doctor_id:
+        return
+
+    threshold = med.missed_dose_threshold or 3
+    # عدد الجرعات الفائتة في آخر 7 أيام
+    since = datetime.utcnow() - timedelta(days=7)
+    missed_count = MedicationLog.query.filter(
+        MedicationLog.medication_id == med.id,
+        MedicationLog.status.in_(['missed']),
+        MedicationLog.created_at >= since,
+    ).count()
+
+    if missed_count >= threshold:
+        from src.models.doctor import Doctor
+        doctor = Doctor.query.get(med.doctor_id)
+        if doctor:
+            _notify_user(
+                doctor.user_id,
+                f'تنبيه: المريض يتغيب عن دواء {med.name}',
+                f'المريض {patient.first_name} {patient.last_name} فوّت {missed_count} جرعات '
+                f'من دواء "{med.name}" خلال آخر 7 أيام. يُرجى المتابعة.',
+                'medication', med.id,
+            )
+
+
+def _notify_family_missed(med, patient):
+    """إشعار أفراد الأسرة عند تفويت جرعة."""
+    if not med.notify_family:
+        return
+    try:
+        from src.models.family_health import FamilyMember
+        members = FamilyMember.query.filter_by(patient_id=patient.id).all()
+        for m in members:
+            if m.user_id:
+                _notify_user(
+                    m.user_id,
+                    f'تنبيه: {patient.first_name} فوّت جرعة دواء',
+                    f'فوّت {patient.first_name} جرعة دواء "{med.name}". يرجى المتابعة.',
+                    'medication', med.id,
+                )
+    except Exception:
+        pass
 
 
 # ─────────────────────────────────────────
@@ -82,7 +145,12 @@ def add_medication(current_user):
         end_date=end,
         side_effects=data.get('side_effects'),
         warnings=data.get('warnings'),
-        is_active=True
+        is_active=True,
+        notify_family=data.get('notify_family', False),
+        notify_doctor_on_missed=data.get('notify_doctor_on_missed', False),
+        missed_dose_threshold=data.get('missed_dose_threshold', 3),
+        source=data.get('source', 'manual'),
+        prescription_id=data.get('prescription_id'),
     )
     db.session.add(med)
     db.session.flush()
@@ -103,6 +171,127 @@ def add_medication(current_user):
 
     db.session.commit()
     return jsonify({'success': True, 'medication': med.to_dict()}), 201
+
+
+@medication_bp.route('/import-from-prescription/<int:prescription_id>', methods=['POST'])
+@token_required
+def import_from_prescription(current_user, prescription_id):
+    """استيراد الأدوية تلقائياً من وصفة طبيب الى متابعة الأدوية."""
+    from src.models.prescription import Prescription, PrescriptionItem
+
+    patient = Patient.query.filter_by(user_id=current_user.id).first()
+    if not patient:
+        return jsonify({'success': False, 'error': 'ملف المريض غير موجود'}), 404
+
+    rx = Prescription.query.get(prescription_id)
+    if not rx:
+        return jsonify({'success': False, 'error': 'الوصفة غير موجودة'}), 404
+    if rx.patient_id != patient.id:
+        return jsonify({'success': False, 'error': 'غير مصرح'}), 403
+
+    items = PrescriptionItem.query.filter_by(prescription_id=rx.id).all()
+    if not items:
+        return jsonify({'success': False, 'error': 'الوصفة لا تحتوي على أدوية'}), 400
+
+    data_body = request.get_json(silent=True) or {}
+    notify_family = data_body.get('notify_family', False)
+    notify_doctor = data_body.get('notify_doctor_on_missed', False)
+
+    created = []
+    today = date.today()
+    for item in items:
+        # تجنّب الاستيراد المكرر
+        existing = Medication.query.filter_by(
+            patient_id=patient.id, prescription_id=rx.id, name=item.drug_name
+        ).first()
+        if existing:
+            continue
+
+        # احسب تاريخ الانتهاء من المدة
+        end_date = None
+        if item.duration_days:
+            end_date = today + timedelta(days=item.duration_days)
+
+        med = Medication(
+            patient_id=patient.id,
+            doctor_id=rx.doctor_id,
+            prescription_id=rx.id,
+            source='prescription',
+            name=item.drug_name,
+            dosage=item.dosage or '',
+            form=item.dosage_form or 'tablet',
+            frequency=item.frequency or 'مرة يومياً',
+            duration=f'{item.duration_days} يوماً' if item.duration_days else None,
+            instructions=item.instructions,
+            start_date=today,
+            end_date=end_date,
+            is_active=True,
+            notify_family=notify_family,
+            notify_doctor_on_missed=notify_doctor,
+        )
+        db.session.add(med)
+        db.session.flush()
+
+        # جدول افتراضي: مرة صباحاً
+        schedule = MedicationSchedule(
+            medication_id=med.id,
+            time_of_day=time(8, 0),
+            reminder_enabled=True,
+        )
+        db.session.add(schedule)
+        created.append(med.to_dict())
+
+    db.session.commit()
+    return jsonify({'success': True, 'imported': len(created), 'medications': created}), 201
+
+
+@medication_bp.route('/adherence-stats', methods=['GET'])
+@token_required
+def adherence_stats(current_user):
+    """إحصائيات الالتزام الشاملة للمريض."""
+    patient = Patient.query.filter_by(user_id=current_user.id).first()
+    if not patient:
+        return jsonify({'success': False, 'error': 'ملف المريض غير موجود'}), 404
+
+    days = request.args.get('days', 30, type=int)
+    since = datetime.utcnow() - timedelta(days=days)
+
+    meds = Medication.query.filter_by(patient_id=patient.id).all()
+    stats = []
+    overall_taken = 0
+    overall_total = 0
+
+    for med in meds:
+        logs = MedicationLog.query.filter(
+            MedicationLog.medication_id == med.id,
+            MedicationLog.created_at >= since,
+        ).all()
+        total = len(logs)
+        taken = sum(1 for l in logs if l.status == 'taken')
+        missed = sum(1 for l in logs if l.status == 'missed')
+        skipped = sum(1 for l in logs if l.status == 'skipped')
+        overall_taken += taken
+        overall_total += total
+
+        stats.append({
+            'medication_id': med.id,
+            'medication_name': med.name,
+            'dosage': med.dosage,
+            'frequency': med.frequency,
+            'total_logs': total,
+            'taken': taken,
+            'missed': missed,
+            'skipped': skipped,
+            'adherence_rate': round((taken / total * 100) if total else 0, 1),
+        })
+
+    overall_rate = round((overall_taken / overall_total * 100) if overall_total else 0, 1)
+    return jsonify({
+        'success': True,
+        'period_days': days,
+        'overall_adherence_rate': overall_rate,
+        'medications': stats,
+    })
 
 
 @medication_bp.route('/<int:med_id>', methods=['GET'])
@@ -129,7 +318,8 @@ def update_medication(current_user, med_id):
 
     data = request.get_json()
     updatable = ['name', 'generic_name', 'dosage', 'form', 'frequency', 'duration',
-                 'instructions', 'side_effects', 'warnings', 'is_active', 'is_completed']
+                 'instructions', 'side_effects', 'warnings', 'is_active', 'is_completed',
+                 'notify_family', 'notify_doctor_on_missed', 'missed_dose_threshold']
     for field in updatable:
         if field in data:
             setattr(med, field, data[field])
@@ -162,7 +352,7 @@ def delete_medication(current_user, med_id):
 @medication_bp.route('/<int:med_id>/log', methods=['POST'])
 @token_required
 def log_medication(current_user, med_id):
-    """تسجيل تناول / تفويت دواء"""
+    """تسجيل تناول / تفويت دواء — مع إشعار الأسرة والطبيب."""
     med = _get_med_or_403(current_user, med_id)
     if isinstance(med, tuple):
         return med
@@ -200,6 +390,13 @@ def log_medication(current_user, med_id):
     )
     db.session.add(log)
     db.session.commit()
+
+    # إشعارات عند التفويت
+    if data['status'] == 'missed' and patient:
+        _notify_family_missed(med, patient)
+        _check_and_notify_missed(med, patient)
+        db.session.commit()
+
     return jsonify({'success': True, 'log': log.to_dict()}), 201
 
 

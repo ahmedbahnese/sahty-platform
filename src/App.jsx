@@ -19,6 +19,7 @@ import FamilyHealthPage from './pages/FamilyHealthPage'
 import AdminDashboardPage from './pages/AdminDashboardPage'
 import LabRequestsPage from './pages/LabRequestsPage'
 import RadiologyRequestsPage from './pages/RadiologyRequestsPage'
+import MedicationOrderPage from './pages/MedicationOrderPage'
 import HospitalsPage from './pages/HospitalsPage'
 import DoctorProfilePage from './pages/DoctorProfilePage'
 import PendingApprovalPage from './pages/PendingApprovalPage'
@@ -116,6 +117,7 @@ function AppContent() {
           <Route path="/medical-record" element={<RoleRoute roles={['patient']}><MedicalRecordPage /></RoleRoute>} />
           <Route path="/family-health" element={<RoleRoute roles={['patient']}><FamilyHealthPage /></RoleRoute>} />
           <Route path="/medications" element={<RoleRoute roles={['patient', 'pharmacy']}><MedicationTrackingPage /></RoleRoute>} />
+          <Route path="/medication-orders" element={<RoleRoute roles={['patient', 'pharmacy']}><MedicationOrderPage /></RoleRoute>} />
 
           {/* ── صفحات مشتركة (مرضى + مزودو الخدمة) ── */}
           <Route

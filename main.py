@@ -15,7 +15,7 @@ from src.routes.auth import auth_bp
 from src.models.patient import Patient, MedicalRecord, Allergy
 from src.models.doctor import Doctor, DoctorAvailability, Specialization
 from src.models.appointment import Appointment, AppointmentHistory, AppointmentRating
-from src.models.medication import Medication, MedicationSchedule, MedicationLog, DrugDatabase
+from src.models.medication import Medication, MedicationSchedule, MedicationLog, DrugDatabase, PharmacyOrder
 from src.models.blood_bank import BloodDonor, BloodRequest, BloodRequestResponse, BloodDonation, BloodInventory
 from src.models.hospital import Hospital, HospitalDepartment, EmergencyService, HospitalReview
 from src.models.admin import Admin, SystemOwner, SystemSettings, AuditLog
@@ -35,6 +35,7 @@ from src.models.family_health import FamilyGroup, FamilyMember, FamilyMemberHeal
 from src.routes.ai import ai_bp
 from src.routes.family_health import family_bp
 from src.routes.medication import medication_bp
+from src.routes.pharmacy_order import pharmacy_order_bp
 from src.routes.feedback import feedback_bp, Feedback
 from src.routes.blood_bank import blood_bank_bp
 from src.routes.doctor import doctor_bp
@@ -96,6 +97,7 @@ app.register_blueprint(feedback_bp)
 app.register_blueprint(blood_bank_bp)
 app.register_blueprint(doctor_bp)
 app.register_blueprint(notification_bp)
+app.register_blueprint(pharmacy_order_bp, url_prefix='/api')
 
 # ── Database ──────────────────────────────────────────────────────────────────
 db_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'src', 'database', 'app.db')
@@ -122,12 +124,41 @@ with app.app_context():
     # ── Safe column migrations (won't fail on existing dbs) ──────────────────
     from sqlalchemy import text
     migrations = [
+        # Existing safe migrations
         "ALTER TABLE diseases ADD COLUMN IF NOT EXISTS attachment_data TEXT",
         "ALTER TABLE vaccinations ADD COLUMN IF NOT EXISTS attachment_data TEXT",
         "ALTER TABLE lab_tests ADD COLUMN IF NOT EXISTS attachment_data TEXT",
         "ALTER TABLE radiology_scans ADD COLUMN IF NOT EXISTS attachment_data TEXT",
         "ALTER TABLE radiology_scans ADD COLUMN IF NOT EXISTS report_data TEXT",
         "ALTER TABLE medications ADD COLUMN IF NOT EXISTS attachment_data TEXT",
+
+        # Sprint X — Lab Requests: multiple tests, center, home collection, scheduling, doc upload
+        "ALTER TABLE lab_requests ADD COLUMN IF NOT EXISTS tests_json TEXT DEFAULT '[]'",
+        "ALTER TABLE lab_requests ADD COLUMN IF NOT EXISTS lab_center_name VARCHAR(200)",
+        "ALTER TABLE lab_requests ADD COLUMN IF NOT EXISTS preparation_instructions TEXT",
+        "ALTER TABLE lab_requests ADD COLUMN IF NOT EXISTS request_doc_path VARCHAR(500)",
+        "ALTER TABLE lab_requests ADD COLUMN IF NOT EXISTS request_doc_name VARCHAR(200)",
+        "ALTER TABLE lab_requests ADD COLUMN IF NOT EXISTS scheduled_datetime DATETIME",
+        "ALTER TABLE lab_requests ADD COLUMN IF NOT EXISTS home_collection BOOLEAN DEFAULT 0",
+        "ALTER TABLE lab_requests ADD COLUMN IF NOT EXISTS collection_address TEXT",
+        "ALTER TABLE lab_requests ADD COLUMN IF NOT EXISTS collection_lat REAL",
+        "ALTER TABLE lab_requests ADD COLUMN IF NOT EXISTS collection_lng REAL",
+        "ALTER TABLE lab_requests ADD COLUMN IF NOT EXISTS collection_date DATE",
+        "ALTER TABLE lab_requests ADD COLUMN IF NOT EXISTS collection_time VARCHAR(10)",
+        "ALTER TABLE lab_requests ADD COLUMN IF NOT EXISTS collection_staff_name VARCHAR(200)",
+
+        # Sprint X — Radiology Requests: center, scheduling, doc upload
+        "ALTER TABLE radiology_requests ADD COLUMN IF NOT EXISTS radiology_center_name VARCHAR(200)",
+        "ALTER TABLE radiology_requests ADD COLUMN IF NOT EXISTS request_doc_path VARCHAR(500)",
+        "ALTER TABLE radiology_requests ADD COLUMN IF NOT EXISTS request_doc_name VARCHAR(200)",
+        "ALTER TABLE radiology_requests ADD COLUMN IF NOT EXISTS scheduled_datetime DATETIME",
+
+        # Sprint X — Medications: prescription source, notification settings
+        "ALTER TABLE medications ADD COLUMN IF NOT EXISTS prescription_id INTEGER REFERENCES prescriptions(id)",
+        "ALTER TABLE medications ADD COLUMN IF NOT EXISTS source VARCHAR(30) DEFAULT 'manual'",
+        "ALTER TABLE medications ADD COLUMN IF NOT EXISTS notify_family BOOLEAN DEFAULT 0",
+        "ALTER TABLE medications ADD COLUMN IF NOT EXISTS notify_doctor_on_missed BOOLEAN DEFAULT 0",
+        "ALTER TABLE medications ADD COLUMN IF NOT EXISTS missed_dose_threshold INTEGER DEFAULT 3",
     ]
     with db.engine.connect() as conn:
         for stmt in migrations:

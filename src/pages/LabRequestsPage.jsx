@@ -1,6 +1,10 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '../contexts/AuthContext'
-import { FlaskConical, Plus, CheckCircle, XCircle, Upload, Bell, ChevronDown, ChevronUp, AlertTriangle, Clock, FileText } from 'lucide-react'
+import {
+  FlaskConical, Plus, CheckCircle, XCircle, Upload, Bell,
+  ChevronDown, ChevronUp, AlertTriangle, Clock, FileText,
+  Building2, Home, Calendar, Paperclip, Info,
+} from 'lucide-react'
 
 const API = '/api'
 
@@ -13,9 +17,9 @@ const STATUS_CONFIG = {
 }
 
 const RESULT_STATUS = {
-  normal:   { label: 'طبيعي',  color: 'text-green-600' },
+  normal:   { label: 'طبيعي',    color: 'text-green-600' },
   abnormal: { label: 'غير طبيعي', color: 'text-orange-600' },
-  critical: { label: 'حرج',   color: 'text-red-600' },
+  critical: { label: 'حرج',      color: 'text-red-600' },
 }
 
 const CATEGORIES = ['blood', 'urine', 'culture', 'hormones', 'biochemistry', 'immunology', 'genetics', 'other']
@@ -24,18 +28,40 @@ const CATEGORY_LABELS = {
   biochemistry: 'كيمياء حيوية', immunology: 'مناعة', genetics: 'جينات', other: 'أخرى',
 }
 
+const LAB_CENTERS = [
+  'مختبر ابن سينا',
+  'مختبر الأندلس الطبي',
+  'مختبر المملكة',
+  'مختبر بيوميد',
+  'مختبر الحياة الطبي',
+  'مختبر الأمل',
+  'أخرى',
+]
+
+// تعليمات التحضير لعرضها في الواجهة
+const PREP_BY_CATEGORY = {
+  blood:        ['صيام 8 ساعات قبل التحليل', 'شرب الماء مسموح'],
+  hormones:     ['صيام 8 ساعات', 'جمع العينة صباحاً (8-9 ص)'],
+  biochemistry: ['صيام 12 ساعة كاملة', 'الامتناع عن الدهون 24 ساعة'],
+  urine:        ['جمع عينة البول الأولى صباحاً', 'تنظيف المنطقة قبل الجمع'],
+  culture:      ['جمع العينة قبل أخذ المضادات الحيوية'],
+  immunology:   ['صيام 8 ساعات', 'أبلغ المختبر بالأدوية الحالية'],
+  genetics:     ['لا يتطلب صياماً'],
+  other:        ['اتبع تعليمات طبيبك'],
+}
+
 export default function LabRequestsPage() {
   const { token, user } = useAuth()
   const [requests, setRequests]   = useState([])
   const [loading, setLoading]     = useState(true)
-  const [tab, setTab]             = useState('all')          // all | requested | approved | completed
+  const [tab, setTab]             = useState('all')
   const [expanded, setExpanded]   = useState(null)
   const [showForm, setShowForm]   = useState(false)
-  const [actionModal, setActionModal] = useState(null)       // { type, request }
+  const [actionModal, setActionModal] = useState(null)
   const [busy, setBusy]           = useState(false)
   const [toast, setToast]         = useState(null)
 
-  const isAdmin = ['admin','super_admin','laboratory','lab'].includes(user?.user_type)
+  const isAdmin   = ['admin','super_admin','laboratory','lab'].includes(user?.user_type)
   const isPatient = user?.user_type === 'patient'
 
   const headers = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }
@@ -50,41 +76,64 @@ export default function LabRequestsPage() {
     try {
       const res = await fetch(`${API}/lab-requests`, { headers })
       if (res.ok) setRequests(await res.json())
-    } finally {
-      setLoading(false)
-    }
+    } finally { setLoading(false) }
   }, [token])
 
   useEffect(() => { load() }, [load])
 
   const filtered = requests.filter(r => tab === 'all' || r.status === tab)
 
-  // ── إنشاء طلب ──────────────────────────────────────────
+  // ── نموذج الطلب ─────────────────────────────────────────
   const [form, setForm] = useState({
-    test_name: '', test_category: 'blood', urgency: 'normal',
-    clinical_notes: '', ordering_doctor: '', patient_id: '',
+    urgency: 'routine', clinical_notes: '', ordering_doctor: '', patient_id: '',
+    lab_center_name: '', scheduled_datetime: '',
+    home_collection: false,
+    collection_address: '', collection_date: '', collection_time: '', collection_staff_name: '',
   })
+  const [selectedTests, setSelectedTests] = useState([{ name: '', category: 'blood' }])
+  const [requestDoc, setRequestDoc] = useState(null)
+
+  const prepInstructions = PREP_BY_CATEGORY[selectedTests[0]?.category] || PREP_BY_CATEGORY.other
+
+  const addTest = () => setSelectedTests(ts => [...ts, { name: '', category: 'blood' }])
+  const removeTest = idx => setSelectedTests(ts => ts.filter((_, i) => i !== idx))
+  const updateTest = (idx, field, val) => setSelectedTests(ts => ts.map((t, i) => i === idx ? { ...t, [field]: val } : t))
 
   const submitRequest = async e => {
     e.preventDefault()
+    const validTests = selectedTests.filter(t => t.name.trim())
+    if (!validTests.length) { showToast('أدخل اسم تحليل واحد على الأقل', 'error'); return }
     setBusy(true)
     try {
-      const body = { ...form }
-      if (isPatient) delete body.patient_id
+      const fd = new FormData()
+      fd.append('test_name', validTests[0].name)
+      fd.append('test_category', validTests[0].category)
+      fd.append('tests_json', JSON.stringify(validTests))
+      Object.entries(form).forEach(([k, v]) => {
+        if (k === 'home_collection') fd.append(k, v ? 'true' : 'false')
+        else if (v) fd.append(k, v)
+      })
+      if (isPatient) fd.delete('patient_id')
+      if (requestDoc) fd.append('request_doc', requestDoc)
+
       const res = await fetch(`${API}/lab-requests`, {
-        method: 'POST', headers, body: JSON.stringify(body),
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        body: fd,
       })
       const data = await res.json()
       if (res.ok) {
         showToast('تم إرسال طلب التحليل بنجاح')
         setShowForm(false)
-        setForm({ test_name:'', test_category:'blood', urgency:'normal', clinical_notes:'', ordering_doctor:'', patient_id:'' })
+        setSelectedTests([{ name: '', category: 'blood' }])
+        setForm({ urgency:'routine', clinical_notes:'', ordering_doctor:'', patient_id:'', lab_center_name:'', scheduled_datetime:'', home_collection:false, collection_address:'', collection_date:'', collection_time:'', collection_staff_name:'' })
+        setRequestDoc(null)
         load()
       } else showToast(data.message || 'حدث خطأ', 'error')
     } finally { setBusy(false) }
   }
 
-  // ── اعتماد ──────────────────────────────────────────────
+  // ── اعتماد ─────────────────────────────────────────────
   const [approveNotes, setApproveNotes] = useState('')
   const handleApprove = async () => {
     setBusy(true)
@@ -112,7 +161,7 @@ export default function LabRequestsPage() {
     } finally { setBusy(false) }
   }
 
-  // ── رفع النتائج ──────────────────────────────────────────
+  // ── رفع النتائج ─────────────────────────────────────────
   const [resultForm, setResultForm] = useState({
     lab_name:'', result_value:'', result_unit:'', reference_range:'',
     result_status:'normal', result_interpretation:'',
@@ -136,7 +185,7 @@ export default function LabRequestsPage() {
     } finally { setBusy(false) }
   }
 
-  // ── إرسال إشعار ─────────────────────────────────────────
+  // ── إشعار ───────────────────────────────────────────────
   const handleNotify = async req => {
     setBusy(true)
     try {
@@ -144,7 +193,7 @@ export default function LabRequestsPage() {
         method: 'POST', headers,
       })
       const data = await res.json()
-      if (res.ok) { showToast('تم إرسال الإشعارات بنجاح'); load() }
+      if (res.ok) { showToast('تم إرسال الإشعارات وحفظها في السجل الطبي'); load() }
       else showToast(data.message || 'حدث خطأ', 'error')
     } finally { setBusy(false) }
   }
@@ -161,9 +210,9 @@ export default function LabRequestsPage() {
   }
 
   const UrgencyBadge = ({ urgency }) => {
-    const cfg = { urgent: 'bg-red-100 text-red-700', normal: 'bg-blue-50 text-blue-700', routine: 'bg-gray-100 text-gray-600' }
-    const lbl = { urgent: 'عاجل', normal: 'عادي', routine: 'روتيني' }
-    return <span className={`text-xs px-2 py-0.5 rounded-full ${cfg[urgency] || cfg.normal}`}>{lbl[urgency] || urgency}</span>
+    const cfg = { emergency:'bg-red-200 text-red-800', urgent:'bg-red-100 text-red-700', routine:'bg-gray-100 text-gray-600' }
+    const lbl = { emergency:'طارئ', urgent:'عاجل', routine:'روتيني' }
+    return <span className={`text-xs px-2 py-0.5 rounded-full ${cfg[urgency]||cfg.routine}`}>{lbl[urgency]||urgency}</span>
   }
 
   const tabs = [
@@ -178,7 +227,7 @@ export default function LabRequestsPage() {
     <div dir="rtl" className="min-h-screen bg-gray-50 p-4 md:p-8">
       {/* Toast */}
       {toast && (
-        <div className={`fixed top-4 left-1/2 -translate-x-1/2 z-50 px-6 py-3 rounded-xl shadow-lg text-white text-sm font-medium transition-all
+        <div className={`fixed top-4 left-1/2 -translate-x-1/2 z-50 px-6 py-3 rounded-xl shadow-lg text-white text-sm font-medium
           ${toast.type === 'error' ? 'bg-red-500' : 'bg-green-500'}`}>
           {toast.msg}
         </div>
@@ -187,66 +236,167 @@ export default function LabRequestsPage() {
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
-          <div className="bg-blue-600 text-white p-2.5 rounded-xl">
-            <FlaskConical size={22} />
-          </div>
+          <div className="bg-blue-600 text-white p-2.5 rounded-xl"><FlaskConical size={22} /></div>
           <div>
             <h1 className="text-xl font-bold text-gray-900">طلبات التحاليل المخبرية</h1>
             <p className="text-sm text-gray-500">إدارة طلبات التحاليل ونتائجها</p>
           </div>
         </div>
-        <button
-          onClick={() => setShowForm(v => !v)}
-          className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-        >
+        <button onClick={() => setShowForm(v => !v)}
+          className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
           <Plus size={16} /> طلب تحليل جديد
         </button>
       </div>
 
-      {/* نموذج الطلب الجديد */}
+      {/* نموذج الطلب */}
       {showForm && (
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
           <h2 className="font-semibold text-gray-800 mb-4">طلب تحليل جديد</h2>
-          <form onSubmit={submitRequest} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <form onSubmit={submitRequest} className="space-y-5">
+
+            {/* قائمة التحاليل */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">اسم التحليل *</label>
-              <input required className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                value={form.test_name} onChange={e => setForm(f => ({...f, test_name: e.target.value}))} placeholder="مثال: CBC صورة دم كاملة" />
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-sm font-medium text-gray-700">التحاليل المطلوبة *</label>
+                <button type="button" onClick={addTest}
+                  className="text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1">
+                  <Plus size={13}/> إضافة تحليل آخر
+                </button>
+              </div>
+              <div className="space-y-2">
+                {selectedTests.map((t, i) => (
+                  <div key={i} className="flex gap-2 items-center">
+                    <input
+                      required={i === 0}
+                      className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      value={t.name} onChange={e => updateTest(i, 'name', e.target.value)}
+                      placeholder={`مثال: ${['صورة دم كاملة CBC', 'سكر صيام', 'وظائف كبد', 'هرمونات الغدة'][i] || 'اسم التحليل'}`} />
+                    <select
+                      className="border border-gray-200 rounded-lg px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      value={t.category} onChange={e => updateTest(i, 'category', e.target.value)}>
+                      {CATEGORIES.map(c => <option key={c} value={c}>{CATEGORY_LABELS[c]}</option>)}
+                    </select>
+                    {i > 0 && (
+                      <button type="button" onClick={() => removeTest(i)}
+                        className="text-red-400 hover:text-red-600 p-1"><XCircle size={16}/></button>
+                    )}
+                  </div>
+                ))}
+              </div>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">الفئة</label>
-              <select className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                value={form.test_category} onChange={e => setForm(f => ({...f, test_category: e.target.value}))}>
-                {CATEGORIES.map(c => <option key={c} value={c}>{CATEGORY_LABELS[c]}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">الأولوية</label>
-              <select className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                value={form.urgency} onChange={e => setForm(f => ({...f, urgency: e.target.value}))}>
-                <option value="routine">روتيني</option>
-                <option value="normal">عادي</option>
-                <option value="urgent">عاجل</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">الطبيب الآمر</label>
-              <input className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                value={form.ordering_doctor} onChange={e => setForm(f => ({...f, ordering_doctor: e.target.value}))} placeholder="اسم الطبيب" />
-            </div>
-            {!isPatient && (
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">معرّف المريض *</label>
-                <input required={!isPatient} type="number" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  value={form.patient_id} onChange={e => setForm(f => ({...f, patient_id: e.target.value}))} placeholder="رقم المريض" />
+
+            {/* تعليمات التحضير (تلقائية) */}
+            {prepInstructions.length > 0 && (
+              <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+                <h4 className="text-sm font-semibold text-amber-800 mb-2 flex items-center gap-1">
+                  <Info size={14}/> تعليمات التحضير
+                </h4>
+                <ul className="text-sm text-amber-700 space-y-1">
+                  {prepInstructions.map((p, i) => <li key={i} className="flex items-start gap-1.5">• {p}</li>)}
+                </ul>
               </div>
             )}
-            <div className="md:col-span-2">
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* الأولوية */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">الأولوية</label>
+                <select className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  value={form.urgency} onChange={e => setForm(f => ({...f, urgency: e.target.value}))}>
+                  <option value="routine">روتيني</option>
+                  <option value="urgent">عاجل</option>
+                  <option value="emergency">طارئ</option>
+                </select>
+              </div>
+
+              {/* مركز التحاليل */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-1"><Building2 size={13}/> مركز التحاليل</label>
+                <select className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  value={form.lab_center_name} onChange={e => setForm(f=>({...f, lab_center_name: e.target.value}))}>
+                  <option value="">-- اختر مركزاً --</option>
+                  {LAB_CENTERS.map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
+              </div>
+
+              {/* موعد التحليل */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-1"><Calendar size={13}/> موعد التحليل</label>
+                <input type="datetime-local" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  value={form.scheduled_datetime} onChange={e => setForm(f=>({...f, scheduled_datetime: e.target.value}))} />
+              </div>
+
+              {/* الطبيب الآمر */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">الطبيب الآمر</label>
+                <input className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  value={form.ordering_doctor} onChange={e => setForm(f => ({...f, ordering_doctor: e.target.value}))} placeholder="اسم الطبيب" />
+              </div>
+
+              {!isPatient && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">معرّف المريض *</label>
+                  <input required={!isPatient} type="number" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    value={form.patient_id} onChange={e => setForm(f => ({...f, patient_id: e.target.value}))} />
+                </div>
+              )}
+            </div>
+
+            {/* ملاحظات سريرية */}
+            <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">ملاحظات سريرية</label>
               <textarea rows={2} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 value={form.clinical_notes} onChange={e => setForm(f => ({...f, clinical_notes: e.target.value}))} placeholder="معلومات إضافية للمختبر..." />
             </div>
-            <div className="md:col-span-2 flex gap-3 justify-end">
+
+            {/* وثيقة الطلب */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-1">
+                <Paperclip size={13}/> وثيقة الطلب الأصلي (اختياري)
+              </label>
+              <input type="file" accept=".pdf,.jpg,.jpeg,.png"
+                onChange={e => setRequestDoc(e.target.files[0])}
+                className="w-full text-sm text-gray-500 file:ml-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-sm file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" />
+              {requestDoc && <p className="text-xs text-blue-600 mt-1">✓ {requestDoc.name}</p>}
+            </div>
+
+            {/* التحصيل المنزلي */}
+            <div className="border border-blue-100 rounded-xl p-4 bg-blue-50/50">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" checked={form.home_collection}
+                  onChange={e => setForm(f=>({...f, home_collection: e.target.checked}))}
+                  className="w-4 h-4 rounded text-blue-600" />
+                <span className="font-medium text-blue-800 flex items-center gap-1.5 text-sm">
+                  <Home size={15}/> التحصيل المنزلي (إرسال فني للمنزل)
+                </span>
+              </label>
+              {form.home_collection && (
+                <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div className="md:col-span-2">
+                    <label className="block text-xs font-medium text-gray-600 mb-1">العنوان *</label>
+                    <input className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                      value={form.collection_address} onChange={e => setForm(f=>({...f, collection_address:e.target.value}))} placeholder="العنوان الكامل للمنزل" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">التاريخ المفضّل *</label>
+                    <input type="date" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                      value={form.collection_date} onChange={e => setForm(f=>({...f, collection_date:e.target.value}))} />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">الوقت المفضّل *</label>
+                    <select className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                      value={form.collection_time} onChange={e => setForm(f=>({...f, collection_time:e.target.value}))}>
+                      <option value="">-- اختر وقتاً --</option>
+                      {['07:00','08:00','09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00'].map(t =>
+                        <option key={t} value={t}>{t}</option>
+                      )}
+                    </select>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="flex gap-3 justify-end">
               <button type="button" onClick={() => setShowForm(false)} className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800">إلغاء</button>
               <button type="submit" disabled={busy} className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg text-sm font-medium disabled:opacity-60">
                 {busy ? 'جاري الإرسال...' : 'إرسال الطلب'}
@@ -283,14 +433,18 @@ export default function LabRequestsPage() {
         <div className="space-y-3">
           {filtered.map(req => (
             <div key={req.id} className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-              {/* Row Header */}
               <div className="flex items-center justify-between p-4 cursor-pointer hover:bg-gray-50 transition-colors"
                 onClick={() => setExpanded(expanded === req.id ? null : req.id)}>
                 <div className="flex items-center gap-3">
                   <div className="bg-blue-50 text-blue-600 p-2 rounded-lg"><FlaskConical size={18} /></div>
                   <div>
                     <p className="font-semibold text-gray-800">{req.test_name}</p>
-                    <p className="text-xs text-gray-500">{CATEGORY_LABELS[req.test_category] || req.test_category} · {new Date(req.created_at).toLocaleDateString('ar-SA')}</p>
+                    <p className="text-xs text-gray-500">
+                      {CATEGORY_LABELS[req.test_category] || req.test_category}
+                      {req.lab_center_name && <> · {req.lab_center_name}</>}
+                      {req.home_collection && <> · <span className="text-blue-600">تحصيل منزلي</span></>}
+                      {' · '}{new Date(req.created_at).toLocaleDateString('ar-SA')}
+                    </p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
@@ -300,76 +454,121 @@ export default function LabRequestsPage() {
                 </div>
               </div>
 
-              {/* Expanded Details */}
               {expanded === req.id && (
                 <div className="border-t border-gray-50 p-4 bg-gray-50/50">
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4 text-sm">
-                    {req.ordering_doctor && <div><span className="text-gray-500">الطبيب الآمر: </span><span className="font-medium">{req.ordering_doctor}</span></div>}
+                  {/* تفاصيل */}
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-3 text-sm">
+                    {req.ordering_doctor && <div><span className="text-gray-500">الطبيب: </span><span className="font-medium">{req.ordering_doctor}</span></div>}
+                    {req.lab_center_name && <div><span className="text-gray-500">المركز: </span><span className="font-medium">{req.lab_center_name}</span></div>}
                     {req.lab_name && <div><span className="text-gray-500">المختبر: </span><span className="font-medium">{req.lab_name}</span></div>}
+                    {req.scheduled_datetime && <div><span className="text-gray-500">الموعد: </span><span className="font-medium">{new Date(req.scheduled_datetime).toLocaleString('ar-SA')}</span></div>}
                     {req.clinical_notes && <div className="col-span-2"><span className="text-gray-500">ملاحظات: </span><span>{req.clinical_notes}</span></div>}
+                    {req.rejection_reason && <div className="col-span-2 text-red-600"><span className="font-medium">سبب الرفض: </span>{req.rejection_reason}</div>}
                   </div>
 
-                  {/* نتائج */}
-                  {req.result_value && (
-                    <div className="bg-white rounded-xl border border-gray-100 p-4 mb-4">
-                      <h4 className="font-semibold text-gray-700 mb-2 flex items-center gap-2"><FileText size={15} /> النتائج</h4>
-                      <div className="grid grid-cols-2 gap-2 text-sm">
-                        <div><span className="text-gray-500">القيمة: </span>
-                          <span className={`font-bold ${RESULT_STATUS[req.result_status]?.color || 'text-gray-800'}`}>
-                            {req.result_value} {req.result_unit}
-                          </span>
-                          {req.result_status && <span className={`mr-2 text-xs ${RESULT_STATUS[req.result_status]?.color}`}>({RESULT_STATUS[req.result_status]?.label})</span>}
-                        </div>
-                        {req.reference_range && <div><span className="text-gray-500">المرجع: </span>{req.reference_range}</div>}
-                        {req.result_interpretation && <div className="col-span-2"><span className="text-gray-500">التفسير: </span>{req.result_interpretation}</div>}
-                        {req.result_file_name && (
-                          <div className="col-span-2">
-                            <a href={`/api/uploads/lab_results/${req.result_file_path}`} target="_blank" rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1 text-blue-600 hover:underline text-xs">
-                              <FileText size={12} /> {req.result_file_name}
-                            </a>
-                          </div>
-                        )}
+                  {/* تحاليل متعددة */}
+                  {req.tests?.length > 1 && (
+                    <div className="bg-white rounded-xl border border-gray-100 p-3 mb-3">
+                      <h4 className="text-xs font-semibold text-gray-600 mb-2">التحاليل المطلوبة ({req.tests.length})</h4>
+                      <div className="flex flex-wrap gap-1.5">
+                        {req.tests.map((t, i) => (
+                          <span key={i} className="text-xs bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full">{t.name}</span>
+                        ))}
                       </div>
                     </div>
                   )}
 
-                  {/* أزرار الإجراءات */}
-                  <div className="flex flex-wrap gap-2">
+                  {/* تعليمات التحضير */}
+                  {req.preparation_instructions && (() => {
+                    try {
+                      const instr = JSON.parse(req.preparation_instructions)
+                      return instr.length > 0 ? (
+                        <div className="bg-amber-50 border border-amber-100 rounded-xl p-3 mb-3">
+                          <h4 className="text-xs font-semibold text-amber-800 mb-1.5 flex items-center gap-1"><Info size={12}/> تعليمات التحضير</h4>
+                          <ul className="text-xs text-amber-700 space-y-0.5">
+                            {instr.map((p, i) => <li key={i}>• {p}</li>)}
+                          </ul>
+                        </div>
+                      ) : null
+                    } catch { return null }
+                  })()}
+
+                  {/* وثيقة الطلب */}
+                  {req.request_doc_path && (
+                    <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 mb-3 flex items-center gap-2">
+                      <Paperclip size={14} className="text-blue-600"/>
+                      <a href={`/api/uploads/lab_request_docs/${req.request_doc_path}`} target="_blank" rel="noopener noreferrer"
+                        className="text-sm text-blue-600 hover:underline font-medium">
+                        {req.request_doc_name || 'وثيقة الطلب الأصلي'}
+                      </a>
+                    </div>
+                  )}
+
+                  {/* تحصيل منزلي */}
+                  {req.home_collection && (
+                    <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-3 mb-3">
+                      <h4 className="text-xs font-semibold text-indigo-800 mb-1.5 flex items-center gap-1"><Home size={12}/> تفاصيل التحصيل المنزلي</h4>
+                      <div className="text-xs text-indigo-700 space-y-0.5">
+                        {req.collection_address && <p>العنوان: {req.collection_address}</p>}
+                        {req.collection_date && <p>التاريخ: {req.collection_date}</p>}
+                        {req.collection_time && <p>الوقت: {req.collection_time}</p>}
+                        {req.collection_staff_name && <p>الفني المعيَّن: {req.collection_staff_name}</p>}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* النتائج */}
+                  {req.result_value && (
+                    <div className="bg-white rounded-xl border border-gray-100 p-4 mb-3">
+                      <h4 className="font-semibold text-gray-700 mb-2 text-sm flex items-center gap-1"><FileText size={13}/> النتائج</h4>
+                      <div className="grid grid-cols-2 gap-2 text-sm">
+                        <div><span className="text-gray-500">القيمة: </span>
+                          <span className={`font-medium ${RESULT_STATUS[req.result_status]?.color || ''}`}>
+                            {req.result_value} {req.result_unit || ''}
+                          </span>
+                        </div>
+                        {req.reference_range && <div><span className="text-gray-500">المرجع: </span><span>{req.reference_range}</span></div>}
+                        {req.result_status && <div><span className="text-gray-500">الحالة: </span>
+                          <span className={`font-medium ${RESULT_STATUS[req.result_status]?.color || ''}`}>{RESULT_STATUS[req.result_status]?.label || req.result_status}</span>
+                        </div>}
+                        {req.result_interpretation && <div className="col-span-2"><span className="text-gray-500">التفسير: </span><span>{req.result_interpretation}</span></div>}
+                      </div>
+                      {req.result_file_name && (
+                        <a href={`/api/uploads/lab_results/${req.result_file_path}`} target="_blank" rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 mt-2 text-xs text-blue-600 hover:underline">
+                          <FileText size={12}/> {req.result_file_name}
+                        </a>
+                      )}
+                    </div>
+                  )}
+
+                  {/* إجراءات */}
+                  <div className="flex flex-wrap gap-2 mt-2">
                     {isAdmin && req.status === 'requested' && (
                       <>
-                        <button onClick={() => { setApproveNotes(''); setActionModal({ type: 'approve', request: req }) }}
-                          className="flex items-center gap-1.5 bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded-lg text-xs font-medium">
-                          <CheckCircle size={13} /> اعتماد الطلب
+                        <button onClick={() => { setActionModal({ type:'approve', request:req }); setApproveNotes('') }}
+                          className="flex items-center gap-1 bg-green-50 text-green-700 border border-green-200 hover:bg-green-100 px-3 py-1.5 rounded-lg text-xs font-medium">
+                          <CheckCircle size={13}/> اعتماد
                         </button>
-                        <button onClick={() => { setRejectReason(''); setActionModal({ type: 'reject', request: req }) }}
-                          className="flex items-center gap-1.5 bg-red-500 hover:bg-red-600 text-white px-3 py-1.5 rounded-lg text-xs font-medium">
-                          <XCircle size={13} /> رفض
+                        <button onClick={() => { setActionModal({ type:'reject', request:req }); setRejectReason('') }}
+                          className="flex items-center gap-1 bg-red-50 text-red-700 border border-red-200 hover:bg-red-100 px-3 py-1.5 rounded-lg text-xs font-medium">
+                          <XCircle size={13}/> رفض
                         </button>
                       </>
                     )}
-                    {isAdmin && (req.status === 'approved' || req.status === 'requested') && (
-                      <button onClick={() => { setResultForm({ lab_name:'', result_value:'', result_unit:'', reference_range:'', result_status:'normal', result_interpretation:'' }); setResultFile(null); setActionModal({ type: 'results', request: req }) }}
-                        className="flex items-center gap-1.5 bg-purple-600 hover:bg-purple-700 text-white px-3 py-1.5 rounded-lg text-xs font-medium">
-                        <Upload size={13} /> رفع النتائج
+                    {isAdmin && req.status === 'approved' && (
+                      <button onClick={() => { setActionModal({ type:'results', request:req }); setResultForm({lab_name:'',result_value:'',result_unit:'',reference_range:'',result_status:'normal',result_interpretation:''}); setResultFile(null) }}
+                        className="flex items-center gap-1 bg-purple-50 text-purple-700 border border-purple-200 hover:bg-purple-100 px-3 py-1.5 rounded-lg text-xs font-medium">
+                        <Upload size={13}/> رفع النتائج
                       </button>
                     )}
                     {isAdmin && req.status === 'results_uploaded' && (
                       <button onClick={() => handleNotify(req)} disabled={busy}
-                        className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-xs font-medium disabled:opacity-60">
-                        <Bell size={13} /> إرسال الإشعارات
+                        className="flex items-center gap-1 bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 px-3 py-1.5 rounded-lg text-xs font-medium disabled:opacity-60">
+                        <Bell size={13}/> إشعار وحفظ في السجل الطبي
                       </button>
                     )}
-                    {req.status === 'completed' && (
-                      <span className="flex items-center gap-1 text-green-600 text-xs font-medium">
-                        <CheckCircle size={13} /> مكتمل — تم إشعار الطبيب والمريض
-                      </span>
-                    )}
-                    {req.status === 'rejected' && req.rejection_reason && (
-                      <span className="flex items-center gap-1 text-red-500 text-xs">
-                        <AlertTriangle size={12} /> سبب الرفض: {req.rejection_reason}
-                      </span>
-                    )}
+                    {req.notified_at && <span className="text-xs text-gray-400">أُشعر في {new Date(req.notified_at).toLocaleDateString('ar-SA')}</span>}
                   </div>
                 </div>
               )}
@@ -378,101 +577,70 @@ export default function LabRequestsPage() {
         </div>
       )}
 
-      {/* ── Modals ── */}
+      {/* Modals */}
       {actionModal && (
-        <div className="fixed inset-0 bg-black/50 z-40 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
-
-            {/* اعتماد */}
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-md" dir="rtl">
             {actionModal.type === 'approve' && (
               <>
-                <h3 className="font-bold text-gray-800 mb-1">اعتماد الطلب</h3>
-                <p className="text-sm text-gray-500 mb-4">التحليل: <strong>{actionModal.request.test_name}</strong></p>
-                <label className="block text-sm font-medium text-gray-700 mb-1">ملاحظات الاعتماد (اختياري)</label>
-                <textarea rows={3} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm mb-4 focus:outline-none focus:ring-2 focus:ring-green-500"
-                  value={approveNotes} onChange={e => setApproveNotes(e.target.value)} />
-                <div className="flex gap-3 justify-end">
-                  <button onClick={() => setActionModal(null)} className="px-4 py-2 text-sm text-gray-600">إلغاء</button>
-                  <button onClick={handleApprove} disabled={busy} className="bg-green-600 hover:bg-green-700 text-white px-5 py-2 rounded-lg text-sm disabled:opacity-60">
-                    {busy ? '...' : 'اعتماد'}
-                  </button>
-                </div>
+                <h3 className="font-bold text-gray-900 mb-4">اعتماد طلب التحليل</h3>
+                <textarea rows={3} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-green-400 mb-4"
+                  value={approveNotes} onChange={e => setApproveNotes(e.target.value)} placeholder="ملاحظات الاعتماد (اختياري)..." />
               </>
             )}
-
-            {/* رفض */}
             {actionModal.type === 'reject' && (
               <>
-                <h3 className="font-bold text-gray-800 mb-1">رفض الطلب</h3>
-                <p className="text-sm text-gray-500 mb-4">التحليل: <strong>{actionModal.request.test_name}</strong></p>
-                <label className="block text-sm font-medium text-gray-700 mb-1">سبب الرفض</label>
-                <textarea rows={3} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm mb-4 focus:outline-none focus:ring-2 focus:ring-red-500"
-                  value={rejectReason} onChange={e => setRejectReason(e.target.value)} placeholder="اكتب سبب الرفض..." />
-                <div className="flex gap-3 justify-end">
-                  <button onClick={() => setActionModal(null)} className="px-4 py-2 text-sm text-gray-600">إلغاء</button>
-                  <button onClick={handleReject} disabled={busy} className="bg-red-500 hover:bg-red-600 text-white px-5 py-2 rounded-lg text-sm disabled:opacity-60">
-                    {busy ? '...' : 'رفض الطلب'}
-                  </button>
-                </div>
+                <h3 className="font-bold text-gray-900 mb-4">رفض طلب التحليل</h3>
+                <textarea rows={3} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-red-400 mb-4"
+                  value={rejectReason} onChange={e => setRejectReason(e.target.value)} placeholder="سبب الرفض..." />
               </>
             )}
-
-            {/* رفع النتائج */}
             {actionModal.type === 'results' && (
               <>
-                <h3 className="font-bold text-gray-800 mb-1">رفع نتائج التحليل</h3>
-                <p className="text-sm text-gray-500 mb-4">التحليل: <strong>{actionModal.request.test_name}</strong></p>
-                <div className="space-y-3">
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-xs font-medium text-gray-600 mb-1">اسم المختبر</label>
-                      <input className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
-                        value={resultForm.lab_name} onChange={e => setResultForm(f=>({...f,lab_name:e.target.value}))} />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-gray-600 mb-1">حالة النتيجة</label>
-                      <select className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
-                        value={resultForm.result_status} onChange={e => setResultForm(f=>({...f,result_status:e.target.value}))}>
-                        <option value="normal">طبيعي</option>
-                        <option value="abnormal">غير طبيعي</option>
-                        <option value="critical">حرج</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-gray-600 mb-1">قيمة النتيجة</label>
-                      <input className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
-                        value={resultForm.result_value} onChange={e => setResultForm(f=>({...f,result_value:e.target.value}))} placeholder="مثال: 5.2" />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-gray-600 mb-1">الوحدة</label>
-                      <input className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
-                        value={resultForm.result_unit} onChange={e => setResultForm(f=>({...f,result_unit:e.target.value}))} placeholder="مثال: g/dL" />
-                    </div>
+                <h3 className="font-bold text-gray-900 mb-4">رفع نتائج التحليل</h3>
+                {[
+                  ['lab_name','اسم المختبر'],['result_value','قيمة النتيجة'],
+                  ['result_unit','الوحدة'],['reference_range','النطاق الطبيعي'],
+                ].map(([k, lbl]) => (
+                  <div key={k} className="mb-3">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">{lbl}</label>
+                    <input className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                      value={resultForm[k]} onChange={e => setResultForm(f=>({...f,[k]:e.target.value}))} />
                   </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">النطاق المرجعي</label>
-                    <input className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
-                      value={resultForm.reference_range} onChange={e => setResultForm(f=>({...f,reference_range:e.target.value}))} placeholder="مثال: 4.5 - 6.0" />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">التفسير</label>
-                    <textarea rows={2} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
-                      value={resultForm.result_interpretation} onChange={e => setResultForm(f=>({...f,result_interpretation:e.target.value}))} />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">ملف النتيجة (اختياري)</label>
-                    <input type="file" accept=".pdf,.jpg,.jpeg,.png" className="w-full text-sm text-gray-600 file:ml-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-medium file:bg-purple-50 file:text-purple-700"
-                      onChange={e => setResultFile(e.target.files[0])} />
-                  </div>
+                ))}
+                <div className="mb-3">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">حالة النتيجة</label>
+                  <select className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                    value={resultForm.result_status} onChange={e => setResultForm(f=>({...f,result_status:e.target.value}))}>
+                    <option value="normal">طبيعي</option>
+                    <option value="abnormal">غير طبيعي</option>
+                    <option value="critical">حرج</option>
+                  </select>
                 </div>
-                <div className="flex gap-3 justify-end mt-4">
-                  <button onClick={() => setActionModal(null)} className="px-4 py-2 text-sm text-gray-600">إلغاء</button>
-                  <button onClick={handleUploadResults} disabled={busy} className="bg-purple-600 hover:bg-purple-700 text-white px-5 py-2 rounded-lg text-sm disabled:opacity-60">
-                    {busy ? '...' : 'رفع النتائج'}
-                  </button>
+                <div className="mb-3">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">التفسير</label>
+                  <textarea rows={2} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                    value={resultForm.result_interpretation} onChange={e => setResultForm(f=>({...f,result_interpretation:e.target.value}))} />
+                </div>
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">ملف النتائج (اختياري)</label>
+                  <input type="file" accept=".pdf,.jpg,.jpeg,.png"
+                    onChange={e => setResultFile(e.target.files[0])}
+                    className="w-full text-sm text-gray-500 file:ml-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-sm file:bg-purple-50 file:text-purple-700" />
                 </div>
               </>
             )}
+            <div className="flex gap-3 justify-end">
+              <button onClick={() => setActionModal(null)} className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800">إلغاء</button>
+              <button disabled={busy} onClick={
+                actionModal.type === 'approve' ? handleApprove :
+                actionModal.type === 'reject'  ? handleReject  :
+                handleUploadResults
+              }
+                className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-lg text-sm font-medium disabled:opacity-60">
+                {busy ? 'جاري...' : 'تأكيد'}
+              </button>
+            </div>
           </div>
         </div>
       )}

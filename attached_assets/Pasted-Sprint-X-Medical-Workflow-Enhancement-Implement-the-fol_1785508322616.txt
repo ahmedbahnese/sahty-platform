@@ -1,0 +1,129 @@
+Sprint X – Medical Workflow Enhancement
+
+Implement the following healthcare workflows according to real medical practice. The implementation must include backend logic, database updates, API integration, UI, validation, and permissions.
+
+⸻
+
+1. Radiology Request Enhancement
+
+Implement a complete Radiology Request workflow.
+
+Requirements:
+
+* Allow the doctor to create a radiology request.
+* Allow uploading the original radiology request document (PDF/Image).
+* Store the uploaded request inside the patient’s medical record.
+* Allow selecting:
+    * Radiology Center
+    * Examination Type
+    * Priority (Routine / Urgent / Emergency)
+* Allow adding clinical notes.
+* Allow scheduling an appointment.
+* Notify the selected radiology center.
+* After completion, the center uploads:
+    * Radiology Images
+    * Official Report
+* Results automatically become available inside:
+    * Patient Medical Record
+    * Doctor Dashboard
+
+⸻
+
+2. Laboratory Request Enhancement
+
+Implement a complete Laboratory Request workflow.
+
+Requirements:
+
+* Allow the doctor to create laboratory requests.
+* Allow uploading the laboratory request document.
+* Allow selecting one or multiple laboratory tests.
+* Display preparation instructions automatically.
+
+Examples:
+
+* Fasting 8 hours
+* Fasting 12 hours
+* Drink water before test
+* Morning sample
+* Stop medication before test (if applicable)
+
+Allow laboratory staff to customize instructions.
+
+Provide Home Sample Collection option.
+
+If Home Collection is selected:
+
+* Select address
+* Select location using map
+* Select preferred date
+* Select preferred time
+* Assign laboratory staff.
+
+Notify patient and laboratory.
+
+Store everything inside Medical Record.
+
+⸻
+
+3. Medication Request Enhancement
+
+Implement a complete Medication Ordering workflow.
+
+The patient should be able to:
+
+Option 1
+
+Upload a paper prescription.
+
+Option 2
+
+Type medication manually.
+
+Option 3
+
+Select medications directly from prescriptions created by doctors inside the platform.
+
+Allow adding notes for every medication.
+
+Allow selecting preferred pharmacy.
+
+⸻
+
+4. Smart Medication Tracking
+
+Implement Medication Tracking.
+
+Requirements:
+
+The patient can choose medications to monitor.
+
+Doctor-prescribed medications should appear automatically.
+
+Allow:
+
+Start Date
+
+End Date
+
+Dosage
+
+Frequency
+
+Reminder Time
+
+Track:
+
+Taken
+
+Skipped
+
+Missed
+
+Generate adherence statistics.
+
+Notify patient.
+
+Notify family (if enabled).
+
+Notify doctor for repeated missed doses.
