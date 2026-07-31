@@ -5,6 +5,7 @@ import jwt
 import datetime
 import hashlib
 import secrets
+from sqlalchemy import func
 from src.models.user import db, User, UserSession
 from src.models.patient import Patient
 from src.models.doctor import Doctor
@@ -262,7 +263,7 @@ def login():
         if not identifier or not data.get('password'):
             return jsonify({'message': 'اسم المستخدم أو الهاتف أو البريد الإلكتروني وكلمة المرور مطلوبة'}), 400
         user = User.query.filter(
-            (User.email == identifier) |
+            (func.lower(User.email) == identifier.lower()) |
             (User.username == identifier)
         ).first()
         if not user:

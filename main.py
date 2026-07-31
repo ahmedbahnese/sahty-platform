@@ -178,7 +178,10 @@ with app.app_context():
     bootstrap_email    = os.environ.get('ADMIN_EMAIL', 'admin@sehaty.com')
     bootstrap_password = os.environ.get('ADMIN_PASSWORD')
     if bootstrap_password:
-        bootstrap_user = User.query.filter_by(email=bootstrap_email).first()
+        from sqlalchemy import func as sa_func
+        bootstrap_user = User.query.filter(
+            sa_func.lower(User.email) == bootstrap_email.lower()
+        ).first()
         if not bootstrap_user:
             bootstrap_user = User(
                 username=bootstrap_email.split('@')[0],
