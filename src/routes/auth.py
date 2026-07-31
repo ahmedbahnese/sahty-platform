@@ -147,9 +147,13 @@ def register():
                     return jsonify({'message': f'حقل {field} مطلوب للحساب المهني'}), 400
         if User.query.filter_by(email=data['email']).first():
             return jsonify({'message': 'البريد الإلكتروني مستخدم بالفعل'}), 400
-        username = (data.get('username') or data['email'].split('@')[0]).strip()
-        if User.query.filter_by(username=username).first():
-            return jsonify({'message': 'اسم المستخدم مستخدم بالفعل، اختر اسماً آخر'}), 400
+        # Auto-generate a unique username — never fail the user over a collision
+        base = (data.get('username') or data['email'].split('@')[0]).strip() or 'user'
+        username = base
+        counter = 1
+        while User.query.filter_by(username=username).first():
+            username = f"{base}{counter}"
+            counter += 1
         hashed_password = generate_password_hash(data['password'])
         new_user = User(
             username=username,
@@ -270,7 +274,13 @@ def login():
             return jsonify({'message': 'بيانات الدخول غير صحيحة'}), 401
         if not user.is_active:
             if user.user_type in PUBLIC_ROLES - {'patient'}:
-                return jsonify({'message': 'الحساب بانتظار اعتماد الإدارة قبل تسجيل الدخول'}), 403
+                provider = ProviderRegistration.query.filter_by(user_id=user.id).first()
+                status = provider.status if provider else 'pending'
+                return jsonify({
+                    'message': 'الحساب بانتظار اعتماد الإدارة قبل تسجيل الدخول',
+                    'pending_review': True,
+                    'provider_status': status,
+                }), 403
             return jsonify({'message': 'الحساب غير مفعل'}), 403
         token, _ = _issue_session(user)
         user.last_login = datetime.datetime.utcnow()

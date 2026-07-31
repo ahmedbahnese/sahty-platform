@@ -51,13 +51,34 @@ src/
 | `/api/medications` | medication.py | Medication tracking + logs |
 | `/api/admin` | admin.py | Admin dashboard, user/provider management |
 
+## Default admin account (dev only)
+| Field | Value |
+|-------|-------|
+| Email | admin@sehaty.com |
+| Password | Admin@1234 |
+| Role | super_admin |
+
+Change this password immediately before deploying to production.
+
+## RBAC — User Roles
+| Role | Registration | Approval needed | Dashboard |
+|------|-------------|-----------------|-----------|
+| `patient` | Self-register | No — instant | `/dashboard` |
+| `doctor` | Separate form with license/syndicate fields | Yes | `/dashboard` |
+| `pharmacy` | Separate form with pharmacy details | Yes | `/dashboard` |
+| `lab` | Separate form with lab details | Yes | `/dashboard` |
+| `radiology_center` | Separate form with center details | Yes | `/dashboard` |
+| `hospital` | Separate form with hospital details | Yes | `/dashboard` |
+| `admin` / `super_admin` | Created by super admin only | — | `/admin` |
+
+Professionals land on `/pending` after registration until admin approves. The admin approval dashboard is at `/admin`.
+
 ## Environment variables / secrets
 | Name | Purpose | Required |
 |------|---------|----------|
 | `SESSION_SECRET` | Flask secret key + JWT signing | ✅ Required |
 | `OPENAI_API_KEY` | GPT-4o AI assistant, image analysis, voice | ✅ For AI features |
 | `DATABASE_URL` | Override SQLite with PostgreSQL | Optional |
-| `ADMIN_EMAIL` | Bootstrap admin account email (default: admin@sehaty.com) | Optional |
 | `ADMIN_PASSWORD` | Bootstrap admin account password | Optional |
 | `OPENAI_API_BASE` | Custom OpenAI-compatible base URL | Optional |
 

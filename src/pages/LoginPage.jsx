@@ -37,11 +37,18 @@ export default function LoginPage() {
 
       if (result.success) {
         const type = result.user?.user_type
-        navigate(type === 'admin' || type === 'super_admin' ? '/admin' : '/dashboard')
+        if (type === 'admin' || type === 'super_admin') {
+          navigate('/admin')
+        } else {
+          navigate('/dashboard')
+        }
+      } else if (result.pending_review) {
+        // الحساب موجود لكنه بانتظار اعتماد الإدارة أو مرفوض
+        navigate('/pending', { state: { status: result.provider_status || 'pending' } })
       } else {
         setError(result.message)
       }
-    } catch (error) {
+    } catch {
       setError('حدث خطأ غير متوقع')
     } finally {
       setLoading(false)

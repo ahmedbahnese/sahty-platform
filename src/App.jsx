@@ -1,4 +1,3 @@
-import { useState, useEffect } from 'react'
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import Navbar from './components/Navbar'
@@ -22,37 +21,52 @@ import LabRequestsPage from './pages/LabRequestsPage'
 import RadiologyRequestsPage from './pages/RadiologyRequestsPage'
 import HospitalsPage from './pages/HospitalsPage'
 import DoctorProfilePage from './pages/DoctorProfilePage'
+import PendingApprovalPage from './pages/PendingApprovalPage'
 import FloatingAIChat from './components/FloatingAIChat'
 import './App.css'
 
-// مكون للحماية - يتطلب تسجيل الدخول
-function ProtectedRoute({ children }) {
-  const { user, loading } = useAuth()
-  
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
-      </div>
-    )
-  }
-  
-  return user ? children : <Navigate to="/login" />
+const ADMIN_ROLES = ['admin', 'super_admin']
+const PROFESSIONAL_ROLES = ['doctor', 'pharmacy', 'lab', 'radiology_center', 'hospital']
+
+// ── Loading spinner ────────────────────────────────────────────────────────────
+function Spinner() {
+  return (
+    <div className="min-h-screen flex items-center justify-center">
+      <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600" />
+    </div>
+  )
 }
 
-// مكون للصفحات العامة - إعادة توجيه إذا كان مسجل دخول
+// ── Redirect logged-in users away from auth pages ─────────────────────────────
 function PublicRoute({ children }) {
   const { user, loading } = useAuth()
-  
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
-      </div>
-    )
-  }
-  
-  return user ? <Navigate to="/dashboard" /> : children
+  if (loading) return <Spinner />
+  if (!user) return children
+  return <Navigate to={getDashboardPath(user)} replace />
+}
+
+// ── Require login ──────────────────────────────────────────────────────────────
+function ProtectedRoute({ children }) {
+  const { user, loading } = useAuth()
+  if (loading) return <Spinner />
+  if (!user) return <Navigate to="/login" replace />
+  return children
+}
+
+// ── Require specific roles — redirect others to their own dashboard ────────────
+function RoleRoute({ children, roles }) {
+  const { user, loading } = useAuth()
+  if (loading) return <Spinner />
+  if (!user) return <Navigate to="/login" replace />
+  if (!roles.includes(user.user_type)) return <Navigate to={getDashboardPath(user)} replace />
+  return children
+}
+
+// ── Determine the home dashboard path for a given user ────────────────────────
+function getDashboardPath(user) {
+  if (!user) return '/login'
+  if (ADMIN_ROLES.includes(user.user_type)) return '/admin'
+  return '/dashboard'
 }
 
 function AppContent() {
@@ -61,120 +75,84 @@ function AppContent() {
       <Navbar />
       <main className="flex-1">
         <Routes>
-          {/* الصفحات العامة */}
+          {/* ── العامة ── */}
           <Route path="/" element={<HomePage />} />
           <Route path="/doctors" element={<DoctorsPage />} />
+          <Route path="/doctors/:id" element={<DoctorProfilePage />} />
           <Route path="/services" element={<ServicesPage />} />
           <Route path="/blood-bank" element={<BloodBankPage />} />
           <Route path="/emergency" element={<EmergencyPage />} />
+          <Route path="/hospitals" element={<HospitalsPage />} />
           <Route path="/ai-assistant" element={<AIAssistantPage />} />
-          
-          {/* صفحات المصادقة */}
-          <Route 
-            path="/login" 
+
+          {/* ── المصادقة (عامة فقط) ── */}
+          <Route path="/login" element={<PublicRoute><LoginPage /></PublicRoute>} />
+          <Route path="/register" element={<PublicRoute><RegisterPage /></PublicRoute>} />
+
+          {/* ── صفحة انتظار الاعتماد (عامة — المهنيون لا يحصلون على token حتى الاعتماد) ── */}
+          <Route path="/pending" element={<PendingApprovalPage />} />
+
+          {/* ── لوحة المريض والمزودين ── */}
+          <Route
+            path="/dashboard"
             element={
-              <PublicRoute>
-                <LoginPage />
-              </PublicRoute>
-            } 
-          />
-          <Route 
-            path="/register" 
-            element={
-              <PublicRoute>
-                <RegisterPage />
-              </PublicRoute>
-            } 
-          />
-          
-          {/* الصفحات المحمية */}
-          <Route 
-            path="/dashboard" 
-            element={
-              <ProtectedRoute>
+              <RoleRoute roles={['patient', ...PROFESSIONAL_ROLES]}>
                 <DashboardPage />
-              </ProtectedRoute>
-            } 
-          />
-          <Route 
-            path="/medical-record" 
-            element={
-              <ProtectedRoute>
-                <MedicalRecordPage />
-              </ProtectedRoute>
-            } 
-          />
-          <Route 
-            path="/appointments" 
-            element={
-              <ProtectedRoute>
-                <AppointmentsPage />
-              </ProtectedRoute>
-            } 
-          />
-          <Route 
-            path="/prescriptions" 
-            element={
-              <ProtectedRoute>
-                <PrescriptionsPage />
-              </ProtectedRoute>
-            } 
-          />
-          
-          {/* صفحات الذكاء الاصطناعي والصحة */}
-          <Route
-            path="/medications"
-            element={
-              <ProtectedRoute>
-                <MedicationTrackingPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/family-health"
-            element={
-              <ProtectedRoute>
-                <FamilyHealthPage />
-              </ProtectedRoute>
+              </RoleRoute>
             }
           />
 
-              {/* صفحات مقدمي الخدمة */}
+          {/* ── لوحة الإدارة (مدير ومدير النظام فقط) ── */}
+          <Route
+            path="/admin"
+            element={
+              <RoleRoute roles={ADMIN_ROLES}>
+                <AdminDashboardPage />
+              </RoleRoute>
+            }
+          />
+
+          {/* ── صفحات المريض ── */}
+          <Route path="/medical-record" element={<RoleRoute roles={['patient']}><MedicalRecordPage /></RoleRoute>} />
+          <Route path="/family-health" element={<RoleRoute roles={['patient']}><FamilyHealthPage /></RoleRoute>} />
+          <Route path="/medications" element={<RoleRoute roles={['patient', 'pharmacy']}><MedicationTrackingPage /></RoleRoute>} />
+
+          {/* ── صفحات مشتركة (مرضى + مزودو الخدمة) ── */}
+          <Route
+            path="/appointments"
+            element={
+              <RoleRoute roles={['patient', 'doctor', 'lab', 'radiology_center', 'hospital']}>
+                <AppointmentsPage />
+              </RoleRoute>
+            }
+          />
+          <Route
+            path="/prescriptions"
+            element={
+              <RoleRoute roles={['patient', 'doctor', 'pharmacy']}>
+                <PrescriptionsPage />
+              </RoleRoute>
+            }
+          />
           <Route
             path="/lab-requests"
             element={
-              <ProtectedRoute>
+              <RoleRoute roles={['patient', 'doctor', 'lab', 'hospital']}>
                 <LabRequestsPage />
-              </ProtectedRoute>
+              </RoleRoute>
             }
           />
           <Route
             path="/radiology"
             element={
-              <ProtectedRoute>
+              <RoleRoute roles={['patient', 'doctor', 'radiology_center', 'hospital']}>
                 <RadiologyRequestsPage />
-              </ProtectedRoute>
+              </RoleRoute>
             }
           />
 
-          {/* لوحة الإدارة */}
-          <Route
-            path="/admin"
-            element={
-              <ProtectedRoute>
-                <AdminDashboardPage />
-              </ProtectedRoute>
-            }
-          />
-
-          {/* المستشفيات — عامة */}
-          <Route path="/hospitals" element={<HospitalsPage />} />
-
-          {/* ملف الطبيب — عام */}
-          <Route path="/doctors/:id" element={<DoctorProfilePage />} />
-
-          {/* إعادة توجيه للصفحة الرئيسية */}
-          <Route path="*" element={<Navigate to="/" />} />
+          {/* ── توجيه افتراضي ── */}
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
       <Footer />
@@ -183,7 +161,7 @@ function AppContent() {
   )
 }
 
-function App() {
+export default function App() {
   return (
     <Router>
       <AuthProvider>
@@ -192,6 +170,3 @@ function App() {
     </Router>
   )
 }
-
-export default App
-

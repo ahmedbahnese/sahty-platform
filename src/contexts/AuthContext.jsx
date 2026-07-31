@@ -87,7 +87,12 @@ export function AuthProvider({ children }) {
         localStorage.setItem('token', data.token)
         return { success: true, user: data.user }
       } else {
-        return { success: false, message: data.message }
+        return {
+          success: false,
+          message: data.message,
+          pending_review: data.pending_review || false,
+          provider_status: data.provider_status || 'pending',
+        }
       }
     } catch {
       return { success: false, message: 'خطأ في الاتصال بالخادم' }
