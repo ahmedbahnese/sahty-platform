@@ -70,3 +70,6 @@ externalPort = 3001
 ADMIN_EMAIL = "ahmedbahnese@yahoo.com"
 ADMIN_FIRST_NAME = "Ahmed"
 ADMIN_LAST_NAME = "Bahnasy"
+
+[deployment]
+deploymentTarget = "cloudrun"
