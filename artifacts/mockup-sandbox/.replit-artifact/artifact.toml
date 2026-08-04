@@ -1,0 +1,19 @@
+kind = "design"
+previewPath = "/__mockup/"
+title = "Sahti Design Mockups"
+description = "Isolated sandbox for Sahti healthcare platform UI mockups — design system, patient dashboard, doctor dashboard, and admin dashboard."
+version = "1.0.0"
+id = "artifacts/mockup-sandbox"
+router = "path"
+
+[[services]]
+name = "Component Preview Server"
+paths = [ "/__mockup/" ]
+localPort = 23636
+
+[services.development]
+run = "npm run dev"
+
+[services.env]
+PORT = "23636"
+BASE_PATH = "/__mockup/"

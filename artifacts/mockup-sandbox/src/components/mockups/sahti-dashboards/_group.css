@@ -1,0 +1,115 @@
+/* Sahti Healthcare Design System — "Clarity in Care" */
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Cairo:wght@300;400;500;600;700;800&display=swap');
+
+:root {
+  /* === Primary Color System === */
+  --sahti-navy:          #0A2540;
+  --sahti-navy-80:       #2A4560;
+  --sahti-navy-60:       #4A6580;
+  --sahti-navy-20:       #C8D8E8;
+  --sahti-navy-10:       #E4EBF4;
+
+  --sahti-teal:          #0EA5E9;
+  --sahti-teal-dark:     #0284C7;
+  --sahti-teal-light:    #7DD3FC;
+  --sahti-teal-pale:     #E0F2FE;
+
+  /* === Medical Status Colors === */
+  --sahti-emergency:     #EF4444;
+  --sahti-emergency-bg:  #FEF2F2;
+  --sahti-warning:       #F59E0B;
+  --sahti-warning-bg:    #FFFBEB;
+  --sahti-success:       #10B981;
+  --sahti-success-bg:    #ECFDF5;
+  --sahti-info:          #3B82F6;
+  --sahti-info-bg:       #EFF6FF;
+
+  /* === Neutrals === */
+  --sahti-bg:            #F0F7FF;
+  --sahti-surface:       #FFFFFF;
+  --sahti-surface-2:     #F8FAFC;
+  --sahti-border:        #E2EBF4;
+  --sahti-border-dark:   #C8D8E8;
+
+  --sahti-text-primary:  #0A2540;
+  --sahti-text-secondary:#4A6580;
+  --sahti-text-muted:    #8BA4BE;
+
+  /* === Typography === */
+  --font-display: 'Plus Jakarta Sans', sans-serif;
+  --font-body:    'Cairo', 'Plus Jakarta Sans', sans-serif;
+
+  /* === Shadows === */
+  --shadow-sm:    0 1px 3px rgba(10,37,64,0.06), 0 1px 2px rgba(10,37,64,0.04);
+  --shadow-md:    0 4px 12px rgba(10,37,64,0.08), 0 2px 4px rgba(10,37,64,0.05);
+  --shadow-lg:    0 10px 30px rgba(10,37,64,0.12), 0 4px 8px rgba(10,37,64,0.06);
+  --shadow-card:  0 2px 8px rgba(10,37,64,0.07);
+  --shadow-glow:  0 0 20px rgba(14,165,233,0.15);
+
+  /* === Spacing === */
+  --sidebar-w:    260px;
+  --topbar-h:     64px;
+  --radius-sm:    8px;
+  --radius-md:    12px;
+  --radius-lg:    16px;
+  --radius-xl:    24px;
+}
+
+/* Dark mode palette */
+[data-theme="dark"] {
+  --sahti-bg:            #050F1C;
+  --sahti-surface:       #0A1628;
+  --sahti-surface-2:     #0F1E30;
+  --sahti-border:        #1A2F45;
+  --sahti-border-dark:   #243A52;
+  --sahti-text-primary:  #E8F1FB;
+  --sahti-text-secondary:#8BAFC8;
+  --sahti-text-muted:    #4A6A88;
+  --shadow-md:    0 4px 12px rgba(0,0,0,0.3);
+  --shadow-card:  0 2px 8px rgba(0,0,0,0.25);
+}
+
+/* Global resets for mockup */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: var(--font-body);
+  background: var(--sahti-bg);
+  color: var(--sahti-text-primary);
+  direction: ltr;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Medical status badge utilities */
+.badge-emergency { background: var(--sahti-emergency-bg); color: var(--sahti-emergency); }
+.badge-warning    { background: var(--sahti-warning-bg);   color: var(--sahti-warning); }
+.badge-success    { background: var(--sahti-success-bg);   color: var(--sahti-success); }
+.badge-info       { background: var(--sahti-info-bg);      color: var(--sahti-info); }
+
+/* Gradient mesh backgrounds */
+.bg-mesh-navy {
+  background: 
+    radial-gradient(ellipse 80% 60% at 20% 10%, rgba(14,165,233,0.08) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 50% at 80% 80%, rgba(59,130,246,0.06) 0%, transparent 60%),
+    var(--sahti-navy);
+}
+
+.bg-mesh-light {
+  background:
+    radial-gradient(ellipse 70% 50% at 10% 20%, rgba(14,165,233,0.06) 0%, transparent 60%),
+    radial-gradient(ellipse 50% 40% at 90% 70%, rgba(10,37,64,0.04) 0%, transparent 60%),
+    var(--sahti-bg);
+}
+
+/* Glass card effect */
+.glass-card {
+  background: rgba(255,255,255,0.7);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255,255,255,0.9);
+}
+
+/* Smooth scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--sahti-border); }
+::-webkit-scrollbar-thumb { background: var(--sahti-navy-20); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--sahti-navy-60); }
