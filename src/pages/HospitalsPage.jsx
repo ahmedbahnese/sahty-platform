@@ -3,7 +3,7 @@ import { Building2, MapPin, Phone, Navigation, Star, Heart, Stethoscope, X, Aler
 import { Alert, AlertDescription } from '@/components/ui/alert'
 
 const SPECIALTIES = ['عام','قلب','أورام','أطفال','عيون','صدر وجهاز تنفسي','عظام','نساء وتوليد','أمراض جلدية','مخ وأعصاب']
-const GOVERNORATES = ['القاهرة','الجيزة','الإسكندرية','الدقهلية','الشرقية','الغربية','المنوفية','أسيوط','سوهاج','الأقصر','أسوان']
+const GOVERNORATES = ['القاهرة','الجيزة','الإسكندرية','الدقهلية','الشرقية','الغربية','المنوفية','البحيرة','أسيوط','سوهاج','الأقصر','أسوان']
 
 function haversine(lat1, lng1, lat2, lng2) {
   const R = 6371

@@ -201,7 +201,7 @@ export default function HomePage() {
               <CheckCircle className="h-4 w-4" />
               <span>ميزاتنا المتميزة</span>
             </div>
-            <h2 className="text-4xl font-bold text-gray-900 mb-4">لماذا تختار صحتك في أمان؟</h2>
+            <h2 className="text-4xl font-bold text-gray-900 mb-4">لماذا تختار صحتي؟</h2>
             <p className="text-lg text-gray-500 max-w-2xl mx-auto">
               نقدم مجموعة شاملة من الخدمات الطبية المتطورة لضمان حصولك على أفضل رعاية صحية
             </p>
@@ -412,7 +412,7 @@ export default function HomePage() {
           </div>
           <h2 className="text-4xl font-bold text-white mb-4">ابدأ رحلتك الصحية اليوم</h2>
           <p className="text-xl text-blue-200 mb-10 max-w-2xl mx-auto leading-relaxed">
-            انضم إلى آلاف المرضى والأطباء الذين يثقون في منصة صحتك في أمان
+            انضم إلى آلاف المرضى والأطباء الذين يثقون في منصة صحتي
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             {!isAuthenticated && (

@@ -1200,7 +1200,7 @@ function MedicalReportModal({ api, open, onClose }) {
             {/* الأمراض النشطة */}
             {report.active_diseases?.length > 0 && (
               <div className="bg-white border rounded-xl p-4">
-                <h3 className="font-bold text-gray-800 mb-2">الأمراض الحالية</h3>
+                <h3 className="font-bold text-gray-800 mb-2">التاريخ المرضي</h3>
                 <ul className="space-y-1 text-sm">
                   {report.active_diseases.map((d, i) => <li key={i} className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-blue-400 inline-block" />{d.name} {d.severity && `(${severityLabels[d.severity]})`}</li>)}
                 </ul>

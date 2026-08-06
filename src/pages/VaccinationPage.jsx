@@ -33,7 +33,123 @@ function Badge({ status }) {
   )
 }
 
-function AddVaccinationModal({ onClose, onSave, prefill = {} }) {
+// ── Vaccine keywords for categorisation ──────────────────────────────────────
+const CHILD_VACCINE_KEYWORDS = [
+  'bcg', 'السل', 'hepatitis b', 'هيبات', 'التهاب الكبد ب', 'dtp', 'dtap', 'الكزاز الدفتيريا', 'السعال الديكي',
+  'polio', 'شلل الأطفال', 'ipv', 'opv', 'hib', 'المستدمية', 'pcv', 'العقدية', 'الرئوية',
+  'mmr', 'الحصبة', 'النكاف', 'الحصبة الألمانية', 'varicella', 'الجديري', 'rotavirus', 'العجلي',
+  'روتا', 'hepatitis a', 'التهاب الكبد أ', 'meningococcal b', 'السحائي b', 'hpv', 'بابيلوما'
+]
+const MANDATORY_KEYWORDS = [
+  'bcg', 'السل', 'hepatitis b', 'hep b', 'التهاب الكبد ب', 'dtp', 'dtap', 'الكزاز',
+  'polio', 'شلل الأطفال', 'hib', 'pcv', 'mmr', 'الحصبة', 'السحائي', 'meningococcal',
+  'روتا', 'rotavirus', 'العجلي', 'الجديري', 'varicella'
+]
+
+function isChildVaccine(item) {
+  const text = `${item.vaccine_name} ${item.disease_prevented || ''} ${item.recommended_ages || ''}`.toLowerCase()
+  return CHILD_VACCINE_KEYWORDS.some(k => text.includes(k))
+}
+function isMandatory(item) {
+  const text = `${item.vaccine_name} ${item.disease_prevented || ''}`.toLowerCase()
+  return MANDATORY_KEYWORDS.some(k => text.includes(k))
+}
+
+// ── ScheduleTab component ─────────────────────────────────────────────────────
+function ScheduleTab({ schedule, expandSchedule, setExpandSchedule, setAddPrefill, setShowAdd }) {
+  const [scheduleFor, setScheduleFor] = useState('adult') // 'adult' | 'child'
+
+  const filtered = schedule.filter(item =>
+    scheduleFor === 'child' ? isChildVaccine(item) : !isChildVaccine(item)
+  )
+  const mandatory = filtered.filter(isMandatory)
+  const additional = filtered.filter(item => !isMandatory(item))
+
+  const VaccineRow = ({ item }) => (
+    <div className="flex items-center justify-between bg-white border border-gray-100 rounded-xl px-4 py-3">
+      <div className="flex-1">
+        <p className="font-medium text-gray-900 text-sm">{item.vaccine_name}</p>
+        {item.disease_prevented && <p className="text-xs text-gray-500">{item.disease_prevented}</p>}
+        {item.recommended_ages && <p className="text-xs text-gray-400 mt-0.5">{item.recommended_ages}</p>}
+      </div>
+      <div className="flex items-center gap-2 shrink-0">
+        <Badge status={item.status} />
+        {item.status !== 'taken' && (
+          <button
+            onClick={() => { setAddPrefill({ vaccine_name: item.vaccine_name, disease_prevented: item.disease_prevented }); setShowAdd(true) }}
+            className="text-xs text-blue-600 hover:underline border border-blue-200 px-2 py-1 rounded-lg"
+          >
+            سجّل
+          </button>
+        )}
+      </div>
+    </div>
+  )
+
+  return (
+    <div className="space-y-4">
+      {/* Toggle: adult/child */}
+      <div className="flex rounded-xl overflow-hidden border border-gray-200 w-fit">
+        {[{ id: 'adult', label: '🧑 البالغون' }, { id: 'child', label: '👶 الأطفال' }].map(t => (
+          <button
+            key={t.id}
+            onClick={() => setScheduleFor(t.id)}
+            className={`px-5 py-2 text-sm font-medium transition-colors ${scheduleFor === t.id ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      <p className="text-xs text-gray-400">
+        {scheduleFor === 'adult' ? 'الجدول الموصى به للبالغين (18 سنة فأكثر)' : 'الجدول الموصى به للأطفال (0-18 سنة)'}
+        {' '}— انقر «سجّل» لإضافة أي لقاح مُؤخذ.
+      </p>
+
+      {/* Mandatory section */}
+      {mandatory.length > 0 && (
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-red-500 inline-block" />
+            <p className="text-xs font-semibold text-red-700 uppercase tracking-wide">تطعيمات إجبارية ({mandatory.length})</p>
+          </div>
+          {mandatory.map((item, i) => <VaccineRow key={i} item={item} />)}
+        </div>
+      )}
+
+      {/* Additional section */}
+      {additional.length > 0 && (
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-blue-400 inline-block" />
+            <p className="text-xs font-semibold text-blue-700 uppercase tracking-wide">تطعيمات إضافية ({additional.length})</p>
+          </div>
+          <div className={`space-y-2 ${!expandSchedule && additional.length > 4 ? 'max-h-64 overflow-hidden relative' : ''}`}>
+            {additional.map((item, i) => <VaccineRow key={i} item={item} />)}
+            {!expandSchedule && additional.length > 4 && (
+              <div className="absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-white to-transparent" />
+            )}
+          </div>
+          {additional.length > 4 && (
+            <button onClick={() => setExpandSchedule(e => !e)} className="flex items-center gap-1 text-sm text-blue-600 hover:underline mx-auto">
+              {expandSchedule ? <><ChevronUp className="w-4 h-4" />عرض أقل</> : <><ChevronDown className="w-4 h-4" />عرض الكل ({additional.length} لقاح)</>}
+            </button>
+          )}
+        </div>
+      )}
+
+      {filtered.length === 0 && (
+        <div className="text-center py-10 text-gray-400 text-sm">
+          <Syringe className="w-10 h-10 mx-auto mb-2 opacity-30" />
+          لا توجد لقاحات مطابقة لهذه الفئة
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── AddVaccinationModal ────────────────────────────────────────────────────────
+function AddVaccinationModal({ onClose, onSave, prefill = {}, scheduleList = [] }) {
   const [form, setForm] = useState({
     vaccine_name: prefill.vaccine_name || '',
     disease_prevented: prefill.disease_prevented || '',
@@ -48,6 +164,26 @@ function AddVaccinationModal({ onClose, onSave, prefill = {} }) {
     notes: '',
   })
   const [saving, setSaving] = useState(false)
+  const [suggestions, setSuggestions] = useState([])
+
+  // Autocomplete from schedule
+  const handleVaccineNameChange = (val) => {
+    setForm(f => ({ ...f, vaccine_name: val }))
+    if (val.length >= 2) {
+      const filtered = scheduleList.filter(s =>
+        s.vaccine_name.toLowerCase().includes(val.toLowerCase()) ||
+        (s.disease_prevented || '').toLowerCase().includes(val.toLowerCase())
+      )
+      setSuggestions(filtered.slice(0, 6))
+    } else {
+      setSuggestions([])
+    }
+  }
+
+  const selectSuggestion = (item) => {
+    setForm(f => ({ ...f, vaccine_name: item.vaccine_name, disease_prevented: item.disease_prevented || f.disease_prevented }))
+    setSuggestions([])
+  }
 
   const save = async () => {
     if (!form.vaccine_name) return
@@ -74,9 +210,26 @@ function AddVaccinationModal({ onClose, onSave, prefill = {} }) {
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
         </div>
         <div className="p-5 space-y-4">
-          <div>
+          <div className="relative">
             <Label>اسم اللقاح *</Label>
-            <Input value={form.vaccine_name} onChange={e => setForm(f => ({ ...f, vaccine_name: e.target.value }))} placeholder="مثال: لقاح الإنفلونزا" className="mt-1" />
+            <Input
+              value={form.vaccine_name}
+              onChange={e => handleVaccineNameChange(e.target.value)}
+              placeholder="ابدأ بالكتابة للاقتراحات من الجدول..."
+              className="mt-1"
+              autoComplete="off"
+            />
+            {suggestions.length > 0 && (
+              <div className="absolute z-10 mt-1 w-full bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden">
+                {suggestions.map((s, i) => (
+                  <button key={i} type="button" onClick={() => selectSuggestion(s)}
+                    className="w-full text-right px-4 py-2.5 text-sm hover:bg-blue-50 hover:text-blue-700 border-b border-gray-50 last:border-0 transition-colors">
+                    <span className="font-medium">{s.vaccine_name}</span>
+                    {s.disease_prevented && <span className="text-gray-400 text-xs mr-2">— {s.disease_prevented}</span>}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
           <div>
             <Label>المرض الذي يقي منه</Label>
@@ -488,33 +641,13 @@ export default function VaccinationPage() {
 
                 {/* --- تبويب الجدول الموصى به --- */}
                 {tab === 'schedule' && (
-                  <div className="space-y-3">
-                    <p className="text-sm text-gray-500">الجدول الموصى به للبالغين — انقر لتسجيل أي لقاح مُؤخذ.</p>
-                    <div className={`space-y-2 ${!expandSchedule ? 'max-h-96 overflow-hidden relative' : ''}`}>
-                      {schedule.map((item, i) => (
-                        <div key={i} className="flex items-center justify-between bg-white border border-gray-100 rounded-xl px-4 py-3">
-                          <div className="flex-1">
-                            <p className="font-medium text-gray-900 text-sm">{item.vaccine_name}</p>
-                            <p className="text-xs text-gray-500">{item.disease_prevented}</p>
-                            {item.recommended_ages && <p className="text-xs text-gray-400 mt-0.5">{item.recommended_ages}</p>}
-                          </div>
-                          <div className="flex items-center gap-2 shrink-0">
-                            <Badge status={item.status} />
-                            {item.status !== 'taken' && (
-                              <button onClick={() => { setAddPrefill({ vaccine_name: item.vaccine_name, disease_prevented: item.disease_prevented }); setShowAdd(true) }}
-                                className="text-xs text-blue-600 hover:underline border border-blue-200 px-2 py-1 rounded-lg">
-                                سجّل
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                      {!expandSchedule && <div className="absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-white to-transparent" />}
-                    </div>
-                    <button onClick={() => setExpandSchedule(e => !e)} className="flex items-center gap-1 text-sm text-blue-600 hover:underline mx-auto">
-                      {expandSchedule ? <><ChevronUp className="w-4 h-4" />عرض أقل</> : <><ChevronDown className="w-4 h-4" />عرض الكل ({schedule.length} لقاح)</>}
-                    </button>
-                  </div>
+                  <ScheduleTab
+                    schedule={schedule}
+                    expandSchedule={expandSchedule}
+                    setExpandSchedule={setExpandSchedule}
+                    setAddPrefill={setAddPrefill}
+                    setShowAdd={setShowAdd}
+                  />
                 )}
 
                 {/* --- تبويب الأسرة --- */}
@@ -540,6 +673,7 @@ export default function VaccinationPage() {
           onClose={() => setShowAdd(false)}
           onSave={onVacSaved}
           prefill={addPrefill}
+          scheduleList={schedule}
         />
       )}
     </div>

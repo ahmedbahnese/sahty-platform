@@ -29,6 +29,7 @@ export default function ServicesPage() {
   const serviceCategories = [
     { id: 'all', name: 'جميع الخدمات', icon: Stethoscope },
     { id: 'consultation', name: 'الاستشارات الطبية', icon: Video },
+    { id: 'home_visit', name: 'الزيارة المنزلية', icon: Home },
     { id: 'emergency', name: 'خدمات الطوارئ', icon: Phone },
     { id: 'specialized', name: 'خدمات متخصصة', icon: Heart }
   ]
@@ -131,6 +132,61 @@ export default function ServicesPage() {
       features: ['تتبع GPS', 'استجابة سريعة', 'تنسيق المستشفيات', 'فريق مدرب'],
       price: 'حسب المسافة',
       duration: '15-30 دقيقة',
+      popular: false
+    },
+    {
+      id: 10,
+      category: 'home_visit',
+      title: 'زيارة الطبيب المنزلية',
+      description: 'يأتي إليك الطبيب في المنزل للكشف والتشخيص وكتابة الوصفة الطبية',
+      icon: Stethoscope,
+      features: ['كشف كامل في المنزل', 'وصفة طبية فورية', 'تقرير طبي موثّق', 'أطباء معتمدون'],
+      price: 'من 250 جنيه',
+      duration: '45-60 دقيقة',
+      popular: true
+    },
+    {
+      id: 11,
+      category: 'home_visit',
+      title: 'تمريض منزلي — إقامة',
+      description: 'خدمة تمريض احترافية للمرضى الذين يحتاجون رعاية تمريضية مستمرة في المنزل',
+      icon: Heart,
+      features: ['ممرض/ة معتمد/ة', 'رعاية 12 أو 24 ساعة', 'قياس العلامات الحيوية', 'تقارير يومية'],
+      price: 'من 800 جنيه / يوم',
+      duration: 'حسب الحاجة',
+      popular: false
+    },
+    {
+      id: 12,
+      category: 'home_visit',
+      title: 'تمريض منزلي — إجراء طبي',
+      description: 'إجراء تمريضي في المنزل كالحقن والتضميد وضغط الدم وقياس السكر وإعطاء الحقنة الوريدية',
+      icon: Activity,
+      features: ['حقن وريدية وعضلية', 'تضميد الجروح', 'قياس السكر والضغط', 'تركيب كانيولا'],
+      price: 'من 120 جنيه',
+      duration: '20-30 دقيقة',
+      popular: false
+    },
+    {
+      id: 13,
+      category: 'home_visit',
+      title: 'تحاليل مخبرية منزلية',
+      description: 'طلب التحاليل من منزلك — يأتي الفني لسحب العينة وإرسال النتيجة إلكترونياً',
+      icon: CheckCircle,
+      features: ['سحب عينات في المنزل', 'نتائج إلكترونية', 'تحاليل شاملة', 'تحليل يوم العمل'],
+      price: 'من 80 جنيه',
+      duration: '24-48 ساعة',
+      popular: false
+    },
+    {
+      id: 14,
+      category: 'home_visit',
+      title: 'أشعة منزلية',
+      description: 'وحدة أشعة متنقلة تأتي إلى منزلك لإجراء الأشعة السينية والموجات الصوتية',
+      icon: MapPin,
+      features: ['أشعة X متنقلة', 'موجات صوتية', 'تقرير فوري', 'تنسيق مع طبيبك'],
+      price: 'من 300 جنيه',
+      duration: '30-60 دقيقة',
       popular: false
     }
   ]

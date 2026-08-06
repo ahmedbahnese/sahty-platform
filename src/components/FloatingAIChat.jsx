@@ -32,7 +32,9 @@ export default function FloatingAIChat() {
   const pendingDocType = useRef('general')
 
   const dragOffset = useRef({ x: 0, y: 0 })
+  const dragDist = useRef(0)        // track total movement to distinguish click vs drag
   const chatRef = useRef(null)
+  const closedRef = useRef(null)    // ref for the closed-button container
   const messagesEndRef = useRef(null)
   const inputRef = useRef(null)
 
@@ -46,22 +48,35 @@ export default function FloatingAIChat() {
     }
   }, [isOpen, isMinimized])
 
-  // Drag functionality
+  // Drag functionality — open chat header
   const handleMouseDown = useCallback((e) => {
     if (e.target.closest('button') || e.target.closest('input') || e.target.closest('textarea')) return
+    dragDist.current = 0
     setDragging(true)
     const rect = chatRef.current.getBoundingClientRect()
     dragOffset.current = { x: e.clientX - rect.left, y: e.clientY - rect.top }
     e.preventDefault()
   }, [])
 
+  // Drag functionality — closed button container
+  const handleClosedMouseDown = useCallback((e) => {
+    dragDist.current = 0
+    setDragging(true)
+    const rect = (closedRef.current || e.currentTarget).getBoundingClientRect()
+    dragOffset.current = { x: e.clientX - rect.left, y: e.clientY - rect.top }
+    // Don't preventDefault so click still fires if no drag
+  }, [])
+
   useEffect(() => {
     const handleMouseMove = (e) => {
       if (!dragging) return
+      dragDist.current += Math.abs(e.movementX || 0) + Math.abs(e.movementY || 0)
       const newX = e.clientX - dragOffset.current.x
       const newY = e.clientY - dragOffset.current.y
-      const maxX = window.innerWidth - (chatRef.current?.offsetWidth || 380)
-      const maxY = window.innerHeight - (chatRef.current?.offsetHeight || 540)
+      const containerWidth = chatRef.current?.offsetWidth || closedRef.current?.offsetWidth || 160
+      const containerHeight = chatRef.current?.offsetHeight || closedRef.current?.offsetHeight || 52
+      const maxX = window.innerWidth - containerWidth
+      const maxY = window.innerHeight - containerHeight
       setPosition({ x: Math.max(0, Math.min(newX, maxX)), y: Math.max(0, Math.min(newY, maxY)) })
     }
     const handleMouseUp = () => setDragging(false)
@@ -78,8 +93,11 @@ export default function FloatingAIChat() {
   const handleTouchStart = useCallback((e) => {
     if (e.target.closest('button') || e.target.closest('input') || e.target.closest('textarea')) return
     const touch = e.touches[0]
+    dragDist.current = 0
     setDragging(true)
-    const rect = chatRef.current.getBoundingClientRect()
+    const el = chatRef.current || closedRef.current
+    if (!el) return
+    const rect = el.getBoundingClientRect()
     dragOffset.current = { x: touch.clientX - rect.left, y: touch.clientY - rect.top }
   }, [])
 
@@ -226,11 +244,16 @@ export default function FloatingAIChat() {
 
   if (!isOpen) {
     return (
-      <div style={chatStyle}>
+      <div
+        ref={closedRef}
+        style={{ ...chatStyle, cursor: dragging ? 'grabbing' : 'grab' }}
+        onMouseDown={handleClosedMouseDown}
+        onTouchStart={handleTouchStart}
+      >
         <button
-          onClick={() => setIsOpen(true)}
+          onClick={() => { if (dragDist.current < 8) setIsOpen(true) }}
           className="group flex items-center gap-2 text-white rounded-full shadow-2xl transition-all duration-300 hover:scale-105 px-4 py-3 relative"
-          style={{ background: 'linear-gradient(135deg, #1e3a5f 0%, #2563eb 100%)' }}
+          style={{ background: 'linear-gradient(135deg, #1e3a5f 0%, #2563eb 100%)', cursor: 'pointer' }}
           title="المساعد الطبي الذكي"
         >
           <Bot className="h-6 w-6" />
@@ -325,8 +348,19 @@ export default function FloatingAIChat() {
             {/* Quick suggestions */}
             {messages.length <= 2 && (
               <div className="px-3 py-2 bg-white border-t border-gray-100 flex gap-2 overflow-x-auto">
-                {['ما هي أعراض الإنفلونزا؟', 'كيف أتحكم في ضغط الدم؟', 'نصائح للنوم الصحي'].map(s => (
-                  <button key={s} onClick={() => setInput(s)}
+                {[
+                  '🩺 فاحص الأعراض الذكي',
+                  'ما هي أعراض الإنفلونزا؟',
+                  'كيف أتحكم في ضغط الدم؟',
+                  'نصائح للنوم الصحي'
+                ].map(s => (
+                  <button key={s} onClick={() => {
+                    if (s === '🩺 فاحص الأعراض الذكي') {
+                      setInput('أريد فحص أعراضي — سأخبرك بالأعراض التي أشعر بها وأحتاج مساعدتك في تحليلها وتقدير درجة الخطورة.')
+                    } else {
+                      setInput(s)
+                    }
+                  }}
                     className="text-xs bg-blue-50 text-blue-700 px-3 py-1.5 rounded-full whitespace-nowrap hover:bg-blue-100 transition-colors border border-blue-100 flex-shrink-0">
                     {s}
                   </button>

@@ -104,6 +104,21 @@ export default function FamilyHealthPage() {
         setMsg({ type: 'success', text: 'تم إضافة الفرد' })
         setShowMemberForm(false)
         loadGroup(activeGroup)
+        // Auto-add to emergency contacts if they have a phone number
+        if (memberForm.phone) {
+          try {
+            await fetch('/api/emergency/family-contacts', {
+              method: 'POST',
+              headers: authHeader(),
+              body: JSON.stringify({
+                name: `${memberForm.first_name} ${memberForm.last_name}`.trim(),
+                phone: memberForm.phone,
+                relationship: memberForm.relationship || 'آخر',
+                is_primary: false,
+              }),
+            })
+          } catch (_) { /* ignore — emergency contact is bonus, not critical */ }
+        }
       }
     } catch (e) { setMsg({ type: 'error', text: 'خطأ في الإضافة' }) }
   }

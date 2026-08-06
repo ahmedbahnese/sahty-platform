@@ -50,7 +50,7 @@ export default function Navbar() {
   const userMenuItems = [
     { path: '/dashboard', label: 'لوحة التحكم', icon: LayoutDashboard },
     { path: '/medical-record', label: 'الملف الطبي', icon: ClipboardList },
-    { path: '/clinical-summary', label: 'الملخص السريري', icon: FileText },
+    { path: '/clinical-summary', label: 'التقرير الطبي الشامل', icon: FileText },
     { path: '/appointments', label: 'المواعيد', icon: Calendar },
     { path: '/prescriptions', label: 'الوصفات الطبية', icon: FileText },
     { path: '/lab-requests', label: 'التحاليل المخبرية', icon: FlaskConical },
@@ -72,7 +72,7 @@ export default function Navbar() {
               style={{ background: 'linear-gradient(135deg, #0f2444 0%, #2563eb 100%)' }}>
               <Heart className="h-5 w-5 text-white" />
             </div>
-            <span className="text-lg font-bold" style={{ color: '#0f2444' }}>صحتك في أمان</span>
+            <span className="text-lg font-bold" style={{ color: '#0f2444' }}>صحتي</span>
           </Link>
 
           {/* Desktop Nav */}

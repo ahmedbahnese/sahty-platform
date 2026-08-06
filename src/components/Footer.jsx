@@ -10,7 +10,7 @@ export default function Footer() {
           <div className="space-y-4">
             <div className="flex items-center space-x-2 rtl:space-x-reverse">
               <Heart className="h-8 w-8 text-blue-400" />
-              <span className="text-xl font-bold">صحتك في أمان</span>
+              <span className="text-xl font-bold">صحتي</span>
             </div>
             <p className="text-gray-300 text-sm leading-relaxed">
               منصة طبية شاملة تهدف إلى تقديم أفضل الخدمات الصحية والطبية للمرضى والأطباء في جميع أنحاء مصر والوطن العربي.
@@ -102,7 +102,7 @@ export default function Footer() {
         <div className="border-t border-gray-800 mt-8 pt-8">
           <div className="flex flex-col md:flex-row justify-between items-center">
             <div className="text-gray-400 text-sm">
-              © 2024 صحتك في أمان. جميع الحقوق محفوظة.
+              © 2024 صحتي. جميع الحقوق محفوظة.
             </div>
             <div className="flex space-x-6 rtl:space-x-reverse mt-4 md:mt-0">
               <a href="#" className="text-gray-400 hover:text-white text-sm transition-colors">

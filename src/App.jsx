@@ -1,4 +1,5 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
+import { useState } from 'react'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import Navbar from './components/Navbar'
 import Footer from './components/Footer'
@@ -27,6 +28,7 @@ import VaccinationPage from './pages/VaccinationPage'
 import SymptomCheckerPage from './pages/SymptomCheckerPage'
 import ClinicalSummaryPage from './pages/ClinicalSummaryPage'
 import FloatingAIChat from './components/FloatingAIChat'
+import SplashScreen from './components/SplashScreen'
 import './App.css'
 
 const ADMIN_ROLES = ['admin', 'super_admin']
@@ -74,6 +76,10 @@ function getDashboardPath(user) {
 }
 
 function AppContent() {
+  const [splash, setSplash] = useState(true)
+
+  if (splash) return <SplashScreen onDone={() => setSplash(false)} />
+
   return (
     <div className="min-h-screen bg-gray-50">
       <Navbar />

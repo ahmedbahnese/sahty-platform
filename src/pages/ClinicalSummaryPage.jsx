@@ -33,14 +33,14 @@ function calcAge(dob) {
 function fmtDate(iso) {
   if (!iso) return '—'
   try {
-    return new Date(iso).toLocaleDateString('ar-SA', { year: 'numeric', month: 'long', day: 'numeric' })
+    return new Date(iso).toLocaleDateString('ar-EG', { year: 'numeric', month: 'long', day: 'numeric', calendar: 'gregory' })
   } catch { return iso }
 }
 
 function fmtDateTime(iso) {
   if (!iso) return '—'
   try {
-    return new Date(iso).toLocaleDateString('ar-SA', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+    return new Date(iso).toLocaleDateString('ar-EG', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit', calendar: 'gregory' })
   } catch { return iso }
 }
 
@@ -285,12 +285,28 @@ function EncounterSection({ title, icon, children }) {
 // ── Print Styles ──────────────────────────────────────────────────────────────
 
 const printStyles = `
+@page {
+  size: A4;
+  margin: 18mm 15mm 20mm 15mm;
+  @bottom-center {
+    content: "صفحة " counter(page) " من " counter(pages);
+    font-size: 10px;
+    color: #666;
+    font-family: 'Segoe UI', Tahoma, Arial, sans-serif;
+  }
+}
 @media print {
   body * { visibility: hidden !important; }
   #clinical-summary-print, #clinical-summary-print * { visibility: visible !important; }
-  #clinical-summary-print { position: absolute; top: 0; left: 0; width: 100%; }
+  #clinical-summary-print { position: absolute; top: 0; left: 0; width: 100%; direction: rtl; }
   .no-print { display: none !important; }
   .print-break { page-break-before: always; }
+  #print-patient-header { display: block !important; }
+  .print-page-break-avoid { page-break-inside: avoid; }
+  table { page-break-inside: auto; }
+  tr { page-break-inside: avoid; page-break-after: auto; }
+  thead { display: table-header-group; }
+  tfoot { display: table-footer-group; }
 }
 `
 
@@ -332,7 +348,7 @@ export default function ClinicalSummaryPage() {
       <div className="flex items-center justify-center min-h-screen" dir="rtl">
         <div className="text-center">
           <Loader2 className="animate-spin text-blue-600 mx-auto mb-3" size={40} />
-          <p className="text-gray-500">جاري تحميل الملخص السريري...</p>
+          <p className="text-gray-500">جاري تحميل التقرير الطبي الشامل...</p>
         </div>
       </div>
     )
@@ -369,8 +385,8 @@ export default function ClinicalSummaryPage() {
               <ClipboardList size={18} className="text-white" />
             </div>
             <div>
-              <h1 className="text-base font-bold text-gray-900">الملخص السريري للمريض</h1>
-              <p className="text-xs text-gray-500">Patient Clinical Summary</p>
+              <h1 className="text-base font-bold text-gray-900">التقرير الطبي الشامل</h1>
+              <p className="text-xs text-gray-500">Comprehensive Medical Report</p>
             </div>
           </div>
           <Button onClick={handlePrint} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-sm">
@@ -736,9 +752,23 @@ export default function ClinicalSummaryPage() {
           </SectionCard>
 
           {/* ══ Print footer ══ */}
-          <div className="hidden print:block border-t-2 border-gray-300 pt-4 mt-8 text-xs text-gray-500 text-center">
-            <p>تم إنشاء هذا التقرير إلكترونياً من منصة صحتك في أمان</p>
-            <p>تاريخ الطباعة: {new Date().toLocaleDateString('ar-SA')}</p>
+          <div className="hidden print:block border-t-2 border-gray-300 pt-4 mt-8">
+            <div className="flex items-start justify-between gap-4">
+              <div className="text-xs text-gray-500">
+                <p className="font-semibold text-gray-700 mb-1">التقرير الطبي الشامل — منصة صحتي</p>
+                <p>تاريخ الطباعة: {new Date().toLocaleDateString('ar-EG', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
+                <p className="mt-1 text-gray-400">هذا التقرير سري وخاص بالمريض — لا يُستخدم إلا للأغراض الطبية</p>
+              </div>
+              {/* QR code pointing to the clinical summary page */}
+              <div className="flex flex-col items-center gap-1">
+                <img
+                  src={`https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(window.location.origin + '/clinical-summary')}&bgcolor=ffffff&color=0f2444&margin=4`}
+                  alt="QR التقرير الطبي"
+                  className="w-24 h-24 border border-gray-200 rounded"
+                />
+                <p className="text-xs text-gray-400">افتح التقرير الرقمي</p>
+              </div>
+            </div>
           </div>
 
         </div>{/* end main */}

@@ -128,7 +128,7 @@ function ProviderDashboard({ user }) {
 function PatientDashboard() {
   const quickLinks = [
     { label: 'الملف الطبي الإلكتروني', desc: 'الأمراض، العمليات، التحاليل، الأشعة والمزيد', icon: ClipboardList, color: 'blue', to: '/medical-record' },
-    { label: 'الملخص السريري', desc: 'تقرير طبي شامل قابل للطباعة', icon: FileText, color: 'teal', to: '/clinical-summary' },
+    { label: 'التقرير الطبي الشامل', desc: 'تقرير طبي شامل قابل للطباعة', icon: FileText, color: 'teal', to: '/clinical-summary' },
     { label: 'الأطباء', desc: 'ابحث عن طبيب وحجز موعد', icon: Stethoscope, color: 'purple', to: '/doctors' },
     { label: 'بنك الدم', desc: 'التبرع بالدم وطلبات الدم', icon: Heart, color: 'red', to: '/blood-bank' },
   ]
