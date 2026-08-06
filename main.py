@@ -239,6 +239,14 @@ with app.app_context():
                 ))
             db.session.commit()
 
+# ── Demo clinical summary (dev only) ─────────────────────────────────────────
+@app.route('/demo-report')
+def demo_report():
+    demo_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'dist', 'demo-clinical-summary.html')
+    if os.path.exists(demo_path):
+        return send_from_directory(os.path.dirname(demo_path), 'demo-clinical-summary.html')
+    return 'Demo not generated yet', 404
+
 # ── SPA fallback ──────────────────────────────────────────────────────────────
 @app.route('/', defaults={'path': ''})
 @app.route('/<path:path>')
