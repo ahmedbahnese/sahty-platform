@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useAuth } from '../contexts/AuthContext'
+import { useNavigate } from 'react-router-dom'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { Button } from '../components/ui/button'
@@ -12,7 +13,8 @@ import {
   RadioTower, History, Stethoscope, Plus, Pencil, Trash2,
   ClipboardList, Loader2, FileText, Camera, Upload, X,
   Weight, Ruler, Droplets, Heart, CheckCircle2, Clock,
-  AlertCircle, ChevronDown, ChevronUp, FileDown, User, Building2
+  AlertCircle, ChevronDown, ChevronUp, FileDown, User, Building2,
+  ZoomIn, Zap
 } from 'lucide-react'
 
 const API = '/api/medical-record'
@@ -837,6 +839,7 @@ function LabTestsTab({ api }) {
   const [form, setForm] = useState({})
   const [loading, setLoading] = useState(false)
   const [bloodTypeDetected, setBloodTypeDetected] = useState(null)
+  const [lightbox, setLightbox] = useState(null)
 
   const load = useCallback(() => api.get('/lab-tests').then(d => Array.isArray(d) && setItems(d)), [api])
   useEffect(() => { load() }, [load])
@@ -846,11 +849,10 @@ function LabTestsTab({ api }) {
 
   const handleTestNameChange = (val) => {
     setForm(f => ({ ...f, test_name: val }))
-    if (val.toLowerCase().includes('فصيلة') || val.toLowerCase().includes('blood type') || val.toLowerCase().includes('blood group') || val.toLowerCase().includes('abo')) {
-      setBloodTypeDetected(true)
-    } else {
-      setBloodTypeDetected(false)
-    }
+    setBloodTypeDetected(
+      val.toLowerCase().includes('فصيلة') || val.toLowerCase().includes('blood type') ||
+      val.toLowerCase().includes('blood group') || val.toLowerCase().includes('abo')
+    )
   }
 
   const save = async () => {
@@ -861,36 +863,102 @@ function LabTestsTab({ api }) {
   }
   const remove = async (id) => { if (confirm('هل تريد حذف هذا السجل؟')) { await api.del(`/lab-tests/${id}`); load() } }
 
+  // Group by test_name for comparison table
+  const grouped = items.reduce((acc, t) => {
+    const key = t.test_name || 'غير مصنف'
+    if (!acc[key]) acc[key] = []
+    acc[key].push(t)
+    return acc
+  }, {})
+
   return (
     <>
-      <SectionList items={items} addLabel="إضافة تحليل" onAdd={openAdd} renderCard={(t) => (
-        <Card key={t.id} className={`border-r-4 ${t.status === 'critical' ? 'border-r-red-500' : t.status === 'abnormal' ? 'border-r-orange-400' : 'border-r-green-400'}`}>
-          <CardContent className="p-5">
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex-1 grid grid-cols-2 md:grid-cols-4 gap-4">
-                <FieldRow label="التحليل" value={t.test_name} />
-                <FieldRow label="التصنيف" value={t.test_category} />
-                <FieldRow label="التاريخ" value={t.test_date} />
-                <FieldRow label="المعمل" value={t.lab_name} />
-                <FieldRow label="النتيجة" value={t.result_value && `${t.result_value} ${t.unit || ''}`} />
-                <FieldRow label="المجال الطبيعي" value={t.reference_range} />
-                <FieldRow label="الحالة"><Badge className={statusColors[t.status] || 'bg-gray-100'}>{statusLabels[t.status] || t.status}</Badge></FieldRow>
-                {t.interpretation && <div className="col-span-full"><FieldRow label="التفسير" value={t.interpretation} /></div>}
-                {t.attachment_data && (
-                  <div className="col-span-full">
-                    <p className="text-xs text-gray-500 mb-1">صورة نتيجة التحليل</p>
-                    <img src={t.attachment_data} alt="نتيجة" className="max-h-40 rounded border object-contain bg-gray-50" />
+      {lightbox && (
+        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4" onClick={() => setLightbox(null)}>
+          <img src={lightbox} alt="نتيجة التحليل" className="max-w-full max-h-full rounded-xl object-contain" />
+        </div>
+      )}
+
+      <div className="flex justify-end mb-4">
+        <Button onClick={openAdd} className="gap-2 bg-blue-600 hover:bg-blue-700"><Plus className="w-4 h-4" /> إضافة تحليل</Button>
+      </div>
+
+      {items.length === 0 ? (
+        <div className="text-center py-16 text-gray-400">
+          <FlaskConical className="w-12 h-12 mx-auto mb-3 opacity-30" />
+          <p>لا توجد تحاليل مخبرية مسجلة بعد</p>
+        </div>
+      ) : (
+        <div className="space-y-6">
+          {Object.entries(grouped).map(([testName, rows]) => {
+            const refRange = rows.find(r => r.reference_range)?.reference_range
+            const sorted = [...rows].sort((a, b) => (a.test_date || '').localeCompare(b.test_date || ''))
+            return (
+              <div key={testName} className="bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden">
+                {/* رأس التحليل */}
+                <div className="flex items-center justify-between gap-3 px-4 py-3 bg-indigo-50 border-b border-indigo-100">
+                  <div className="flex items-center gap-2">
+                    <FlaskConical className="w-4 h-4 text-indigo-600" />
+                    <span className="font-bold text-indigo-900 text-sm">{testName}</span>
+                    {rows.length > 1 && (
+                      <span className="text-xs bg-indigo-200 text-indigo-800 rounded-full px-2 py-0.5">{rows.length} نتيجة</span>
+                    )}
                   </div>
-                )}
+                  {refRange && (
+                    <div className="text-xs bg-green-50 text-green-700 border border-green-200 rounded-lg px-3 py-1">
+                      <span className="opacity-60 ml-1">المجال الطبيعي:</span>
+                      <span className="font-mono font-medium">{refRange}</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* جدول المقارنة */}
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="text-xs text-gray-500 bg-gray-50 border-b border-gray-100">
+                        <th className="text-right px-4 py-2">التاريخ</th>
+                        <th className="text-center px-3 py-2">النتيجة</th>
+                        <th className="text-center px-3 py-2">الحالة</th>
+                        <th className="text-right px-3 py-2">المعمل</th>
+                        <th className="text-center px-3 py-2">صورة</th>
+                        <th className="text-center px-3 py-2">إجراء</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-50">
+                      {sorted.map(t => (
+                        <tr key={t.id} className={`hover:bg-gray-50/50 ${t.status === 'critical' ? 'bg-red-50/40' : t.status === 'abnormal' ? 'bg-orange-50/40' : ''}`}>
+                          <td className="px-4 py-2.5 font-medium text-gray-800 whitespace-nowrap">{t.test_date || '—'}</td>
+                          <td className="px-3 py-2.5 text-center">
+                            <span className="font-mono font-semibold text-gray-900">{t.result_value || '—'}</span>
+                            {t.unit && <span className="text-xs text-gray-400 mr-1">{t.unit}</span>}
+                          </td>
+                          <td className="px-3 py-2.5 text-center">
+                            <Badge className={`text-xs ${statusColors[t.status] || 'bg-gray-100'}`}>{statusLabels[t.status] || t.status}</Badge>
+                          </td>
+                          <td className="px-3 py-2.5 text-gray-500 text-xs">{t.lab_name || '—'}</td>
+                          <td className="px-3 py-2.5 text-center">
+                            {t.attachment_data
+                              ? <button onClick={() => setLightbox(t.attachment_data)} className="text-blue-500 hover:text-blue-700"><ZoomIn className="w-4 h-4 mx-auto" /></button>
+                              : <span className="text-gray-300">—</span>
+                            }
+                          </td>
+                          <td className="px-3 py-2.5">
+                            <div className="flex items-center justify-center gap-1">
+                              <Button size="icon" variant="ghost" className="w-7 h-7" onClick={() => openEdit(t)}><Pencil className="w-3.5 h-3.5" /></Button>
+                              <Button size="icon" variant="ghost" className="w-7 h-7 text-red-500" onClick={() => remove(t.id)}><Trash2 className="w-3.5 h-3.5" /></Button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
-              <div className="flex gap-2 shrink-0">
-                <Button size="icon" variant="ghost" onClick={() => openEdit(t)}><Pencil className="w-4 h-4" /></Button>
-                <Button size="icon" variant="ghost" className="text-red-500" onClick={() => remove(t.id)}><Trash2 className="w-4 h-4" /></Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )} />
+            )
+          })}
+        </div>
+      )}
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-lg" dir="rtl">
@@ -959,12 +1027,29 @@ function RadiologyTab({ api }) {
   }
   const remove = async (id) => { if (confirm('هل تريد حذف هذا السجل؟')) { await api.del(`/radiology/${id}`); load() } }
 
+  const [lightboxRad, setLightboxRad] = useState(null)
+
   return (
     <>
+      {lightboxRad && (
+        <div className="fixed inset-0 bg-black/85 z-50 flex items-center justify-center p-4" onClick={() => setLightboxRad(null)}>
+          <img src={lightboxRad} alt="صورة طبية" className="max-w-full max-h-[90vh] rounded-xl object-contain shadow-2xl" />
+          <button className="absolute top-4 right-4 text-white bg-black/30 rounded-full p-2" onClick={() => setLightboxRad(null)}>✕</button>
+        </div>
+      )}
       <SectionList items={items} addLabel="إضافة أشعة" onAdd={openAdd} renderCard={(r) => (
         <Card key={r.id} className="border-r-4 border-r-indigo-400">
           <CardContent className="p-5">
             <div className="flex items-start justify-between gap-4">
+              {/* صورة مصغرة قابلة للنقر */}
+              {r.attachment_data && (
+                <button onClick={() => setLightboxRad(r.attachment_data)} className="shrink-0 group relative rounded-xl overflow-hidden border border-gray-200 bg-gray-50">
+                  <img src={r.attachment_data} alt="أشعة" className="w-24 h-20 object-cover group-hover:opacity-75 transition-opacity" />
+                  <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 bg-black/30 transition-opacity">
+                    <ZoomIn className="w-6 h-6 text-white" />
+                  </div>
+                </button>
+              )}
               <div className="flex-1 grid grid-cols-2 md:grid-cols-3 gap-4">
                 <FieldRow label="نوع الأشعة"><Badge className="bg-indigo-100 text-indigo-800">{scanTypeLabels[r.scan_type] || r.scan_type}</Badge></FieldRow>
                 <FieldRow label="الجزء المصوَّر" value={r.body_part} />
@@ -973,20 +1058,12 @@ function RadiologyTab({ api }) {
                 <FieldRow label="الطبيب الطالب" value={r.ordering_doctor} />
                 {r.findings && <div className="col-span-full"><FieldRow label="النتائج" value={r.findings} /></div>}
                 {r.impression && <div className="col-span-full"><FieldRow label="التفسير النهائي" value={r.impression} /></div>}
-                {(r.attachment_data || r.report_data) && (
-                  <div className="col-span-full flex gap-4 flex-wrap">
-                    {r.attachment_data && (
-                      <div>
-                        <p className="text-xs text-gray-500 mb-1">صورة الأشعة</p>
-                        <img src={r.attachment_data} alt="أشعة" className="max-h-40 rounded border object-contain bg-gray-50" />
-                      </div>
-                    )}
-                    {r.report_data && (
-                      <div>
-                        <p className="text-xs text-gray-500 mb-1">صورة التقرير</p>
-                        <img src={r.report_data} alt="تقرير" className="max-h-40 rounded border object-contain bg-gray-50" />
-                      </div>
-                    )}
+                {r.report_data && (
+                  <div className="col-span-full">
+                    <p className="text-xs text-gray-500 mb-1">صورة التقرير</p>
+                    <button onClick={() => setLightboxRad(r.report_data)} className="group relative inline-block rounded-lg overflow-hidden border border-gray-200">
+                      <img src={r.report_data} alt="تقرير" className="max-h-32 rounded object-contain bg-gray-50 group-hover:opacity-75 transition-opacity" />
+                    </button>
                   </div>
                 )}
               </div>
@@ -1241,22 +1318,277 @@ function MedicalReportModal({ api, open, onClose }) {
 }
 
 // ══════════════════════════════════════════════
+// غازات الدم (ABG)
+// ══════════════════════════════════════════════
+const ABG_FIELDS = [
+  { key: 'ph',      label: 'pH',     normal: '7.35-7.45' },
+  { key: 'pco2',    label: 'pCO₂',   normal: '35-45 mmHg' },
+  { key: 'hco3',    label: 'HCO₃',   normal: '22-26 mEq/L' },
+  { key: 'o2',      label: 'O₂',     normal: '80-100 mmHg' },
+  { key: 'spo2',    label: 'SpO₂',   normal: '95-100%' },
+  { key: 'k',       label: 'K⁺',     normal: '3.5-5.0' },
+  { key: 'lactate', label: 'Lactate', normal: '< 2 mmol/L' },
+]
+
+function BloodGasTab({ api }) {
+  const [items, setItems]     = useState([])
+  const [open, setOpen]       = useState(false)
+  const [editing, setEditing] = useState(null)
+  const [form, setForm]       = useState({})
+  const [loading, setLoading] = useState(false)
+  const [lightbox, setLightbox] = useState(null)
+
+  const load = useCallback(() => api.get('/blood-gas').then(d => Array.isArray(d) && setItems(d)), [api])
+  useEffect(() => { load() }, [load])
+
+  const openAdd  = () => { setEditing(null); setForm({ reading_date: new Date().toISOString().split('T')[0] }); setOpen(true) }
+  const openEdit = (item) => { setEditing(item); setForm({ ...item }); setOpen(true) }
+  const save = async () => {
+    setLoading(true)
+    const res = editing ? await api.put(`/blood-gas/${editing.id}`, form) : await api.post('/blood-gas', form)
+    setLoading(false)
+    if (res.id) { load(); setOpen(false) }
+  }
+  const remove = async (id) => { if (confirm('حذف هذه القراءة؟')) { await api.del(`/blood-gas/${id}`); load() } }
+
+  return (
+    <>
+      {lightbox && (
+        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4" onClick={() => setLightbox(null)}>
+          <img src={lightbox} alt="صورة مرفقة" className="max-w-full max-h-full rounded-xl object-contain" />
+        </div>
+      )}
+
+      <div className="flex justify-end mb-4">
+        <Button onClick={openAdd} className="gap-2 bg-blue-600 hover:bg-blue-700"><Plus className="w-4 h-4" /> إضافة قراءة</Button>
+      </div>
+
+      {/* معلومات المجالات الطبيعية */}
+      <div className="flex flex-wrap gap-2 mb-4 p-3 bg-blue-50 rounded-xl border border-blue-100">
+        {ABG_FIELDS.map(f => (
+          <div key={f.key} className="bg-white rounded-lg px-2.5 py-1.5 border border-blue-100 text-center">
+            <p className="text-xs font-bold text-blue-800">{f.label}</p>
+            <p className="text-xs text-gray-500">{f.normal}</p>
+          </div>
+        ))}
+      </div>
+
+      {items.length === 0 ? (
+        <div className="text-center py-16 text-gray-400">
+          <Activity className="w-12 h-12 mx-auto mb-3 opacity-30" />
+          <p>لا توجد قراءات غازات دم بعد</p>
+        </div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm border-collapse">
+            <thead>
+              <tr className="bg-blue-50 text-blue-800">
+                <th className="text-right px-3 py-2.5 rounded-r-xl font-semibold">التاريخ / الوقت</th>
+                <th className="text-right px-3 py-2.5 font-semibold">Mode</th>
+                {ABG_FIELDS.map(f => <th key={f.key} className="text-center px-3 py-2.5 font-semibold">{f.label}</th>)}
+                <th className="text-center px-3 py-2.5 font-semibold rounded-l-xl">صورة / إجراء</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {items.map(r => (
+                <tr key={r.id} className="hover:bg-gray-50 bg-white">
+                  <td className="px-3 py-2.5">
+                    <p className="font-medium text-gray-800">{r.reading_date}</p>
+                    {r.reading_time && <p className="text-xs text-gray-400">{r.reading_time}</p>}
+                  </td>
+                  <td className="px-3 py-2.5 text-gray-600 text-xs">{r.mode || '—'}</td>
+                  {ABG_FIELDS.map(f => (
+                    <td key={f.key} className="px-3 py-2.5 text-center font-mono">
+                      <span className="font-medium text-gray-800">{r[f.key] || '—'}</span>
+                    </td>
+                  ))}
+                  <td className="px-3 py-2.5">
+                    <div className="flex items-center justify-center gap-1.5">
+                      {r.attachment_data && (
+                        <button onClick={() => setLightbox(r.attachment_data)} className="text-blue-500 hover:text-blue-700">
+                          <ZoomIn className="w-4 h-4" />
+                        </button>
+                      )}
+                      <Button size="icon" variant="ghost" className="w-7 h-7" onClick={() => openEdit(r)}><Pencil className="w-3.5 h-3.5" /></Button>
+                      <Button size="icon" variant="ghost" className="w-7 h-7 text-red-500" onClick={() => remove(r.id)}><Trash2 className="w-3.5 h-3.5" /></Button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="max-w-2xl" dir="rtl">
+          <DialogHeader><DialogTitle>{editing ? 'تعديل' : 'إضافة'} قراءة غازات الدم</DialogTitle></DialogHeader>
+          <div className="grid grid-cols-2 gap-4 py-2">
+            <div>
+              <label className="text-xs text-gray-500 mb-1 block">التاريخ</label>
+              <Input type="date" value={form.reading_date || ''} onChange={e => setForm({...form, reading_date: e.target.value})} />
+            </div>
+            <div>
+              <label className="text-xs text-gray-500 mb-1 block">الوقت</label>
+              <Input type="time" value={form.reading_time || ''} onChange={e => setForm({...form, reading_time: e.target.value})} />
+            </div>
+            <div className="col-span-2">
+              <label className="text-xs text-gray-500 mb-1 block">وضع التنفس (Mode)</label>
+              <Select value={form.mode || ''} onValueChange={v => setForm({...form, mode: v})}>
+                <SelectTrigger><SelectValue placeholder="اختر وضع التنفس" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Room Air">Room Air (هواء الغرفة)</SelectItem>
+                  <SelectItem value="O2 Mask">O2 Mask (قناع أكسجين)</SelectItem>
+                  <SelectItem value="Nasal Cannula">Nasal Cannula (خرطوم أنفي)</SelectItem>
+                  <SelectItem value="Ventilator">Ventilator (جهاز تنفس)</SelectItem>
+                  <SelectItem value="CPAP">CPAP</SelectItem>
+                  <SelectItem value="BiPAP">BiPAP</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {ABG_FIELDS.map(f => (
+              <div key={f.key}>
+                <label className="text-xs text-gray-500 mb-1 block">{f.label} <span className="text-gray-400">({f.normal})</span></label>
+                <Input placeholder={f.label} value={form[f.key] || ''} onChange={e => setForm({...form, [f.key]: e.target.value})} />
+              </div>
+            ))}
+            <div className="col-span-2">
+              <Input placeholder="ملاحظات" value={form.notes || ''} onChange={e => setForm({...form, notes: e.target.value})} />
+            </div>
+            <ImageUpload label="📊 صورة مرفقة (اختياري)" value={form.attachment_data || null} onChange={v => setForm({...form, attachment_data: v})} />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOpen(false)}>إلغاء</Button>
+            <Button onClick={save} disabled={loading} className="bg-blue-600 hover:bg-blue-700">{loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'حفظ'}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  )
+}
+
+// ══════════════════════════════════════════════
+// رسم القلب (ECG)
+// ══════════════════════════════════════════════
+function ECGTab({ api }) {
+  const [items, setItems]     = useState([])
+  const [open, setOpen]       = useState(false)
+  const [editing, setEditing] = useState(null)
+  const [form, setForm]       = useState({})
+  const [loading, setLoading] = useState(false)
+  const [lightbox, setLightbox] = useState(null)
+
+  const load = useCallback(() => api.get('/ecg').then(d => Array.isArray(d) && setItems(d)), [api])
+  useEffect(() => { load() }, [load])
+
+  const openAdd  = () => { setEditing(null); setForm({ ecg_date: new Date().toISOString().split('T')[0] }); setOpen(true) }
+  const openEdit = (item) => { setEditing(item); setForm({...item}); setOpen(true) }
+  const save = async () => {
+    setLoading(true)
+    const res = editing ? await api.put(`/ecg/${editing.id}`, form) : await api.post('/ecg', form)
+    setLoading(false)
+    if (res.id) { load(); setOpen(false) }
+  }
+  const remove = async (id) => { if (confirm('حذف هذا السجل؟')) { await api.del(`/ecg/${id}`); load() } }
+
+  return (
+    <>
+      {lightbox && (
+        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4" onClick={() => setLightbox(null)}>
+          <img src={lightbox} alt="رسم القلب" className="max-w-full max-h-full rounded-xl object-contain" />
+        </div>
+      )}
+      <div className="flex justify-end mb-4">
+        <Button onClick={openAdd} className="gap-2 bg-blue-600 hover:bg-blue-700"><Plus className="w-4 h-4" /> إضافة رسم قلب</Button>
+      </div>
+
+      {items.length === 0 ? (
+        <div className="text-center py-16 text-gray-400">
+          <Zap className="w-12 h-12 mx-auto mb-3 opacity-30" />
+          <p>لا توجد رسومات قلب مسجلة بعد</p>
+        </div>
+      ) : (
+        <div className="grid gap-4">
+          {items.map(r => (
+            <Card key={r.id} className="border-r-4 border-r-red-400">
+              <CardContent className="p-5">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex gap-4 flex-1 min-w-0">
+                    {r.attachment_data ? (
+                      <button onClick={() => setLightbox(r.attachment_data)} className="shrink-0 group relative">
+                        <img src={r.attachment_data} alt="ECG" className="w-24 h-16 object-cover rounded-lg border border-gray-200 group-hover:opacity-80 transition-opacity" />
+                        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 bg-black/30 rounded-lg transition-opacity">
+                          <ZoomIn className="w-5 h-5 text-white" />
+                        </div>
+                      </button>
+                    ) : (
+                      <div className="w-24 h-16 bg-gray-100 rounded-lg flex items-center justify-center shrink-0">
+                        <Zap className="w-6 h-6 text-gray-300" />
+                      </div>
+                    )}
+                    <div className="flex-1 grid grid-cols-2 md:grid-cols-3 gap-3">
+                      <FieldRow label="التاريخ" value={r.ecg_date} />
+                      {r.facility && <FieldRow label="المركز" value={r.facility} />}
+                      {r.ordering_doctor && <FieldRow label="الطبيب" value={r.ordering_doctor} />}
+                      {r.findings && <div className="col-span-full"><FieldRow label="النتائج" value={r.findings} /></div>}
+                    </div>
+                  </div>
+                  <div className="flex gap-2 shrink-0">
+                    <Button size="icon" variant="ghost" onClick={() => openEdit(r)}><Pencil className="w-4 h-4" /></Button>
+                    <Button size="icon" variant="ghost" className="text-red-500" onClick={() => remove(r.id)}><Trash2 className="w-4 h-4" /></Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="max-w-lg" dir="rtl">
+          <DialogHeader><DialogTitle>{editing ? 'تعديل' : 'إضافة'} رسم قلب (ECG)</DialogTitle></DialogHeader>
+          <div className="grid grid-cols-2 gap-4 py-2">
+            <div className="col-span-2">
+              <label className="text-xs text-gray-500 mb-1 block">تاريخ رسم القلب</label>
+              <Input type="date" value={form.ecg_date || ''} onChange={e => setForm({...form, ecg_date: e.target.value})} />
+            </div>
+            <Input placeholder="المركز / المستشفى" value={form.facility || ''} onChange={e => setForm({...form, facility: e.target.value})} />
+            <Input placeholder="الطبيب المعالج" value={form.ordering_doctor || ''} onChange={e => setForm({...form, ordering_doctor: e.target.value})} />
+            <div className="col-span-2">
+              <label className="text-xs text-gray-500 mb-1 block">النتائج / الملاحظات</label>
+              <textarea value={form.findings || ''} onChange={e => setForm({...form, findings: e.target.value})} rows={3} className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-400" placeholder="وصف موجات رسم القلب، أي ملاحظات..." />
+            </div>
+            <ImageUpload label="📈 صورة رسم القلب *" value={form.attachment_data || null} onChange={v => setForm({...form, attachment_data: v})} />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOpen(false)}>إلغاء</Button>
+            <Button onClick={save} disabled={loading} className="bg-blue-600 hover:bg-blue-700">{loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'حفظ'}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  )
+}
+
+// ══════════════════════════════════════════════
 // الصفحة الرئيسية
 // ══════════════════════════════════════════════
 export default function MedicalRecordPage() {
   const { token } = useAuth()
+  const navigate  = useNavigate()
   const api = useApi(token)
-  const [reportOpen, setReportOpen] = useState(false)
 
   const tabs = [
-    { id: 'diseases', label: 'الأمراض', icon: <Activity className="w-4 h-4" />, component: <DiseasesTab api={api} /> },
-    { id: 'surgeries', label: 'العمليات', icon: <Stethoscope className="w-4 h-4" />, component: <SurgeriesTab api={api} /> },
-    { id: 'allergies', label: 'الحساسية', icon: <AlertTriangle className="w-4 h-4" />, component: <AllergiesTab api={api} /> },
-    { id: 'medications', label: 'الأدوية', icon: <Pill className="w-4 h-4" />, component: <MedicationsTab api={api} /> },
-    { id: 'vaccinations', label: 'التطعيمات', icon: <Syringe className="w-4 h-4" />, component: <VaccinationsTab api={api} /> },
-    { id: 'lab_tests', label: 'التحاليل', icon: <FlaskConical className="w-4 h-4" />, component: <LabTestsTab api={api} /> },
-    { id: 'radiology', label: 'الأشعة', icon: <RadioTower className="w-4 h-4" />, component: <RadiologyTab api={api} /> },
-    { id: 'history', label: 'التاريخ المرضي', icon: <History className="w-4 h-4" />, component: <MedicalHistoryTab api={api} /> },
+    { id: 'diseases',    label: 'الأمراض',       icon: <Activity className="w-4 h-4" />,      component: <DiseasesTab api={api} /> },
+    { id: 'surgeries',   label: 'العمليات',       icon: <Stethoscope className="w-4 h-4" />,   component: <SurgeriesTab api={api} /> },
+    { id: 'allergies',   label: 'الحساسية',       icon: <AlertTriangle className="w-4 h-4" />, component: <AllergiesTab api={api} /> },
+    { id: 'medications', label: 'الأدوية',        icon: <Pill className="w-4 h-4" />,          component: <MedicationsTab api={api} /> },
+    { id: 'vaccinations',label: 'التطعيمات',      icon: <Syringe className="w-4 h-4" />,       component: <VaccinationsTab api={api} /> },
+    { id: 'lab_tests',   label: 'التحاليل',       icon: <FlaskConical className="w-4 h-4" />,  component: <LabTestsTab api={api} /> },
+    { id: 'blood_gas',   label: 'غازات الدم',     icon: <Activity className="w-4 h-4" />,      component: <BloodGasTab api={api} /> },
+    { id: 'ecg',         label: 'رسم القلب',      icon: <Zap className="w-4 h-4" />,           component: <ECGTab api={api} /> },
+    { id: 'radiology',   label: 'الأشعة',         icon: <RadioTower className="w-4 h-4" />,    component: <RadiologyTab api={api} /> },
+    { id: 'history',     label: 'التاريخ المرضي', icon: <History className="w-4 h-4" />,       component: <MedicalHistoryTab api={api} /> },
   ]
 
   return (
@@ -1273,8 +1605,12 @@ export default function MedicalRecordPage() {
               <p className="text-gray-500 text-sm mt-0.5">سجلك الصحي الشامل في مكان واحد</p>
             </div>
           </div>
-          <Button onClick={() => setReportOpen(true)} variant="outline" className="gap-2 border-blue-200 text-blue-700 hover:bg-blue-50">
-            <FileDown className="w-4 h-4" /> تقرير طبي
+          <Button
+            onClick={() => navigate('/medical-record/report')}
+            variant="outline"
+            className="gap-2 border-blue-200 text-blue-700 hover:bg-blue-50"
+          >
+            <FileDown className="w-4 h-4" /> تقرير طبي شامل
           </Button>
         </div>
 
@@ -1312,8 +1648,6 @@ export default function MedicalRecordPage() {
           ))}
         </Tabs>
       </div>
-
-      <MedicalReportModal api={api} open={reportOpen} onClose={() => setReportOpen(false)} />
     </div>
   )
 }

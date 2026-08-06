@@ -27,6 +27,11 @@ import PendingApprovalPage from './pages/PendingApprovalPage'
 import VaccinationPage from './pages/VaccinationPage'
 import SymptomCheckerPage from './pages/SymptomCheckerPage'
 import ClinicalSummaryPage from './pages/ClinicalSummaryPage'
+import MedicalReportPage from './pages/MedicalReportPage'
+import PublicMedicalRecordPage from './pages/PublicMedicalRecordPage'
+import PharmaciesPage from './pages/PharmaciesPage'
+import LabsDirectoryPage from './pages/LabsDirectoryPage'
+import RadiologyCentersPage from './pages/RadiologyCentersPage'
 import FloatingAIChat from './components/FloatingAIChat'
 import SplashScreen from './components/SplashScreen'
 import './App.css'
@@ -94,6 +99,10 @@ function AppContent() {
           <Route path="/emergency" element={<EmergencyPage />} />
           <Route path="/hospitals" element={<HospitalsPage />} />
           <Route path="/ai-assistant" element={<AIAssistantPage />} />
+          <Route path="/pharmacies" element={<PharmaciesPage />} />
+          <Route path="/labs-directory" element={<LabsDirectoryPage />} />
+          <Route path="/radiology-centers" element={<RadiologyCentersPage />} />
+          <Route path="/public-record/:token" element={<PublicMedicalRecordPage />} />
 
           {/* ── المصادقة (عامة فقط) ── */}
           <Route path="/login" element={<PublicRoute><LoginPage /></PublicRoute>} />
@@ -125,6 +134,7 @@ function AppContent() {
           {/* ── صفحات المريض ── */}
           <Route path="/medical-record" element={<RoleRoute roles={['patient']}><MedicalRecordPage /></RoleRoute>} />
           <Route path="/clinical-summary" element={<RoleRoute roles={['patient']}><ClinicalSummaryPage /></RoleRoute>} />
+          <Route path="/medical-record/report" element={<RoleRoute roles={['patient']}><MedicalReportPage /></RoleRoute>} />
           <Route path="/family-health" element={<RoleRoute roles={['patient']}><FamilyHealthPage /></RoleRoute>} />
           <Route path="/vaccinations" element={<RoleRoute roles={['patient']}><VaccinationPage /></RoleRoute>} />
           <Route path="/symptom-checker" element={<SymptomCheckerPage />} />

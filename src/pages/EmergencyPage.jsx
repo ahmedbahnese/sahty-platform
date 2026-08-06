@@ -8,6 +8,48 @@ import {
 
 const API = '/api'
 
+// ── QR التقرير الطبي الشامل ──
+function PublicMedicalQR() {
+  const { token } = useAuth()
+  const [publicUrl, setPublicUrl] = useState(null)
+  const [loading, setLoading]     = useState(true)
+
+  useEffect(() => {
+    if (!token) return
+    fetch('/api/medical-record/public-token', { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.ok ? r.json() : null)
+      .then(d => {
+        if (d?.token) setPublicUrl(`${window.location.origin}/public-record/${d.token}`)
+      })
+      .finally(() => setLoading(false))
+  }, [token])
+
+  if (loading || !publicUrl) return null
+
+  return (
+    <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-xl">
+      <p className="text-sm font-semibold text-blue-800 mb-3 flex items-center gap-2">
+        📋 QR التقرير الطبي الشامل
+      </p>
+      <div className="flex items-center gap-4">
+        <img
+          src={`https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(publicUrl)}`}
+          alt="QR التقرير الطبي"
+          className="w-28 h-28 rounded-lg border border-blue-100 bg-white"
+        />
+        <div className="flex-1 text-xs text-blue-700 space-y-1">
+          <p>امسح هذا الرمز لفتح <strong>تقريرك الطبي الكامل</strong> (للقراءة فقط)</p>
+          <p className="text-blue-500">يشمل: الأمراض، الأدوية، التحاليل، الأشعة، التطعيمات</p>
+          <a href={publicUrl} target="_blank" rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 mt-2 underline text-blue-600 hover:text-blue-800">
+            فتح الرابط مباشرة ↗
+          </a>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 /* ──────────────── helpers ──────────────── */
 const SEVERITY_CFG = {
   critical: { label: 'حرج — يهدد الحياة',       color: 'text-red-700',    bg: 'bg-red-100'    },
@@ -615,6 +657,9 @@ export default function EmergencyPage() {
                       </div>
                     </div>
                   </div>
+
+                  {/* QR التقرير الطبي الشامل */}
+                  <PublicMedicalQR />
 
                   <div className="flex gap-2">
                     <button onClick={loadQR} className="flex-1 text-sm text-blue-600 border border-blue-200 rounded-lg py-2 hover:bg-blue-50">تحديث البيانات</button>

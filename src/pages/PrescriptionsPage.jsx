@@ -429,7 +429,7 @@ export default function PrescriptionsPage() {
         <div className="max-w-4xl mx-auto px-4 py-8">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-bold">الوصفات الطبية</h1>
+              <h1 className="text-2xl font-bold">الوصفات الدوائية</h1>
               <p className="text-purple-100 mt-1 text-sm">
                 {isDoctor ? 'إدارة وصفاتك الطبية' : isPharmacy ? 'وصفات للصرف' : 'وصفاتك الطبية'}
               </p>

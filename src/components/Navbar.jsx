@@ -52,12 +52,15 @@ export default function Navbar() {
     { path: '/medical-record', label: 'الملف الطبي', icon: ClipboardList },
     { path: '/clinical-summary', label: 'التقرير الطبي الشامل', icon: FileText },
     { path: '/appointments', label: 'المواعيد', icon: Calendar },
-    { path: '/prescriptions', label: 'الوصفات الطبية', icon: FileText },
-    { path: '/lab-requests', label: 'التحاليل المخبرية', icon: FlaskConical },
-    { path: '/radiology', label: 'الأشعة والتصوير', icon: Scan },
+    { path: '/prescriptions', label: 'الوصفات الدوائية', icon: FileText },
+    { path: '/lab-requests', label: 'طلبات التحاليل', icon: FlaskConical },
+    { path: '/radiology', label: 'طلبات الأشعة', icon: Scan },
     { path: '/medications', label: 'متابعة الأدوية', icon: Pill },
     { path: '/family-health', label: 'صحة الأسرة', icon: Users },
     { path: '/vaccinations', label: 'التطعيمات', icon: Shield },
+    { path: '/pharmacies', label: 'الصيدليات', icon: Pill },
+    { path: '/labs-directory', label: 'المعامل', icon: FlaskConical },
+    { path: '/radiology-centers', label: 'مراكز الأشعة', icon: Scan },
     { path: '/symptom-checker', label: 'فاحص الأعراض', icon: Stethoscope },
   ]
 

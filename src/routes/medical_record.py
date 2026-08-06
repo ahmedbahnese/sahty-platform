@@ -8,7 +8,8 @@ from src.models.user import db
 from src.models.patient import Patient, Allergy
 from src.models.medication import Medication
 from src.models.medical_record import (
-    Disease, Surgery, Vaccination, LabTest, Radiology, MedicalHistory
+    Disease, Surgery, Vaccination, LabTest, Radiology, MedicalHistory,
+    BloodGasReading, ECGRecord
 )
 from src.routes.auth import token_required
 
@@ -795,6 +796,220 @@ def get_clinical_summary(current_user):
         'radiology': [r.to_dict() for r in completed_radiology],
         'visits': visits_data,
     }), 200
+
+
+# ──────────────────────────────────────────────
+# غازات الدم (ABG)
+# ──────────────────────────────────────────────
+@medical_record_bp.route('/blood-gas', methods=['GET'])
+@token_required
+def get_blood_gas(current_user):
+    patient = Patient.query.filter_by(user_id=current_user.id).first()
+    if not patient:
+        return jsonify({'message': 'لم يتم العثور على ملف المريض'}), 404
+    readings = BloodGasReading.query.filter_by(patient_id=patient.id).order_by(
+        BloodGasReading.reading_date.desc(), BloodGasReading.created_at.desc()).all()
+    return jsonify([r.to_dict() for r in readings]), 200
+
+
+@medical_record_bp.route('/blood-gas', methods=['POST'])
+@token_required
+def add_blood_gas(current_user):
+    patient = Patient.query.filter_by(user_id=current_user.id).first()
+    if not patient:
+        return jsonify({'message': 'لم يتم العثور على ملف المريض'}), 404
+    data = request.get_json(silent=True) or {}
+    reading = BloodGasReading(
+        patient_id=patient.id,
+        reading_date=_parse_date(data.get('reading_date')),
+        reading_time=data.get('reading_time'),
+        mode=data.get('mode'),
+        ph=data.get('ph'),
+        pco2=data.get('pco2'),
+        hco3=data.get('hco3'),
+        o2=data.get('o2'),
+        spo2=data.get('spo2'),
+        k=data.get('k'),
+        lactate=data.get('lactate'),
+        notes=data.get('notes'),
+        attachment_data=data.get('attachment_data'),
+    )
+    db.session.add(reading)
+    db.session.commit()
+    return jsonify(reading.to_dict()), 201
+
+
+@medical_record_bp.route('/blood-gas/<int:rid>', methods=['PUT'])
+@token_required
+def update_blood_gas(current_user, rid):
+    patient = Patient.query.filter_by(user_id=current_user.id).first()
+    if not patient:
+        return jsonify({'message': 'لم يتم العثور على ملف المريض'}), 404
+    reading = BloodGasReading.query.filter_by(id=rid, patient_id=patient.id).first()
+    if not reading:
+        return jsonify({'message': 'لم يتم العثور على القراءة'}), 404
+    data = request.get_json(silent=True) or {}
+    for f in ('reading_time', 'mode', 'ph', 'pco2', 'hco3', 'o2', 'spo2', 'k', 'lactate', 'notes', 'attachment_data'):
+        if f in data:
+            setattr(reading, f, data[f])
+    if 'reading_date' in data:
+        reading.reading_date = _parse_date(data['reading_date'])
+    db.session.commit()
+    return jsonify(reading.to_dict()), 200
+
+
+@medical_record_bp.route('/blood-gas/<int:rid>', methods=['DELETE'])
+@token_required
+def delete_blood_gas(current_user, rid):
+    patient = Patient.query.filter_by(user_id=current_user.id).first()
+    if not patient:
+        return jsonify({'message': 'لم يتم العثور على ملف المريض'}), 404
+    reading = BloodGasReading.query.filter_by(id=rid, patient_id=patient.id).first()
+    if not reading:
+        return jsonify({'message': 'لم يتم العثور على القراءة'}), 404
+    db.session.delete(reading)
+    db.session.commit()
+    return jsonify({'message': 'تم الحذف'}), 200
+
+
+# ──────────────────────────────────────────────
+# رسومات القلب (ECG)
+# ──────────────────────────────────────────────
+@medical_record_bp.route('/ecg', methods=['GET'])
+@token_required
+def get_ecg(current_user):
+    patient = Patient.query.filter_by(user_id=current_user.id).first()
+    if not patient:
+        return jsonify({'message': 'لم يتم العثور على ملف المريض'}), 404
+    records = ECGRecord.query.filter_by(patient_id=patient.id).order_by(ECGRecord.ecg_date.desc()).all()
+    return jsonify([r.to_dict() for r in records]), 200
+
+
+@medical_record_bp.route('/ecg', methods=['POST'])
+@token_required
+def add_ecg(current_user):
+    patient = Patient.query.filter_by(user_id=current_user.id).first()
+    if not patient:
+        return jsonify({'message': 'لم يتم العثور على ملف المريض'}), 404
+    data = request.get_json(silent=True) or {}
+    record = ECGRecord(
+        patient_id=patient.id,
+        ecg_date=_parse_date(data.get('ecg_date')),
+        facility=data.get('facility'),
+        ordering_doctor=data.get('ordering_doctor'),
+        findings=data.get('findings'),
+        notes=data.get('notes'),
+        attachment_data=data.get('attachment_data'),
+    )
+    db.session.add(record)
+    db.session.commit()
+    return jsonify(record.to_dict()), 201
+
+
+@medical_record_bp.route('/ecg/<int:rid>', methods=['PUT'])
+@token_required
+def update_ecg(current_user, rid):
+    patient = Patient.query.filter_by(user_id=current_user.id).first()
+    if not patient:
+        return jsonify({'message': 'لم يتم العثور على ملف المريض'}), 404
+    record = ECGRecord.query.filter_by(id=rid, patient_id=patient.id).first()
+    if not record:
+        return jsonify({'message': 'لم يتم العثور على السجل'}), 404
+    data = request.get_json(silent=True) or {}
+    for f in ('facility', 'ordering_doctor', 'findings', 'notes', 'attachment_data'):
+        if f in data:
+            setattr(record, f, data[f])
+    if 'ecg_date' in data:
+        record.ecg_date = _parse_date(data['ecg_date'])
+    db.session.commit()
+    return jsonify(record.to_dict()), 200
+
+
+@medical_record_bp.route('/ecg/<int:rid>', methods=['DELETE'])
+@token_required
+def delete_ecg(current_user, rid):
+    patient = Patient.query.filter_by(user_id=current_user.id).first()
+    if not patient:
+        return jsonify({'message': 'لم يتم العثور على ملف المريض'}), 404
+    record = ECGRecord.query.filter_by(id=rid, patient_id=patient.id).first()
+    if not record:
+        return jsonify({'message': 'لم يتم العثور على السجل'}), 404
+    db.session.delete(record)
+    db.session.commit()
+    return jsonify({'message': 'تم الحذف'}), 200
+
+
+# ──────────────────────────────────────────────
+# تقرير طبي عام (public - للـ QR code)
+# ──────────────────────────────────────────────
+@medical_record_bp.route('/public/<string:token>', methods=['GET'])
+def get_public_report(token):
+    """تقرير طبي للقراءة فقط عبر رمز QR — بدون تسجيل دخول."""
+    import hmac, hashlib, os
+    secret = os.environ.get('SESSION_SECRET', 'sehaty-secret')
+    # token = patient_id:signature
+    try:
+        parts = token.split(':')
+        if len(parts) != 2:
+            return jsonify({'message': 'رابط غير صالح'}), 400
+        pid_str, sig = parts
+        expected = hmac.new(secret.encode(), pid_str.encode(), hashlib.sha256).hexdigest()[:16]
+        if not hmac.compare_digest(sig, expected):
+            return jsonify({'message': 'رابط غير صالح'}), 403
+        patient_id = int(pid_str)
+    except Exception:
+        return jsonify({'message': 'رابط غير صالح'}), 400
+
+    patient = Patient.query.get(patient_id)
+    if not patient:
+        return jsonify({'message': 'لم يتم العثور على الملف'}), 404
+
+    allergies = [a.to_dict() for a in Allergy.query.filter_by(patient_id=patient.id).all()]
+    diseases = [d.to_dict() for d in Disease.query.filter_by(patient_id=patient.id).all()]
+    medications = [m.to_dict() for m in Medication.query.filter_by(patient_id=patient.id, is_active=True).all()]
+    vaccinations = [v.to_dict() for v in Vaccination.query.filter_by(patient_id=patient.id).all()]
+    lab_tests = [l.to_dict() for l in LabTest.query.filter_by(patient_id=patient.id).order_by(LabTest.test_date.desc()).limit(20).all()]
+    radiology = [r.to_dict() for r in Radiology.query.filter_by(patient_id=patient.id).order_by(Radiology.scan_date.desc()).limit(10).all()]
+    history = MedicalHistory.query.filter_by(patient_id=patient.id).first()
+    from datetime import date as dt_date
+    today = dt_date.today()
+    age = None
+    if patient.date_of_birth:
+        age = today.year - patient.date_of_birth.year - (
+            (today.month, today.day) < (patient.date_of_birth.month, patient.date_of_birth.day)
+        )
+    return jsonify({
+        'generated_at': datetime.utcnow().isoformat(),
+        'patient': {
+            'name': f'{patient.first_name} {patient.last_name}',
+            'age': age,
+            'gender': patient.gender,
+            'blood_type': patient.blood_type,
+            'height': patient.height,
+            'weight': patient.weight,
+        },
+        'allergies': allergies,
+        'active_diseases': [d for d in diseases if d.get('status') in ('active', 'chronic')],
+        'current_medications': medications,
+        'vaccinations': vaccinations,
+        'recent_lab_tests': lab_tests,
+        'recent_radiology': radiology,
+        'medical_history': history.to_dict() if history else {},
+    }), 200
+
+
+@medical_record_bp.route('/public-token', methods=['GET'])
+@token_required
+def get_public_token(current_user):
+    """توليد رمز عام للـ QR code."""
+    import hmac, hashlib, os
+    patient = Patient.query.filter_by(user_id=current_user.id).first()
+    if not patient:
+        return jsonify({'message': 'لم يتم العثور على ملف المريض'}), 404
+    secret = os.environ.get('SESSION_SECRET', 'sehaty-secret')
+    sig = hmac.new(secret.encode(), str(patient.id).encode(), hashlib.sha256).hexdigest()[:16]
+    token = f'{patient.id}:{sig}'
+    return jsonify({'token': token, 'patient_id': patient.id}), 200
 
 
 @medical_record_bp.route('/visits/<int:appointment_id>', methods=['GET'])

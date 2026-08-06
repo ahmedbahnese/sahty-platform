@@ -220,6 +220,76 @@ class Radiology(db.Model):
         }
 
 
+class BloodGasReading(db.Model):
+    """قراءات غازات الدم."""
+    __tablename__ = 'blood_gas_readings'
+
+    id = db.Column(db.Integer, primary_key=True)
+    patient_id = db.Column(db.Integer, db.ForeignKey('patients.id'), nullable=False)
+
+    reading_date = db.Column(db.Date)
+    reading_time = db.Column(db.String(10))        # HH:MM
+    mode = db.Column(db.String(50))                # وضع التنفس (Room Air / O2 / Ventilator)
+    ph = db.Column(db.String(20))
+    pco2 = db.Column(db.String(20))
+    hco3 = db.Column(db.String(20))
+    o2 = db.Column(db.String(20))
+    spo2 = db.Column(db.String(20))
+    k = db.Column(db.String(20))
+    lactate = db.Column(db.String(20))
+    notes = db.Column(db.Text)
+    attachment_data = db.Column(db.Text)            # base64 صورة مرفقة
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'patient_id': self.patient_id,
+            'reading_date': self.reading_date.isoformat() if self.reading_date else None,
+            'reading_time': self.reading_time,
+            'mode': self.mode,
+            'ph': self.ph,
+            'pco2': self.pco2,
+            'hco3': self.hco3,
+            'o2': self.o2,
+            'spo2': self.spo2,
+            'k': self.k,
+            'lactate': self.lactate,
+            'notes': self.notes,
+            'attachment_data': self.attachment_data,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+        }
+
+
+class ECGRecord(db.Model):
+    """رسومات القلب (تخطيط القلب)."""
+    __tablename__ = 'ecg_records'
+
+    id = db.Column(db.Integer, primary_key=True)
+    patient_id = db.Column(db.Integer, db.ForeignKey('patients.id'), nullable=False)
+
+    ecg_date = db.Column(db.Date)
+    facility = db.Column(db.String(200))
+    ordering_doctor = db.Column(db.String(200))
+    findings = db.Column(db.Text)                   # النتائج / الملاحظات
+    notes = db.Column(db.Text)
+    attachment_data = db.Column(db.Text)            # base64 صورة رسم القلب
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'patient_id': self.patient_id,
+            'ecg_date': self.ecg_date.isoformat() if self.ecg_date else None,
+            'facility': self.facility,
+            'ordering_doctor': self.ordering_doctor,
+            'findings': self.findings,
+            'notes': self.notes,
+            'attachment_data': self.attachment_data,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+        }
+
+
 class MedicalHistory(db.Model):
     """التاريخ المرضي العام والعائلي."""
     __tablename__ = 'medical_history'
