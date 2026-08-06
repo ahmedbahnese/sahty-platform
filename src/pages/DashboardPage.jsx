@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { Button } from '@/components/ui/button'
 import {
-  Activity, BarChart3, Building2, CheckCircle2, Clock3, Heart,
+  Activity, BarChart3, Building2, CheckCircle2, Clock3, FileText, Heart,
   Hospital, Languages, Loader2, LogOut, ShieldCheck, Stethoscope,
   TestTube2, Users, XCircle, ClipboardList, Pill, Syringe
 } from 'lucide-react'
@@ -128,10 +128,11 @@ function ProviderDashboard({ user }) {
 function PatientDashboard() {
   const quickLinks = [
     { label: 'الملف الطبي الإلكتروني', desc: 'الأمراض، العمليات، التحاليل، الأشعة والمزيد', icon: ClipboardList, color: 'blue', to: '/medical-record' },
+    { label: 'الملخص السريري', desc: 'تقرير طبي شامل قابل للطباعة', icon: FileText, color: 'teal', to: '/clinical-summary' },
     { label: 'الأطباء', desc: 'ابحث عن طبيب وحجز موعد', icon: Stethoscope, color: 'purple', to: '/doctors' },
     { label: 'بنك الدم', desc: 'التبرع بالدم وطلبات الدم', icon: Heart, color: 'red', to: '/blood-bank' },
   ]
-  const tones = { blue: 'bg-blue-600', purple: 'bg-purple-600', red: 'bg-rose-600' }
+  const tones = { blue: 'bg-blue-600', teal: 'bg-teal-600', purple: 'bg-purple-600', red: 'bg-rose-600' }
   return (
     <div className="space-y-6">
       <div className="grid gap-5 md:grid-cols-3">

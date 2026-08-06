@@ -708,3 +708,135 @@ def get_medical_report(current_user):
         'recent_radiology': radiology,
         'medical_history': history.to_dict() if history else {},
     }), 200
+
+
+# ──────────────────────────────────────────────
+# الملخص السريري الشامل (Patient Clinical Summary)
+# ──────────────────────────────────────────────
+@medical_record_bp.route('/clinical-summary', methods=['GET'])
+@token_required
+def get_clinical_summary(current_user):
+    """
+    ملخص سريري شامل يشمل:
+    - بيانات المريض
+    - الأمراض والتاريخ الجراحي والحساسية
+    - الأدوية الحالية
+    - التحاليل المكتملة فقط (لها نتائج)
+    - الأشعة المكتملة فقط (لها تقارير)
+    - زيارات الطبيب المكتملة (مع بيانات الطبيب)
+    """
+    from src.models.appointment import Appointment
+    from src.models.doctor import Doctor
+    from datetime import date as dt_date
+
+    patient = Patient.query.filter_by(user_id=current_user.id).first()
+    if not patient:
+        return jsonify({'message': 'لم يتم العثور على ملف المريض'}), 404
+
+    # ── حساب العمر ──
+    today = dt_date.today()
+    age = None
+    if patient.date_of_birth:
+        age = today.year - patient.date_of_birth.year - (
+            (today.month, today.day) < (patient.date_of_birth.month, patient.date_of_birth.day)
+        )
+
+    # ── التحاليل المكتملة فقط (لها قيمة نتيجة) ──
+    completed_labs = LabTest.query.filter(
+        LabTest.patient_id == patient.id,
+        LabTest.result_value.isnot(None),
+        LabTest.result_value != ''
+    ).order_by(LabTest.test_date.asc()).all()
+
+    # ── الأشعة المكتملة فقط (لها نتائج أو تقرير — وليست فارغة) ──
+    completed_radiology = Radiology.query.filter(
+        Radiology.patient_id == patient.id,
+        db.or_(
+            db.and_(Radiology.findings.isnot(None), Radiology.findings != ''),
+            db.and_(Radiology.impression.isnot(None), Radiology.impression != ''),
+            db.and_(Radiology.report_data.isnot(None), Radiology.report_data != '')
+        )
+    ).order_by(Radiology.scan_date.asc()).all()
+
+    # ── زيارات الطبيب المكتملة ──
+    completed_visits = Appointment.query.filter_by(
+        patient_id=patient.id,
+        status='completed'
+    ).order_by(Appointment.appointment_date.asc()).all()
+
+    visits_data = []
+    for appt in completed_visits:
+        doc = db.session.get(Doctor, appt.doctor_id)
+        d = appt.to_dict()
+        d['doctor'] = {
+            'id': doc.id,
+            'name': f"د. {doc.first_name} {doc.last_name}",
+            'specialization': doc.specialization,
+            'clinic_name': doc.clinic_name,
+        } if doc else None
+        visits_data.append(d)
+
+    # ── الأدوية الحالية (نشطة) ──
+    current_meds = Medication.query.filter_by(
+        patient_id=patient.id,
+        is_active=True
+    ).order_by(Medication.start_date.desc()).all()
+
+    patient_dict = patient.to_dict()
+    patient_dict['age'] = age
+
+    return jsonify({
+        'patient': patient_dict,
+        'diseases': [d.to_dict() for d in Disease.query.filter_by(patient_id=patient.id).order_by(Disease.diagnosis_date.desc()).all()],
+        'surgeries': [s.to_dict() for s in Surgery.query.filter_by(patient_id=patient.id).order_by(Surgery.surgery_date.desc()).all()],
+        'allergies': [a.to_dict() for a in Allergy.query.filter_by(patient_id=patient.id).all()],
+        'current_medications': [m.to_dict() for m in current_meds],
+        'lab_tests': [l.to_dict() for l in completed_labs],
+        'radiology': [r.to_dict() for r in completed_radiology],
+        'visits': visits_data,
+    }), 200
+
+
+@medical_record_bp.route('/visits/<int:appointment_id>', methods=['GET'])
+@token_required
+def get_visit_encounter(current_user, appointment_id):
+    """تفاصيل الزيارة الكاملة (Encounter) عند النقر على زيارة محددة."""
+    from src.models.appointment import Appointment
+    from src.models.doctor import Doctor
+    from src.models.patient import MedicalRecord
+    from datetime import timedelta
+
+    patient = Patient.query.filter_by(user_id=current_user.id).first()
+    if not patient:
+        return jsonify({'message': 'لم يتم العثور على ملف المريض'}), 404
+
+    appt = Appointment.query.filter_by(id=appointment_id, patient_id=patient.id).first()
+    if not appt:
+        return jsonify({'message': 'لم يتم العثور على الموعد'}), 404
+
+    doc = db.session.get(Doctor, appt.doctor_id)
+
+    # ── البحث عن السجل الطبي المرتبط (أقرب تاريخ) ──
+    medical_record = None
+    if doc and appt.appointment_date:
+        appt_date = appt.appointment_date
+        medical_record = MedicalRecord.query.filter(
+            MedicalRecord.patient_id == patient.id,
+            MedicalRecord.doctor_id == appt.doctor_id,
+            MedicalRecord.visit_date >= appt_date - timedelta(days=2),
+            MedicalRecord.visit_date <= appt_date + timedelta(days=2),
+        ).order_by(MedicalRecord.visit_date.asc()).first()
+
+    result = appt.to_dict()
+    result['doctor'] = {
+        'id': doc.id,
+        'name': f"د. {doc.first_name} {doc.last_name}",
+        'specialization': doc.specialization,
+        'sub_specialization': doc.sub_specialization,
+        'clinic_name': doc.clinic_name,
+        'hospital_affiliation': doc.hospital_affiliation,
+        'license_number': doc.license_number,
+    } if doc else None
+    result['medical_record'] = medical_record.to_dict() if medical_record else None
+
+    return jsonify(result), 200

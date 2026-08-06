@@ -50,6 +50,7 @@ export default function Navbar() {
   const userMenuItems = [
     { path: '/dashboard', label: 'لوحة التحكم', icon: LayoutDashboard },
     { path: '/medical-record', label: 'الملف الطبي', icon: ClipboardList },
+    { path: '/clinical-summary', label: 'الملخص السريري', icon: FileText },
     { path: '/appointments', label: 'المواعيد', icon: Calendar },
     { path: '/prescriptions', label: 'الوصفات الطبية', icon: FileText },
     { path: '/lab-requests', label: 'التحاليل المخبرية', icon: FlaskConical },

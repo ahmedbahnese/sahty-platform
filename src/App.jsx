@@ -25,6 +25,7 @@ import DoctorProfilePage from './pages/DoctorProfilePage'
 import PendingApprovalPage from './pages/PendingApprovalPage'
 import VaccinationPage from './pages/VaccinationPage'
 import SymptomCheckerPage from './pages/SymptomCheckerPage'
+import ClinicalSummaryPage from './pages/ClinicalSummaryPage'
 import FloatingAIChat from './components/FloatingAIChat'
 import './App.css'
 
@@ -117,6 +118,7 @@ function AppContent() {
 
           {/* ── صفحات المريض ── */}
           <Route path="/medical-record" element={<RoleRoute roles={['patient']}><MedicalRecordPage /></RoleRoute>} />
+          <Route path="/clinical-summary" element={<RoleRoute roles={['patient']}><ClinicalSummaryPage /></RoleRoute>} />
           <Route path="/family-health" element={<RoleRoute roles={['patient']}><FamilyHealthPage /></RoleRoute>} />
           <Route path="/vaccinations" element={<RoleRoute roles={['patient']}><VaccinationPage /></RoleRoute>} />
           <Route path="/symptom-checker" element={<SymptomCheckerPage />} />
