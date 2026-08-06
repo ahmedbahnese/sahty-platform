@@ -18,6 +18,13 @@ from src.models.appointment import Appointment, AppointmentHistory, AppointmentR
 from src.models.medication import Medication, MedicationSchedule, MedicationLog, DrugDatabase, PharmacyOrder
 from src.models.blood_bank import BloodDonor, BloodRequest, BloodRequestResponse, BloodDonation, BloodInventory
 from src.models.hospital import Hospital, HospitalDepartment, EmergencyService, HospitalReview
+from src.models.egypt_healthcare import (
+    EgyptGovernorate,
+    EgyptCity,
+    EgyptFacilityType,
+    EgyptOwnershipType,
+    EgyptFacility,
+)
 from src.models.admin import Admin, SystemOwner, SystemSettings, AuditLog
 from src.models.provider import ProviderRegistration
 from src.models.medical_record import Disease, Surgery, Vaccination, LabTest, Radiology, MedicalHistory
@@ -42,6 +49,13 @@ from src.routes.doctor import doctor_bp
 from src.routes.notification import notification_bp
 from src.routes.vaccination import vaccination_bp
 from src.routes.hospital import hospital_bp, emergency_service_bp
+from src.routes.egypt_healthcare import egypt_healthcare_bp
+from src.database.egypt_healthcare_seed import (
+    GOVERNORATES,
+    FACILITY_TYPES,
+    OWNERSHIP_TYPES,
+    FACILITIES,
+)
 from werkzeug.security import generate_password_hash
 
 app = Flask(__name__, static_folder=os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static'))
@@ -102,6 +116,7 @@ app.register_blueprint(notification_bp)
 app.register_blueprint(vaccination_bp)
 app.register_blueprint(hospital_bp)
 app.register_blueprint(emergency_service_bp)
+app.register_blueprint(egypt_healthcare_bp)
 app.register_blueprint(pharmacy_order_bp, url_prefix='/api')
 
 # ── Database ──────────────────────────────────────────────────────────────────
@@ -125,6 +140,70 @@ migrate = Migrate(app, db)  # Flask-Migrate — run `flask db init/migrate/upgra
 
 with app.app_context():
     db.create_all()
+
+    # ── Imported Egypt healthcare directory ──────────────────────────────────
+    # Seed by natural names so startup is safe on every restart and deployment.
+    governorates = {}
+    for name_ar, name_en in GOVERNORATES:
+        governorate = EgyptGovernorate.query.filter_by(name_en=name_en).first()
+        if not governorate:
+            governorate = EgyptGovernorate(name_ar=name_ar, name_en=name_en)
+            db.session.add(governorate)
+            db.session.flush()
+        governorates[name_en] = governorate
+
+    facility_types = {}
+    for name_ar, name_en in FACILITY_TYPES:
+        facility_type = EgyptFacilityType.query.filter_by(name_en=name_en).first()
+        if not facility_type:
+            facility_type = EgyptFacilityType(name_ar=name_ar, name_en=name_en)
+            db.session.add(facility_type)
+            db.session.flush()
+        facility_types[name_en] = facility_type
+
+    ownership_types = {}
+    for name_ar, name_en in OWNERSHIP_TYPES:
+        ownership_type = EgyptOwnershipType.query.filter_by(name_en=name_en).first()
+        if not ownership_type:
+            ownership_type = EgyptOwnershipType(name_ar=name_ar, name_en=name_en)
+            db.session.add(ownership_type)
+            db.session.flush()
+        ownership_types[name_en] = ownership_type
+
+    for item in FACILITIES:
+        if EgyptFacility.query.filter_by(name_en=item["name_en"]).first():
+            continue
+        governorate = governorates[item["gov"]]
+        city = EgyptCity.query.filter_by(
+            governorate_id=governorate.id, name_en=item["city"]
+        ).first()
+        if not city:
+            city = EgyptCity(
+            governorate=governorate,
+                name_ar=item["city"],
+                name_en=item["city"],
+            )
+            db.session.add(city)
+            db.session.flush()
+        db.session.add(EgyptFacility(
+            name_ar=item["name_ar"],
+            name_en=item["name_en"],
+            governorate=governorate,
+            city=city,
+            facility_type=facility_types[item["type"]],
+            ownership_type=ownership_types[item["ownership"]],
+            district=item["district"],
+            full_address=item["address"],
+            google_maps_url=item["maps_url"],
+            latitude=item["lat"],
+            longitude=item["lng"],
+            phone_numbers=item["phone"],
+            is_24_hours=item["is_24h"],
+            has_emergency_dept=item["emergency"],
+            has_icu=item["icu"],
+            data_source=item["source"],
+        ))
+    db.session.commit()
 
     # ── Safe column migrations (won't fail on existing dbs) ──────────────────
     from sqlalchemy import text

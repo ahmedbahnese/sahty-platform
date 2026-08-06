@@ -36,6 +36,20 @@ src/
   database/app.db    SQLite database (dev)
 ```
 
+## Imported Egypt healthcare directory
+The imported `Egypt_Healthcare_Database` is integrated into the same SQLAlchemy
+database without replacing the existing hospital records. On startup, the app
+creates and idempotently seeds the normalized directory tables for the 10
+facilities, 3 governorates, facility types, and ownership types.
+
+- `GET /api/facilities` — search and filter the imported directory
+- `GET /api/facilities/:id` — facility details
+- `GET /api/hospitals` — existing hospital directory, now including imported facilities
+
+The imported records are marked as verified reference data and remain read-only
+through the public API. The original uploaded archive is retained in
+`attached_assets/` as the source package.
+
 ## API Blueprints
 | Prefix | Module | Description |
 |--------|--------|-------------|
@@ -50,6 +64,7 @@ src/
 | `/api/family` | family_health.py | Family groups, members, shared records |
 | `/api/medications` | medication.py | Medication tracking + logs |
 | `/api/admin` | admin.py | Admin dashboard, user/provider management |
+| `/api/facilities` | egypt_healthcare.py | Imported Egypt facilities directory |
 
 ## Default admin account (dev only)
 | Field | Value |

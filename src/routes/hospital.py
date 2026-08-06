@@ -13,6 +13,7 @@ from flask import Blueprint, request, jsonify
 from sqlalchemy import or_
 from src.models.user import db
 from src.models.hospital import Hospital, HospitalDepartment, EmergencyService, HospitalReview
+from src.models.egypt_healthcare import EgyptFacility
 from src.models.patient import Patient
 from src.routes.auth import token_required
 
@@ -55,12 +56,81 @@ def list_hospitals():
     if verified:
         query = query.filter_by(is_verified=True)
 
-    total    = query.count()
-    hospitals = query.order_by(Hospital.rating.desc())\
-        .offset((page - 1) * per_page).limit(per_page).all()
+    # Include the imported Egyptian directory without changing the existing
+    # hospital table. Both sources are normalized to the response shape used
+    # by the current frontend.
+    legacy_hospitals = query.order_by(Hospital.rating.desc()).all()
+    facility_query = EgyptFacility.query
+    if search:
+        facility_query = facility_query.filter(or_(
+            EgyptFacility.name_ar.ilike(f'%{search}%'),
+            EgyptFacility.name_en.ilike(f'%{search}%'),
+            EgyptFacility.full_address.ilike(f'%{search}%'),
+        ))
+    if city:
+        facility_query = facility_query.filter(or_(
+            EgyptFacility.city.has(name_ar=city),
+            EgyptFacility.city.has(name_en=city),
+            EgyptFacility.governorate.has(name_ar=city),
+            EgyptFacility.governorate.has(name_en=city),
+        ))
+    if h_type == 'private':
+        facility_query = facility_query.filter(
+            EgyptFacility.ownership_type.has(name_en='Private')
+        )
+    elif h_type == 'public':
+        facility_query = facility_query.filter(
+            or_(
+                EgyptFacility.ownership_type.has(name_en='Government'),
+                EgyptFacility.ownership_type.has(name_en='University'),
+            )
+        )
+    if emergency:
+        facility_query = facility_query.filter(EgyptFacility.has_emergency_dept.is_(True))
+
+    imported_hospitals = []
+    for facility in facility_query.order_by(EgyptFacility.name_ar).all():
+        imported_hospitals.append({
+            'id': -facility.id,
+            'name': facility.name_ar,
+            'name_en': facility.name_en,
+            'type': 'private' if facility.ownership_type.name_en == 'Private' else 'public',
+            'facility_type': facility.facility_type.name_ar,
+            'phone': facility.phone_numbers or '',
+            'email': None,
+            'website': facility.google_maps_url,
+            'address': facility.full_address or '',
+            'city': facility.city.name_ar,
+            'district': facility.district,
+            'latitude': facility.latitude,
+            'longitude': facility.longitude,
+            'has_emergency': facility.has_emergency_dept,
+            'emergency_phone': facility.phone_numbers if facility.has_emergency_dept else None,
+            'is_24_hours': facility.is_24_hours,
+            'is_verified': True,
+            'is_imported': True,
+            'data_source': facility.data_source,
+            'google_maps_url': facility.google_maps_url,
+            'rating': 0,
+            'total_reviews': 0,
+            'specializations': None,
+            'services': None,
+            'facilities': None,
+            'total_beds': None,
+            'available_beds': None,
+            'icu_beds': None,
+            'available_icu_beds': None,
+            'accepted_insurance': None,
+            'working_hours': None,
+        })
+
+    all_hospitals = [h.to_dict() for h in legacy_hospitals] + imported_hospitals
+    total = len(all_hospitals)
+    start = (page - 1) * per_page
+    hospitals = all_hospitals[start:start + per_page]
 
     return jsonify({
-        'hospitals': [h.to_dict() for h in hospitals],
+        'hospitals': hospitals,
         'total':     total,
         'page':      page,
         'per_page':  per_page,
