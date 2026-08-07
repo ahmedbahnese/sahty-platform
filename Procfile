@@ -1,2 +1,2 @@
-web: gunicorn sahty_backend.src.main:app
+web: gunicorn --bind 0.0.0.0:$PORT wsgi:application
 

@@ -2,6 +2,7 @@
 توليد صفحة HTML كاملة للملخص السريري التجريبي.
 """
 import json, sys
+from pathlib import Path
 
 with open('/tmp/demo_summary.json', encoding='utf-8') as f:
     s = json.load(f)
@@ -374,8 +375,8 @@ html = f"""<!DOCTYPE html>
 </body>
 </html>"""
 
-out = '/home/runner/workspace/dist/demo-clinical-summary.html'
-import os; os.makedirs('/home/runner/workspace/dist', exist_ok=True)
+out = Path(__file__).resolve().parents[1] / 'dist' / 'demo-clinical-summary.html'
+out.parent.mkdir(parents=True, exist_ok=True)
 with open(out, 'w', encoding='utf-8') as f:
     f.write(html)
 print(f'Written to {out}')

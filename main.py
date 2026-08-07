@@ -58,7 +58,7 @@ from src.database.egypt_healthcare_seed import (
 )
 from werkzeug.security import generate_password_hash
 
-app = Flask(__name__, static_folder=os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static'))
+app = Flask(__name__, static_folder=os.path.join(os.path.dirname(os.path.abspath(__file__)), 'dist'))
 
 # ── Security ──────────────────────────────────────────────────────────────────
 app.config['SECRET_KEY'] = os.environ.get('SESSION_SECRET')
@@ -80,10 +80,15 @@ def add_security_headers(response):
     return response
 
 # ── CORS ──────────────────────────────────────────────────────────────────────
-CORS(app,
-     origins=['http://localhost:5000', 'http://localhost:5173',
-               'https://*.replit.dev', 'https://*.repl.co'],
-     supports_credentials=True)
+cors_origins = [
+    origin.strip()
+    for origin in os.environ.get(
+        'CORS_ORIGINS',
+        'http://localhost:5173,http://127.0.0.1:5173',
+    ).split(',')
+    if origin.strip()
+]
+CORS(app, origins=cors_origins, supports_credentials=True)
 
 # ── Rate Limiting ─────────────────────────────────────────────────────────────
 limiter = Limiter(

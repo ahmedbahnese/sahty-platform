@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+.venv/
+venv/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Node
+node_modules/
+npm-debug.log*
+dist/
+
+# Local configuration and runtime data
+.env
+.env.*
+!.env.example
+*.log
+*.db-journal
+*.db-wal
+
+# Generated uploads
+static/uploads/
+
+# Operating system files
+.DS_Store
+Thumbs.db
