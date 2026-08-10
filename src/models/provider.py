@@ -8,6 +8,7 @@ PROVIDER_ROLES = {
     'lab': 'معمل',
     'radiology_center': 'مركز أشعة',
     'hospital': 'مستشفى',
+    'nurse': 'ممرض',
 }
 
 

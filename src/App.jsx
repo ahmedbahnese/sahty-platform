@@ -32,12 +32,14 @@ import PublicMedicalRecordPage from './pages/PublicMedicalRecordPage'
 import PharmaciesPage from './pages/PharmaciesPage'
 import LabsDirectoryPage from './pages/LabsDirectoryPage'
 import RadiologyCentersPage from './pages/RadiologyCentersPage'
+import HealthcareDirectoryPage from './pages/HealthcareDirectoryPage'
+import NursingDashboardPage from './pages/NursingDashboardPage'
 import FloatingAIChat from './components/FloatingAIChat'
 import SplashScreen from './components/SplashScreen'
 import './App.css'
 
 const ADMIN_ROLES = ['admin', 'super_admin']
-const PROFESSIONAL_ROLES = ['doctor', 'pharmacy', 'lab', 'radiology_center', 'hospital']
+const PROFESSIONAL_ROLES = ['doctor', 'pharmacy', 'lab', 'radiology_center', 'hospital', 'nurse']
 
 // ── Loading spinner ────────────────────────────────────────────────────────────
 function Spinner() {
@@ -97,7 +99,8 @@ function AppContent() {
           <Route path="/services" element={<ServicesPage />} />
           <Route path="/blood-bank" element={<BloodBankPage />} />
           <Route path="/emergency" element={<EmergencyPage />} />
-          <Route path="/hospitals" element={<HospitalsPage />} />
+          <Route path="/hospitals" element={<HealthcareDirectoryPage />} />
+          <Route path="/directory" element={<HealthcareDirectoryPage />} />
           <Route path="/ai-assistant" element={<AIAssistantPage />} />
           <Route path="/pharmacies" element={<PharmaciesPage />} />
           <Route path="/labs-directory" element={<LabsDirectoryPage />} />
@@ -145,7 +148,7 @@ function AppContent() {
           <Route
             path="/appointments"
             element={
-              <RoleRoute roles={['patient', 'doctor', 'lab', 'radiology_center', 'hospital']}>
+              <RoleRoute roles={['patient', 'doctor', 'lab', 'radiology_center', 'hospital', 'nurse']}>
                 <AppointmentsPage />
               </RoleRoute>
             }
@@ -171,6 +174,14 @@ function AppContent() {
             element={
               <RoleRoute roles={['patient', 'doctor', 'radiology_center', 'hospital']}>
                 <RadiologyRequestsPage />
+              </RoleRoute>
+            }
+          />
+          <Route
+            path="/nursing"
+            element={
+              <RoleRoute roles={['patient', 'nurse']}>
+                <NursingDashboardPage />
               </RoleRoute>
             }
           />

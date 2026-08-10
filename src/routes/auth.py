@@ -11,6 +11,9 @@ from src.models.patient import Patient
 from src.models.doctor import Doctor
 from src.models.admin import Admin, AuditLog
 from src.models.provider import PROVIDER_ROLES, ProviderRegistration
+from src.models.professional import (
+    Role, UserRole, ProfessionalRoleRequest, NurseProfile,
+)
 import os
 
 auth_bp = Blueprint('auth', __name__)
@@ -28,18 +31,28 @@ ROLE_LABELS = {
 }
 
 
+def active_roles(user):
+    roles = ['patient']
+    if user.user_type not in ('patient',) and user.user_type not in roles:
+        roles.append(user.user_type)
+    for user_role in UserRole.query.filter_by(user_id=user.id, status='ACTIVE').all():
+        if user_role.role and user_role.role.name not in roles:
+            roles.append(user_role.role.name)
+    return roles
+
+
 def _hash_token(token):
     return hashlib.sha256(token.encode('utf-8')).hexdigest()
 
 
-def _issue_session(user):
+def _issue_session(user, selected_role=None):
     """Create a signed token and a server-side session record."""
     session_id = secrets.token_urlsafe(32)
     expires_at = datetime.datetime.utcnow() + SESSION_TTL
     token_payload = {
         'user_id': user.id,
         'email': user.email,
-        'user_type': user.user_type,
+        'user_type': selected_role or user.user_type,
         'jti': session_id,
         'exp': expires_at,
     }
@@ -77,6 +90,7 @@ def token_required(f):
                 return jsonify({'message': 'جلسة غير صالحة'}), 401
             if not current_user.is_active:
                 return jsonify({'message': 'الحساب غير مفعل'}), 401
+            g.current_role = data.get('user_type') or current_user.user_type
             current_session.last_seen_at = datetime.datetime.utcnow()
             g.current_session = current_session
         except jwt.ExpiredSignatureError:
@@ -123,7 +137,7 @@ def role_required(*roles):
     def decorator(f):
         @wraps(f)
         def decorated(current_user, *args, **kwargs):
-            if current_user.user_type not in roles:
+            if getattr(g, 'current_role', current_user.user_type) not in roles:
                 return jsonify({'message': 'غير مصرح لك بالوصول'}), 403
             return f(current_user, *args, **kwargs)
         return decorated
@@ -144,7 +158,7 @@ def register():
             return jsonify({'message': 'كلمة المرور يجب أن تكون 8 أحرف على الأقل'}), 400
         if user_type != 'patient':
             for field in ('legal_name', 'license_number', 'address', 'city'):
-                if not data.get(field):
+                if user_type != 'nurse' and not data.get(field):
                     return jsonify({'message': f'حقل {field} مطلوب للحساب المهني'}), 400
         if User.query.filter_by(email=data['email']).first():
             return jsonify({'message': 'البريد الإلكتروني مستخدم بالفعل'}), 400
@@ -160,24 +174,25 @@ def register():
             username=username,
             email=data['email'],
             password_hash=hashed_password,
-            user_type=user_type,
-            is_active=user_type == 'patient'
+            # Every person gets a patient account. Professional roles are
+            # stored separately and become active only after approval.
+            user_type='patient',
+            is_active=True,
         )
         db.session.add(new_user)
         db.session.flush()
-        if user_type == 'patient':
-            patient = Patient(
-                user_id=new_user.id,
-                first_name=data['first_name'],
-                last_name=data['last_name'],
-                email=data['email'],
-                phone=data.get('phone', ''),
-                date_of_birth=datetime.datetime.strptime(data['date_of_birth'], '%Y-%m-%d').date() if data.get('date_of_birth') else datetime.date.today(),
-                gender=data.get('gender', ''),
-                national_id=data.get('national_id', str(new_user.id))
-            )
-            db.session.add(patient)
-        elif user_type == 'doctor':
+        patient = Patient(
+            user_id=new_user.id,
+            first_name=data['first_name'],
+            last_name=data['last_name'],
+            email=data['email'],
+            phone=data.get('phone', ''),
+            date_of_birth=datetime.datetime.strptime(data['date_of_birth'], '%Y-%m-%d').date() if data.get('date_of_birth') else datetime.date.today(),
+            gender=data.get('gender', ''),
+            national_id=data.get('national_id', str(new_user.id))
+        )
+        db.session.add(patient)
+        if user_type == 'doctor':
             doctor = Doctor(
                 user_id=new_user.id,
                 first_name=data['first_name'],
@@ -193,9 +208,9 @@ def register():
                 user_id=new_user.id,
                 provider_type=user_type,
                 legal_name=data.get('legal_name') or f'{data["first_name"]} {data["last_name"]}',
-                license_number=data['license_number'],
+                license_number=data.get('license_number') or f'PENDING-{new_user.id}',
                 phone=data.get('phone', ''),
-                address=data['address'],
+                address=data.get('address', ''),
                 city=data.get('city', ''),
                 details={
                     'first_name': data['first_name'],
@@ -208,6 +223,36 @@ def register():
                 },
             )
             db.session.add(provider)
+            role = Role.query.filter_by(name=user_type).first()
+            if not role:
+                role = Role(name=user_type, label_ar=ROLE_LABELS.get(user_type, user_type))
+                db.session.add(role)
+                db.session.flush()
+            db.session.add(UserRole(
+                user_id=new_user.id, role_id=role.id, status='PENDING_APPROVAL'
+            ))
+            db.session.add(ProfessionalRoleRequest(
+                user_id=new_user.id,
+                requested_role=user_type,
+                credentials={
+                    'full_name': f'{data["first_name"]} {data["last_name"]}',
+                    'license_number': data.get('license_number'),
+                    'specialization': data.get('specialization'),
+                    'qualification': data.get('qualification'),
+                },
+                documents={
+                    'id_document': data.get('national_id_doc') or data.get('doc_national_id'),
+                    'professional_license': data.get('practice_license_image'),
+                },
+            ))
+            if user_type == 'nurse':
+                db.session.add(NurseProfile(
+                    user_id=new_user.id,
+                    full_name=f'{data["first_name"]} {data["last_name"]}',
+                    qualification=data.get('qualification') or 'غير محدد',
+                    license_number=data.get('license_number') or f'PENDING-{new_user.id}',
+                    credentials={'id_document': data.get('national_id_doc')},
+                ))
         db.session.commit()
         try:
             audit_log = AuditLog(
@@ -237,17 +282,16 @@ def register():
             'user_type': new_user.user_type,
             'pending_review': user_type != 'patient'
         }
-        if user_type == 'patient':
-            response_data['token'], _ = _issue_session(new_user)
-            db.session.commit()
-            response_data['user'] = {
-                'id': new_user.id,
-                'username': new_user.username,
-                'email': new_user.email,
-                'user_type': new_user.user_type,
-                'is_active': new_user.is_active,
-                'profile': Patient.query.filter_by(user_id=new_user.id).first().to_dict()
-            }
+        response_data['token'], _ = _issue_session(new_user, selected_role='patient')
+        db.session.commit()
+        response_data['user'] = {
+            'id': new_user.id,
+            'username': new_user.username,
+            'email': new_user.email,
+            'user_type': 'patient',
+            'is_active': new_user.is_active,
+            'profile': Patient.query.filter_by(user_id=new_user.id).first().to_dict(),
+        }
         return jsonify({
             **response_data
         }), 201
@@ -283,7 +327,10 @@ def login():
                     'provider_status': status,
                 }), 403
             return jsonify({'message': 'الحساب غير مفعل'}), 403
-        token, _ = _issue_session(user)
+        requested_role = data.get('role') or user.user_type
+        if requested_role not in active_roles(user):
+            requested_role = 'patient'
+        token, _ = _issue_session(user, selected_role=requested_role)
         user.last_login = datetime.datetime.utcnow()
         user.login_count = (user.login_count or 0) + 1
         if user.user_type in ['admin', 'super_admin']:
@@ -316,7 +363,8 @@ def login():
                 'id': user.id,
                 'username': user.username,
                 'email': user.email,
-                'user_type': user.user_type,
+                'user_type': requested_role,
+                'active_roles': active_roles(user),
                 'is_active': user.is_active,
                 'profile': profile_data
             }
@@ -350,7 +398,8 @@ def get_profile(current_user):
                 'id': current_user.id,
                 'username': current_user.username,
                 'email': current_user.email,
-                'user_type': current_user.user_type,
+                'user_type': getattr(g, 'current_role', current_user.user_type),
+                'active_roles': active_roles(current_user),
                 'is_active': current_user.is_active,
                 'last_login': current_user.last_login.isoformat() if current_user.last_login else None,
                 'profile': profile_data
@@ -358,6 +407,24 @@ def get_profile(current_user):
         }), 200
     except Exception as e:
         return jsonify({'message': f'خطأ في جلب الملف الشخصي: {str(e)}'}), 500
+
+
+@auth_bp.route('/switch-role', methods=['POST'])
+@token_required
+def switch_role(current_user):
+    requested_role = (request.get_json(silent=True) or {}).get('role')
+    if requested_role not in active_roles(current_user):
+        return jsonify({'message': 'هذا الدور غير معتمد لحسابك'}), 403
+    token, _ = _issue_session(current_user, selected_role=requested_role)
+    db.session.commit()
+    return jsonify({
+        'token': token,
+        'user': {
+            **current_user.to_dict(),
+            'user_type': requested_role,
+            'active_roles': active_roles(current_user),
+        },
+    })
 
 @auth_bp.route('/logout', methods=['POST'])
 @token_required

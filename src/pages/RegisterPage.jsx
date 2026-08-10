@@ -8,6 +8,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import {
   Building2, Heart, Lock, Mail, Phone, UserRound,
   Stethoscope, FlaskConical, Radio, Hospital, Pill,
+  BadgeCheck,
   ChevronRight, ChevronLeft,
 } from 'lucide-react'
 
@@ -54,6 +55,13 @@ const ROLES = [
     icon: Hospital,
     color: 'rose',
   },
+  {
+    value: 'nurse',
+    label: 'ممرض / ممرضة',
+    desc: 'لتقديم خدمات التمريض والرعاية المنزلية بعد الاعتماد',
+    icon: BadgeCheck,
+    color: 'teal',
+  },
 ]
 
 const ICON_COLORS = {
@@ -63,6 +71,7 @@ const ICON_COLORS = {
   amber: 'bg-amber-100 text-amber-600',
   purple: 'bg-purple-100 text-purple-600',
   rose: 'bg-rose-100 text-rose-600',
+  teal: 'bg-teal-100 text-teal-600',
 }
 const BORDER_SELECTED = {
   blue: 'border-blue-500 bg-blue-50',
@@ -71,6 +80,7 @@ const BORDER_SELECTED = {
   amber: 'border-amber-500 bg-amber-50',
   purple: 'border-purple-500 bg-purple-50',
   rose: 'border-rose-500 bg-rose-50',
+  teal: 'border-teal-500 bg-teal-50',
 }
 
 // ── حقول مشتركة لجميع الأنواع ────────────────────────────────────────────────
@@ -405,6 +415,27 @@ function HospitalForm({ data, onChange }) {
   )
 }
 
+function NurseForm({ data, onChange }) {
+  return (
+    <div className="space-y-5">
+      <div className="grid gap-4 md:grid-cols-2">
+        <div><Label htmlFor="first_name">الاسم الأول *</Label><Input id="first_name" name="first_name" required className="mt-1" value={data.first_name} onChange={onChange} /></div>
+        <div><Label htmlFor="last_name">الاسم الأخير *</Label><Input id="last_name" name="last_name" required className="mt-1" value={data.last_name} onChange={onChange} /></div>
+      </div>
+      <CommonAuthFields data={data} onChange={onChange} />
+      <div className="rounded-xl border border-teal-100 bg-teal-50/50 p-5 space-y-4">
+        <h3 className="flex items-center gap-2 font-semibold text-teal-900"><BadgeCheck className="h-4 w-4" /> بيانات اعتماد التمريض</h3>
+        <div className="grid gap-4 md:grid-cols-2">
+          <div><Label htmlFor="qualification">المؤهل التمريضي *</Label><Input id="qualification" name="qualification" required className="mt-1" value={data.qualification} onChange={onChange} placeholder="بكالوريوس تمريض / دبلوم" /></div>
+          <div><Label htmlFor="license_number">رقم ترخيص التمريض *</Label><Input id="license_number" name="license_number" required className="mt-1" value={data.license_number} onChange={onChange} /></div>
+          <div><Label htmlFor="doc_national_id">وثيقة الهوية *</Label><Input id="doc_national_id" name="doc_national_id" required className="mt-1" value={data.doc_national_id} onChange={onChange} /></div>
+          <div><Label htmlFor="city">المحافظة / المدينة</Label><Input id="city" name="city" className="mt-1" value={data.city} onChange={onChange} /></div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 const FORMS = {
   patient: PatientForm,
   doctor: DoctorForm,
@@ -412,9 +443,10 @@ const FORMS = {
   lab: LabForm,
   radiology_center: RadiologyForm,
   hospital: HospitalForm,
+  nurse: NurseForm,
 }
 
-const PROFESSIONAL_TYPES = new Set(['doctor', 'pharmacy', 'lab', 'radiology_center', 'hospital'])
+const PROFESSIONAL_TYPES = new Set(['doctor', 'pharmacy', 'lab', 'radiology_center', 'hospital', 'nurse'])
 
 export default function RegisterPage() {
   const [step, setStep] = useState(1) // 1 = اختر نوع الحساب, 2 = ملء البيانات
@@ -429,6 +461,7 @@ export default function RegisterPage() {
     specialization: '', city: '', address: '',
     // institutions
     legal_name: '',
+    qualification: '',
   })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -493,6 +526,12 @@ export default function RegisterPage() {
       payload.license_number = formData.license_number
       payload.city = formData.city
       payload.address = formData.address
+    }
+    if (selectedRole === 'nurse') {
+      payload.qualification = formData.qualification
+      payload.license_number = formData.license_number
+      payload.national_id_doc = formData.doc_national_id
+      payload.city = formData.city
     }
 
     const result = await register(payload)

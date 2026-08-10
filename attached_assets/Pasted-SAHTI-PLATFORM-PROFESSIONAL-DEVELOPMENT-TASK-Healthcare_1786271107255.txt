@@ -1,0 +1,755 @@
+SAHTI PLATFORM – PROFESSIONAL DEVELOPMENT TASK
+Healthcare Directory + Multi-Role Account & Nursing Workflow
+
+Act as a Senior Full-Stack Engineer and Healthcare Platform Architect.
+
+IMPORTANT:
+Work on the EXISTING Sahti project and existing codebase.
+
+Do NOT rebuild the project from scratch.
+Do NOT remove existing features.
+Do NOT replace working functionality unnecessarily.
+First inspect the existing architecture, database schema, authentication system, roles, routes, dashboards, and existing healthcare directory.
+
+Implement the following changes directly into the existing project.
+
+==================================================
+MODULE 1 – HEALTHCARE DIRECTORY
+==================================================
+
+Change the current "Hospitals" section in the main website navigation to:
+
+"Healthcare Directory"
+or
+"الدليل الطبي"
+
+The directory must become a unified healthcare services directory.
+
+Main categories:
+
+1. Hospitals
+2. Pharmacies
+3. Medical Laboratories
+4. Radiology Centers
+
+Create a professional directory landing page with category selection.
+
+The interface must be responsive and optimized for mobile and desktop.
+
+==================================================
+MODULE 2 – HOSPITAL SEARCH
+==================================================
+
+When the user selects:
+
+"المستشفيات"
+
+provide the following filters:
+
+• Governorate
+• City
+• Medical Specialty
+• Emergency 24/7
+• Nearest to my location
+
+The user must be able to combine filters.
+
+Example:
+
+Governorate = Alexandria
+Specialty = Cardiology
+Emergency = 24/7
+Sort = Nearest
+
+Display matching hospitals.
+
+Each hospital result should display:
+
+• Hospital name
+• Hospital type
+• Address
+• Distance from user
+• Phone number
+• Emergency availability
+• Main specialties
+• Available services
+• Opening hours
+• Location
+• Navigation button
+• View Details button
+
+If location permission is granted:
+
+Calculate distance between the user and healthcare facility using latitude/longitude.
+
+Sort results by distance.
+
+If location permission is denied:
+
+Do NOT break the search.
+Allow normal governorate/city search.
+
+==================================================
+MODULE 3 – PHARMACY SEARCH
+==================================================
+
+When the user selects:
+
+"الصيدليات"
+
+filters must include:
+
+• Governorate
+• City
+• Open Now
+• Nearest to my location
+
+Display:
+
+• Pharmacy name
+• Address
+• Phone
+• Opening status
+• Working hours
+• Distance
+• Location
+• Navigation
+• Details
+
+"Open Now" must be calculated based on the current local time and the pharmacy's stored working hours.
+
+Do not simply display a static "Open" label.
+
+==================================================
+MODULE 4 – LABORATORY SEARCH
+==================================================
+
+When the user selects:
+
+"معامل التحاليل"
+
+filters:
+
+• Governorate
+• City
+• Open Now
+• Nearest to my location
+
+Display:
+
+• Laboratory name
+• Address
+• Phone
+• Working hours
+• Open/Closed status
+• Distance
+• Home sample collection if available
+• Location
+• Navigation
+• Details
+
+==================================================
+MODULE 5 – RADIOLOGY CENTER SEARCH
+==================================================
+
+When the user selects:
+
+"مراكز الأشعة"
+
+filters:
+
+• Governorate
+• City
+• Open Now
+• Nearest to my location
+
+Display:
+
+• Center name
+• Address
+• Phone
+• Working hours
+• Open/Closed status
+• Distance
+• Available radiology services
+• Location
+• Navigation
+• Details
+
+==================================================
+MODULE 6 – HEALTHCARE FACILITY DETAILS
+==================================================
+
+Create a reusable Healthcare Facility Details page.
+
+The same component should work for:
+
+Hospital
+Pharmacy
+Laboratory
+Radiology Center
+
+Display available information dynamically based on facility type.
+
+Include:
+
+• Facility name
+• Facility type
+• Address
+• Phone
+• Working hours
+• Services
+• Specialties
+• Emergency availability
+• Distance
+• Map
+• Navigation
+• Contact
+• Booking if available
+• Home services if available
+
+Do not display irrelevant fields for a particular facility.
+
+==================================================
+MODULE 7 – NURSING ROLE
+==================================================
+
+Add a professional "Nurse" role.
+
+Nurses must be able to register and operate within the platform.
+
+A nurse must be able to request:
+
+• Home nursing services
+• Home nursing visits
+• Nursing procedures
+• Patient follow-up
+• Other approved nursing services
+
+Create a dedicated Nursing Dashboard.
+
+The dashboard should include:
+
+• New requests
+• Pending requests
+• Accepted requests
+• Scheduled visits
+• Completed visits
+• Cancelled requests
+• Patient information
+• Visit details
+• Notifications
+• Availability
+• Profile
+• Professional credentials
+
+==================================================
+MODULE 8 – NURSING SERVICE REQUEST WORKFLOW
+==================================================
+
+Create a complete workflow:
+
+Patient creates nursing request
+        ↓
+Request enters nursing system
+        ↓
+Available/authorized nurse can review
+        ↓
+Nurse accepts OR rejects
+        ↓
+If accepted:
+appointment/visit is scheduled
+        ↓
+Patient receives notification
+        ↓
+Nurse performs service
+        ↓
+Visit is documented
+        ↓
+Request becomes completed
+
+Every status change must be stored in the database.
+
+Use statuses such as:
+
+PENDING
+UNDER_REVIEW
+ACCEPTED
+REJECTED
+SCHEDULED
+IN_PROGRESS
+COMPLETED
+CANCELLED
+
+==================================================
+MODULE 9 – MULTI-ROLE ACCOUNT ARCHITECTURE
+==================================================
+
+IMPORTANT:
+
+Do NOT create separate user accounts for the same person.
+
+A single person must be able to have multiple roles.
+
+Example:
+
+Ahmed
+→ Patient
+→ Doctor
+
+or:
+
+Ahmed
+→ Patient
+→ Nurse
+
+or:
+
+Ahmed
+→ Patient
+→ Doctor
+→ Nurse
+
+or:
+
+Ahmed
+→ Patient
+→ Doctor
+→ Administrator
+
+The user must keep ONE authentication account.
+
+==================================================
+MODULE 10 – PATIENT ROLE AS THE BASE ROLE
+==================================================
+
+Every registered person must automatically have a normal Patient/User profile.
+
+This means:
+
+A doctor can use Sahti as a normal patient.
+
+A nurse can use Sahti as a normal patient.
+
+An administrator can use Sahti as a normal patient.
+
+They must be able to:
+
+• Book appointments
+• Request laboratory tests
+• Request radiology
+• Use pharmacies
+• Manage medications
+• Manage family members
+• Use emergency services
+• Use AI assistant
+• Access their own medical record
+• Use all services available to normal patients
+
+Do NOT disable patient functionality when another professional role is added.
+
+==================================================
+MODULE 11 – PROFESSIONAL ROLE REQUEST
+==================================================
+
+Allow an existing patient to request an additional professional role.
+
+Examples:
+
+"Register as Doctor"
+
+"Register as Nurse"
+
+The user keeps the same account.
+
+Do NOT create a second account.
+
+==================================================
+MODULE 12 – DOCTOR REGISTRATION
+==================================================
+
+Doctor registration must be connected to the existing user account.
+
+Collect professional information such as:
+
+• Full Name
+• Medical Specialty
+• Professional Registration Number
+• ID document
+• Medical License
+• Professional credentials
+• Additional required information
+
+The request status must initially be:
+
+PENDING_APPROVAL
+
+Display a message:
+
+"Your professional registration has been submitted successfully. Your information will be reviewed by the medical administration. You will be notified when the review is completed."
+
+==================================================
+MODULE 13 – NURSE REGISTRATION
+==================================================
+
+Use the same concept for nurses.
+
+Collect:
+
+• Full Name
+• Nursing qualification
+• Nursing registration/license number
+• ID document
+• Professional license
+• Additional required credentials
+
+Status:
+
+PENDING_APPROVAL
+
+The nurse remains able to use the platform normally as a patient while waiting for approval.
+
+==================================================
+MODULE 14 – ADMIN APPROVAL
+==================================================
+
+Create professional approval workflows inside the Admin Dashboard.
+
+Admin should see:
+
+Pending Doctor Applications
+
+Pending Nurse Applications
+
+For each application:
+
+• Applicant
+• Application date
+• Documents
+• Credentials
+• Requested role
+• Status
+
+Admin actions:
+
+APPROVE
+REJECT
+REQUEST_MORE_INFORMATION
+
+When approved:
+
+The professional role becomes ACTIVE.
+
+When rejected:
+
+The professional role remains inactive.
+
+The original patient account must remain active.
+
+==================================================
+MODULE 15 – ROLE SWITCHING
+==================================================
+
+After approval, the user must be able to switch between their active roles.
+
+Example:
+
+Ahmed is:
+
+Patient
+Doctor
+
+The interface should provide:
+
+"Switch Role"
+
+Patient Mode
+Doctor Mode
+
+If the user has:
+
+Patient
+Doctor
+Nurse
+
+show:
+
+Patient
+Doctor
+Nurse
+
+If the user has Administrator privileges:
+
+Patient
+Doctor/Nurse
+Administrator
+
+The currently selected role controls the dashboard and permissions.
+
+==================================================
+MODULE 16 – ROLE-SPECIFIC DASHBOARDS
+==================================================
+
+When the user selects Patient:
+
+Open Patient Dashboard.
+
+When selecting Doctor:
+
+Open Doctor Dashboard.
+
+When selecting Nurse:
+
+Open Nurse Dashboard.
+
+When selecting Administrator:
+
+Open Admin Dashboard.
+
+The user must not need to log out and create another account.
+
+==================================================
+MODULE 17 – SECURITY & PERMISSIONS
+==================================================
+
+Implement proper Role-Based Access Control.
+
+Important:
+
+UI visibility alone is NOT sufficient.
+
+Permissions must also be enforced on the backend/API/database level.
+
+A Patient must not be able to access Doctor/Nurse/Admin APIs by changing the URL.
+
+Only approved professional roles can access professional dashboards.
+
+Only approved nurses can accept nursing requests.
+
+Only administrators can approve professional registrations.
+
+==================================================
+MODULE 18 – DATABASE
+==================================================
+
+Review the existing database before making changes.
+
+Do not duplicate users.
+
+Use a proper relationship such as:
+
+users
+    ↓
+user_roles
+    ↓
+roles
+
+Professional profiles should be separated:
+
+doctor_profiles
+nurse_profiles
+
+Professional approval requests should be stored separately.
+
+Example:
+
+professional_role_requests
+
+Fields should include:
+
+user_id
+requested_role
+status
+submitted_at
+reviewed_at
+reviewed_by
+rejection_reason
+documents
+credentials
+
+Adapt this structure to the existing database technology rather than creating unnecessary duplicate tables.
+
+==================================================
+MODULE 19 – NOTIFICATIONS
+==================================================
+
+Implement notifications for:
+
+Doctor registration submitted
+
+Nurse registration submitted
+
+Professional application approved
+
+Professional application rejected
+
+More information requested
+
+Nursing request submitted
+
+Nursing request accepted
+
+Nursing request rejected
+
+Nursing visit scheduled
+
+Nursing visit completed
+
+==================================================
+MODULE 20 – UI/UX
+==================================================
+
+The Healthcare Directory and all professional dashboards must follow the existing Sahti Design System.
+
+Use:
+
+• Responsive layouts
+• Professional healthcare UI
+• Clear status indicators
+• Search
+• Filters
+• Empty states
+• Loading states
+• Error states
+• Success messages
+• Skeleton loading
+• Accessible controls
+• Mobile-first design
+
+The directory should look like a real healthcare platform, not a generic admin dashboard.
+
+==================================================
+MODULE 21 – LOCATION
+==================================================
+
+Implement browser/device location permission correctly.
+
+When user selects:
+
+"الأقرب لموقعي"
+
+request location permission.
+
+If granted:
+
+Use coordinates.
+
+Calculate distance.
+
+Sort nearest first.
+
+If denied:
+
+Display a clear message and continue normal search.
+
+Never make location mandatory for browsing the directory.
+
+==================================================
+MODULE 22 – TESTING
+==================================================
+
+After implementation, test all workflows.
+
+Test:
+
+Patient registration
+
+Doctor registration
+
+Nurse registration
+
+Doctor approval
+
+Nurse approval
+
+Role switching
+
+Patient → Doctor
+
+Patient → Nurse
+
+Patient → Administrator
+
+Doctor → Patient
+
+Nurse → Patient
+
+Directory search
+
+Hospital filters
+
+Pharmacy filters
+
+Laboratory filters
+
+Radiology filters
+
+Open Now
+
+Nearest Location
+
+Nursing request
+
+Nursing acceptance
+
+Nursing rejection
+
+Nursing completion
+
+Unauthorized API access
+
+Mobile responsiveness
+
+Desktop responsiveness
+
+==================================================
+FINAL REQUIREMENTS
+==================================================
+
+Before modifying the code:
+
+1. Inspect the existing codebase.
+2. Identify existing authentication and role architecture.
+3. Identify existing database schema.
+4. Identify existing healthcare directory functionality.
+5. Reuse existing components and functionality whenever possible.
+
+Do not unnecessarily rewrite working modules.
+
+After implementation:
+
+1. Run the application.
+2. Test all affected workflows.
+3. Fix all errors.
+4. Verify database migrations.
+5. Verify backend permissions.
+6. Verify frontend routing.
+7. Verify mobile responsiveness.
+8. Verify location functionality.
+9. Verify role switching.
+10. Verify existing functionality has not been broken.
+
+IMPORTANT:
+Do not stop at UI/mockup implementation.
+
+All requested functionality must be connected to the real backend/database and must actually work.
+
+Save all changes.
+
+Create a Git commit with the message:
+
+"Implement healthcare directory and multi-role professional accounts"
+
+Finally, provide a concise completion report containing:
+
+• Implemented features
+• Database changes
+• API changes
+• Authentication/authorization changes
+• New dashboards
+• Tests performed
+• Bugs fixed
+• Remaining issues, if any
+
+Do NOT ask for confirmation between tasks.
+Proceed with implementation immediately.

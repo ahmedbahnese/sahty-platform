@@ -124,6 +124,28 @@ export function AuthProvider({ children }) {
     }
   }
 
+  const switchRole = async (role) => {
+    try {
+      const response = await fetch(`${API_BASE}/auth/switch-role`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${tokenRef.current}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ role })
+      })
+      const data = await response.json()
+      if (!response.ok) return { success: false, message: data.message }
+      tokenRef.current = data.token
+      setToken(data.token)
+      setUser(data.user)
+      localStorage.setItem('token', data.token)
+      return { success: true, user: data.user }
+    } catch {
+      return { success: false, message: 'خطأ في الاتصال بالخادم' }
+    }
+  }
+
   const logout = async () => {
     const currentToken = tokenRef.current
     _clearSession()
@@ -167,6 +189,7 @@ export function AuthProvider({ children }) {
     loading,
     login,
     register,
+    switchRole,
     logout,
     changePassword,
     isAuthenticated: !!user,
@@ -174,7 +197,7 @@ export function AuthProvider({ children }) {
     isAdmin: user?.user_type === 'admin' || user?.user_type === 'super_admin',
     isDoctor: user?.user_type === 'doctor',
     isPatient: user?.user_type === 'patient',
-    isProvider: ['pharmacy', 'lab', 'radiology_center', 'hospital'].includes(user?.user_type),
+    isProvider: ['pharmacy', 'lab', 'radiology_center', 'hospital', 'nurse'].includes(user?.user_type),
     roleLabel: {
       patient: 'مستخدم',
       doctor: 'طبيب',
@@ -182,6 +205,7 @@ export function AuthProvider({ children }) {
       lab: 'معمل',
       radiology_center: 'مركز أشعة',
       hospital: 'مستشفى',
+      nurse: 'ممرض',
       admin: 'مدير',
       super_admin: 'مدير النظام',
     }[user?.user_type] || 'حساب'

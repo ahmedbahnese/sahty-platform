@@ -51,7 +51,7 @@ def _build_chat_context(current_user):
 
 
 @ai_bp.route('/chat', methods=['POST'])
-@optional_token
+@token_required
 def ai_chat(current_user):
     """المساعد الطبي الذكي - نصي مع دعم سياق المحادثة"""
     data = request.get_json()
@@ -159,7 +159,7 @@ def analyze_voice(current_user):
 # اقتراح التشخيص (فحص الأعراض)
 # ────────────────────────────────────────────────────
 @ai_bp.route('/symptom-checker', methods=['POST'])
-@optional_token
+@token_required
 def symptom_checker(current_user):
     """فحص الأعراض واقتراح التشخيص — متاح للضيوف أيضاً"""
     data = request.get_json()

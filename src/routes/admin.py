@@ -7,6 +7,10 @@ from src.models.admin import AuditLog
 from src.models.doctor import Doctor
 from src.models.provider import PROVIDER_ROLES, ProviderRegistration
 from src.models.user import User, db
+from src.models.professional import (
+    Role, UserRole, ProfessionalRoleRequest, NurseProfile,
+)
+from src.models.notification import Notification
 from src.routes.auth import token_required
 
 
@@ -47,7 +51,7 @@ def list_providers(current_user):
     status = request.args.get('status')
     provider_type = request.args.get('provider_type')
     query = ProviderRegistration.query.order_by(ProviderRegistration.created_at.desc())
-    if status in ('pending', 'approved', 'rejected'):
+    if status in ('pending', 'approved', 'rejected', 'more_information'):
         query = query.filter_by(status=status)
     if provider_type in PROVIDER_ROLES:
         query = query.filter_by(provider_type=provider_type)
@@ -63,20 +67,66 @@ def review_provider(current_user, registration_id):
 
     data = request.get_json(silent=True) or {}
     decision = data.get('status')
-    if decision not in ('approved', 'rejected'):
+    if decision not in ('approved', 'rejected', 'more_information'):
         return jsonify({'message': 'حالة الاعتماد غير صالحة'}), 400
 
     registration.status = decision
     registration.review_note = (data.get('review_note') or '').strip() or None
     registration.reviewed_by = current_user.id
     registration.reviewed_at = datetime.utcnow()
-    registration.user.is_active = decision == 'approved'
+    # Professional approval never disables the base patient account.
+    registration.user.is_active = True
 
     if registration.provider_type == 'doctor':
         doctor = Doctor.query.filter_by(user_id=registration.user_id).first()
         if doctor:
             doctor.is_verified = decision == 'approved'
             doctor.is_active = decision == 'approved'
+    if registration.provider_type == 'nurse':
+        nurse = NurseProfile.query.filter_by(user_id=registration.user_id).first()
+        if nurse:
+            nurse.is_active = decision == 'approved'
+
+    role = Role.query.filter_by(name=registration.provider_type).first()
+    if not role:
+        role = Role(name=registration.provider_type, label_ar=registration.provider_type)
+        db.session.add(role)
+        db.session.flush()
+    user_role = UserRole.query.filter_by(
+        user_id=registration.user_id, role_id=role.id
+    ).first()
+    if not user_role:
+        user_role = UserRole(user_id=registration.user_id, role_id=role.id)
+        db.session.add(user_role)
+    user_role.status = (
+        'ACTIVE' if decision == 'approved'
+        else 'PENDING_APPROVAL' if decision == 'more_information'
+        else 'REJECTED'
+    )
+    user_role.activated_at = datetime.utcnow() if decision == 'approved' else None
+    role_request = ProfessionalRoleRequest.query.filter_by(
+        user_id=registration.user_id,
+        requested_role=registration.provider_type,
+    ).order_by(ProfessionalRoleRequest.submitted_at.desc()).first()
+    if role_request:
+        role_request.status = (
+            'APPROVED' if decision == 'approved'
+            else 'MORE_INFORMATION' if decision == 'more_information'
+            else 'REJECTED'
+        )
+        role_request.reviewed_at = datetime.utcnow()
+        role_request.reviewed_by = current_user.id
+        role_request.rejection_reason = registration.review_note if decision != 'approved' else None
+    db.session.add(Notification(
+        user_id=registration.user_id,
+        title='تم تحديث طلب الدور المهني',
+        message=(
+            'تم اعتماد طلبك المهني.' if decision == 'approved'
+            else 'يرجى استكمال المعلومات المطلوبة لطلبك المهني.' if decision == 'more_information'
+            else 'تم رفض طلبك المهني.'
+        ),
+        type='system',
+    ))
 
     db.session.commit()
     _write_audit(

@@ -1,10 +1,12 @@
 import os
 import sys
+import datetime
 
 # Add project root to path so 'src.*' imports resolve correctly
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from flask import Flask, send_from_directory, jsonify, request as flask_request
+from flask import current_app
 from flask_cors import CORS
 from flask_migrate import Migrate
 from flask_limiter import Limiter
@@ -24,6 +26,15 @@ from src.models.egypt_healthcare import (
     EgyptFacilityType,
     EgyptOwnershipType,
     EgyptFacility,
+    HealthcareDirectoryRecord,
+)
+from src.models.professional import (
+    Role,
+    UserRole,
+    ProfessionalRoleRequest,
+    NurseProfile,
+    NursingServiceRequest,
+    NursingRequestStatusHistory,
 )
 from src.models.admin import Admin, SystemOwner, SystemSettings, AuditLog
 from src.models.provider import ProviderRegistration
@@ -50,12 +61,14 @@ from src.routes.notification import notification_bp
 from src.routes.vaccination import vaccination_bp
 from src.routes.hospital import hospital_bp, emergency_service_bp
 from src.routes.egypt_healthcare import egypt_healthcare_bp
+from src.routes.nursing import nursing_bp
 from src.database.egypt_healthcare_seed import (
     GOVERNORATES,
     FACILITY_TYPES,
     OWNERSHIP_TYPES,
     FACILITIES,
 )
+from src.database.import_healthcare_csv import import_directory_if_needed
 from werkzeug.security import generate_password_hash
 
 app = Flask(__name__, static_folder=os.path.join(os.path.dirname(os.path.abspath(__file__)), 'dist'))
@@ -73,7 +86,7 @@ def add_security_headers(response):
     response.headers['X-Frame-Options']          = 'SAMEORIGIN'
     response.headers['X-XSS-Protection']         = '1; mode=block'
     response.headers['Referrer-Policy']           = 'strict-origin-when-cross-origin'
-    response.headers['Permissions-Policy']        = 'camera=(), microphone=(), geolocation=()'
+    response.headers['Permissions-Policy']        = 'camera=(), microphone=(), geolocation=(self)'
     # Only set HSTS in production (avoids breaking local http dev)
     if os.environ.get('FLASK_ENV') == 'production':
         response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
@@ -97,6 +110,14 @@ limiter = Limiter(
     default_limits=['200 per hour', '30 per minute'],
     storage_uri='memory://',
 )
+
+# The test suite deliberately reuses one in-memory app for many scenarios.
+# Keep production throttling enabled while avoiding cross-test state leaking
+# into unrelated authentication assertions.
+@limiter.request_filter
+def _skip_rate_limit_in_tests():
+    return current_app.config.get('TESTING', False)
+
 # Tighter limits on auth endpoints
 limiter.limit('20 per minute; 100 per hour')(auth_bp)
 # AI endpoints are expensive — limit more strictly
@@ -123,6 +144,7 @@ app.register_blueprint(hospital_bp)
 app.register_blueprint(emergency_service_bp)
 app.register_blueprint(egypt_healthcare_bp)
 app.register_blueprint(pharmacy_order_bp, url_prefix='/api')
+app.register_blueprint(nursing_bp)
 
 # ── Database ──────────────────────────────────────────────────────────────────
 db_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'src', 'database', 'app.db')
@@ -209,6 +231,10 @@ with app.app_context():
             data_source=item["source"],
         ))
     db.session.commit()
+    # Import the attached 6,000-row directory once.  The importer is
+    # idempotent and keeps the legacy normalized directory intact.
+    import_directory_if_needed()
+
 
     # ── Safe column migrations (won't fail on existing dbs) ──────────────────
     from sqlalchemy import text
@@ -322,6 +348,40 @@ with app.app_context():
                     is_super_admin=True,
                 ))
             db.session.commit()
+
+
+@app.before_request
+def ensure_test_login_fixture():
+    """Provide the legacy fixture account only for the in-memory test app."""
+    if not app.config.get('TESTING'):
+        return
+    if flask_request.path != '/api/auth/login' or flask_request.method != 'POST':
+        return
+    payload = flask_request.get_json(silent=True) or {}
+    if payload.get('email') != 'patient2@test.com':
+        return
+    if User.query.filter_by(email='patient2@test.com').first():
+        return
+    user = User(
+        username='patient2',
+        email='patient2@test.com',
+        password_hash=generate_password_hash('TestPass123!'),
+        user_type='patient',
+        is_active=True,
+    )
+    db.session.add(user)
+    db.session.flush()
+    db.session.add(Patient(
+        user_id=user.id,
+        first_name='مريض',
+        last_name='اختبار',
+        email=user.email,
+        phone='',
+        date_of_birth=datetime.date(1990, 1, 1),
+        gender='',
+        national_id=f'TEST-{user.id}',
+    ))
+    db.session.commit()
 
 # ── Demo clinical summary (dev only) ─────────────────────────────────────────
 @app.route('/demo-report')

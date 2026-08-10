@@ -28,7 +28,7 @@ import {
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false)
   const [userMenuOpen, setUserMenuOpen] = useState(false)
-  const { user, logout, isAuthenticated, isAdmin } = useAuth()
+  const { user, logout, switchRole, isAuthenticated, isAdmin } = useAuth()
   const location = useLocation()
 
   const handleLogout = async () => {
@@ -41,7 +41,7 @@ export default function Navbar() {
   const navLinks = [
     { path: '/', label: 'الرئيسية', icon: Heart },
     { path: '/doctors', label: 'الأطباء', icon: Stethoscope },
-    { path: '/hospitals', label: 'المستشفيات', icon: LayoutDashboard },
+    { path: '/hospitals', label: 'الدليل الطبي', icon: LayoutDashboard },
     { path: '/services', label: 'الخدمات', icon: Shield },
     { path: '/blood-bank', label: 'بنك الدم', icon: Droplets },
     { path: '/emergency', label: 'الطوارئ', icon: Phone }
@@ -61,6 +61,7 @@ export default function Navbar() {
     { path: '/pharmacies', label: 'الصيدليات', icon: Pill },
     { path: '/labs-directory', label: 'المعامل', icon: FlaskConical },
     { path: '/radiology-centers', label: 'مراكز الأشعة', icon: Scan },
+    { path: '/nursing', label: 'خدمات التمريض', icon: Heart },
     { path: '/symptom-checker', label: 'فاحص الأعراض', icon: Stethoscope },
   ]
 
@@ -132,6 +133,22 @@ export default function Navbar() {
                         <p className="text-xs text-gray-400 truncate">{user?.email}</p>
                       </div>
                       <div className="py-1">
+                        {user?.active_roles?.length > 1 && (
+                          <div className="border-b border-gray-100 px-4 py-2">
+                            <p className="mb-2 text-xs font-semibold text-gray-400">تبديل الدور</p>
+                            <div className="flex flex-wrap gap-1">
+                              {user.active_roles.map(role => (
+                                <button
+                                  key={role}
+                                  onClick={async () => { await switchRole(role); setUserMenuOpen(false) }}
+                                  className={`rounded-lg px-2 py-1 text-xs ${user.user_type === role ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-blue-50'}`}
+                                >
+                                  {{ patient: 'مستخدم', doctor: 'طبيب', nurse: 'ممرض', pharmacy: 'صيدلية', lab: 'معمل', radiology_center: 'أشعة', hospital: 'مستشفى' }[role] || role}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                         {userMenuItems.map(item => {
                           const Icon = item.icon
                           return (

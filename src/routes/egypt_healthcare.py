@@ -4,7 +4,7 @@ from flask import Blueprint, jsonify, request
 from sqlalchemy import or_
 
 from src.models.user import db
-from src.models.egypt_healthcare import EgyptFacility
+from src.models.egypt_healthcare import EgyptFacility, HealthcareDirectoryRecord
 
 egypt_healthcare_bp = Blueprint(
     "egypt_healthcare", __name__, url_prefix="/api/facilities"
@@ -19,8 +19,59 @@ def list_facilities():
     facility_type = request.args.get("type", "").strip()
     ownership = request.args.get("ownership", "").strip()
     emergency = request.args.get("emergency") == "1"
+    open_now = request.args.get("open_now") == "1"
+    nearest = request.args.get("nearest") == "1"
+    specialty = request.args.get("specialty", "").strip()
+    user_lat = request.args.get("lat", type=float)
+    user_lng = request.args.get("lng", type=float)
     page = max(request.args.get("page", 1, type=int), 1)
     per_page = min(max(request.args.get("per_page", 20, type=int), 1), 100)
+
+    flat_query = HealthcareDirectoryRecord.query
+    type_map = {
+        "hospital": "Hospital", "pharmacy": "Pharmacy",
+        "laboratory": "Laboratory", "lab": "Laboratory",
+        "radiology": "Radiology Center", "radiology_center": "Radiology Center",
+        "blood bank": "Blood Bank", "blood_bank": "Blood Bank",
+    }
+    requested_type = type_map.get(facility_type.lower(), facility_type)
+    if requested_type:
+        flat_query = flat_query.filter(HealthcareDirectoryRecord.facility_type == requested_type)
+    if search:
+        flat_query = flat_query.filter(or_(
+            HealthcareDirectoryRecord.name_ar.ilike(f"%{search}%"),
+            HealthcareDirectoryRecord.name_en.ilike(f"%{search}%"),
+            HealthcareDirectoryRecord.address.ilike(f"%{search}%"),
+        ))
+    if governorate:
+        flat_query = flat_query.filter(HealthcareDirectoryRecord.governorate.ilike(f"%{governorate}%"))
+    if city:
+        flat_query = flat_query.filter(HealthcareDirectoryRecord.city.ilike(f"%{city}%"))
+    if specialty:
+        flat_query = flat_query.filter(HealthcareDirectoryRecord.specialty.ilike(f"%{specialty}%"))
+    if emergency:
+        flat_query = flat_query.filter(HealthcareDirectoryRecord.emergency_24_7.is_(True))
+    imported_directory_available = HealthcareDirectoryRecord.query.first() is not None
+    records = flat_query.all()
+    serialized = [
+        record.to_dict(user_lat, user_lng)
+        for record in records
+        if not open_now or record._is_open_now() is True
+    ]
+    if nearest and user_lat is not None and user_lng is not None:
+        serialized.sort(key=lambda item: item["distance_km"] if item["distance_km"] is not None else 10**9)
+    else:
+        serialized.sort(key=lambda item: item["name_ar"])
+    if imported_directory_available:
+        total = len(serialized)
+        start = (page - 1) * per_page
+        return jsonify({
+            "facilities": serialized[start:start + per_page],
+            "total": total,
+            "page": page,
+            "per_page": per_page,
+            "pages": (total + per_page - 1) // per_page,
+        })
 
     query = EgyptFacility.query.join(EgyptFacility.governorate).join(
         EgyptFacility.city
@@ -76,6 +127,22 @@ def list_facilities():
         "per_page": per_page,
         "pages": (total + per_page - 1) // per_page,
     })
+
+
+@egypt_healthcare_bp.route("/metadata", methods=["GET"])
+def directory_metadata():
+    rows = HealthcareDirectoryRecord.query.with_entities(
+        HealthcareDirectoryRecord.facility_type,
+        HealthcareDirectoryRecord.governorate,
+        HealthcareDirectoryRecord.city,
+    ).all()
+    if rows:
+        return jsonify({
+            "facility_types": sorted({row[0] for row in rows}),
+            "governorates": sorted({row[1] for row in rows}),
+            "cities": sorted({row[2] for row in rows}),
+        })
+    return jsonify({"facility_types": [], "governorates": [], "cities": []})
 
 
 @egypt_healthcare_bp.route("/<int:facility_id>", methods=["GET"])

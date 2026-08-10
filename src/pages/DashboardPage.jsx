@@ -23,6 +23,7 @@ const roleDescriptions = {
   lab: 'إدارة الفحوصات والنتائج',
   radiology_center: 'إدارة الأشعة والتقارير',
   hospital: 'إدارة أقسام المستشفى والخدمات',
+  nurse: 'إدارة طلبات الزيارات والرعاية التمريضية',
 }
 
 function StatCard({ label, value, icon: Icon, tone = 'blue' }) {
@@ -65,6 +66,10 @@ const PROVIDER_QUICK_LINKS = {
     { label: 'المواعيد',          desc: 'إدارة مواعيد المستشفى',            icon: Clock3,       color: 'blue',   to: '/appointments' },
     { label: 'التحاليل',          desc: 'إدارة طلبات التحاليل',             icon: TestTube2,    color: 'green',  to: '/lab-requests' },
     { label: 'الأشعة',            desc: 'إدارة طلبات الأشعة',              icon: Languages,    color: 'amber',  to: '/radiology' },
+  ],
+  nurse: [
+    { label: 'طلبات التمريض', desc: 'راجع واقبل زيارات المرضى', icon: Heart, color: 'green', to: '/nursing' },
+    { label: 'المواعيد', desc: 'راجع الزيارات المجدولة', icon: Clock3, color: 'blue', to: '/appointments' },
   ],
 }
 

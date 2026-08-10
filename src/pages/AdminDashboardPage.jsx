@@ -23,8 +23,8 @@ const PROVIDER_META = {
   radiology_center:{ label: 'مراكز الأشعة',     icon: Radio,       color: 'purple' },
 }
 
-const STATUS_LABELS = { pending: 'قيد المراجعة', approved: 'معتمد', rejected: 'مرفوض' }
-const STATUS_COLORS = { pending: 'amber', approved: 'emerald', rejected: 'red' }
+const STATUS_LABELS = { pending: 'قيد المراجعة', approved: 'معتمد', rejected: 'مرفوض', more_information: 'استكمال معلومات' }
+const STATUS_COLORS = { pending: 'amber', approved: 'emerald', rejected: 'red', more_information: 'blue' }
 
 const PIE_COLORS = ['#3B82F6','#6366F1','#10B981','#F59E0B','#8B5CF6','#EF4444']
 
@@ -42,6 +42,7 @@ function Badge({ status }) {
     amber:   'bg-amber-50 text-amber-700 border-amber-200',
     emerald: 'bg-emerald-50 text-emerald-700 border-emerald-200',
     red:     'bg-red-50 text-red-700 border-red-200',
+    blue:    'bg-blue-50 text-blue-700 border-blue-200',
     gray:    'bg-gray-50 text-gray-700 border-gray-200',
   }
   return (
@@ -240,7 +241,7 @@ function ApprovalsSection({ headers, onMessage }) {
 
           {/* Status */}
           <div className="flex gap-1 rounded-lg border border-gray-200 p-1">
-            {['pending','approved','rejected'].map(s => (
+            {['pending','approved','rejected','more_information'].map(s => (
               <button key={s}
                 onClick={() => setStatusFilter(s)}
                 className={`rounded-md px-3 py-1 text-sm font-medium transition-colors ${statusFilter===s ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-100'}`}
@@ -323,6 +324,9 @@ function ApprovalsSection({ headers, onMessage }) {
                         <XCircle className="ml-1 h-4 w-4 text-red-500" /> رفض
                       </Button>
                     </div>
+                    <Button variant="outline" size="sm" onClick={() => review(provider.id, 'more_information')}>
+                      طلب استكمال المعلومات
+                    </Button>
                   </div>
                 )}
               </div>
