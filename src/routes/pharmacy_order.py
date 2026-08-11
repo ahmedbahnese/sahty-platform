@@ -106,6 +106,9 @@ def create_pharmacy_order(current_user):
         source_prescription_id=source_rx_id,
         medications_json=json.dumps(meds, ensure_ascii=False),
         preferred_pharmacy_name=data.get('preferred_pharmacy_name'),
+        preferred_pharmacy_id=int(data['preferred_pharmacy_id']) if data.get('preferred_pharmacy_id') else None,
+        fulfillment_method=data.get('fulfillment_method', 'pickup'),
+        delivery_address=data.get('delivery_address'),
         notes=data.get('notes'),
         status='pending',
     )

@@ -372,10 +372,31 @@ def login():
     except Exception as e:
         return jsonify({'message': f'خطأ في تسجيل الدخول: {str(e)}'}), 500
 
-@auth_bp.route('/profile', methods=['GET'])
+@auth_bp.route('/profile', methods=['GET', 'PUT'])
 @token_required
 def get_profile(current_user):
     try:
+        if request.method == 'PUT':
+            data = request.get_json(silent=True) or {}
+            patient = Patient.query.filter_by(user_id=current_user.id).first()
+            if not patient:
+                return jsonify({'message': 'لم يتم العثور على ملف المريض'}), 404
+            allowed = (
+                'phone', 'address', 'blood_type', 'height', 'weight',
+                'emergency_contact_name', 'emergency_contact_phone',
+            )
+            for field in allowed:
+                if field in data:
+                    value = data[field]
+                    if field in ('height', 'weight'):
+                        try:
+                            value = float(value) if value not in (None, '') else None
+                        except (TypeError, ValueError):
+                            return jsonify({'message': 'الطول أو الوزن غير صالح'}), 400
+                    setattr(patient, field, value)
+            db.session.commit()
+            return jsonify({'message': 'تم تحديث بيانات الملف', 'profile': patient.to_dict()}), 200
+
         profile_data = {}
         if current_user.user_type == 'patient':
             patient = Patient.query.filter_by(user_id=current_user.id).first()

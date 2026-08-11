@@ -48,6 +48,9 @@ export default function MedicationOrderPage() {
   const [selectedPrescriptionId, setSelectedPrescriptionId] = useState('')
   const [medications, setMedications] = useState([{ name: '', dosage: '', quantity: '', notes: '' }])
   const [preferredPharmacy, setPreferredPharmacy] = useState('')
+  const [pharmacies, setPharmacies] = useState([])
+  const [fulfillmentMethod, setFulfillmentMethod] = useState('pickup')
+  const [deliveryAddress, setDeliveryAddress] = useState('')
   const [orderNotes, setOrderNotes] = useState('')
 
   const isPharmacy = ['pharmacy', 'admin', 'super_admin'].includes(user?.user_type)
@@ -76,6 +79,12 @@ export default function MedicationOrderPage() {
   }
 
   useEffect(() => { load(); loadPrescriptions() }, [])
+  useEffect(() => {
+    fetch('/api/facilities?type=pharmacy&per_page=100')
+      .then(response => response.ok ? response.json() : null)
+      .then(data => setPharmacies(data?.facilities || []))
+      .catch(() => setPharmacies([]))
+  }, [])
 
   const filtered = orders.filter(o => tab === 'all' || o.status === tab)
 
@@ -90,6 +99,10 @@ export default function MedicationOrderPage() {
       const fd = new FormData()
       fd.append('order_type', orderType)
       fd.append('preferred_pharmacy_name', preferredPharmacy)
+      const selectedPharmacy = pharmacies.find(item => item.name_ar === preferredPharmacy)
+      if (selectedPharmacy?.id) fd.append('preferred_pharmacy_id', selectedPharmacy.id)
+      fd.append('fulfillment_method', fulfillmentMethod)
+      fd.append('delivery_address', deliveryAddress)
       fd.append('notes', orderNotes)
 
       if (orderType === 'paper_prescription' && prescriptionImage) {
@@ -113,6 +126,10 @@ export default function MedicationOrderPage() {
         setMedications([{ name: '', dosage: '', quantity: '', notes: '' }])
         setPrescriptionImage(null)
         setSelectedPrescriptionId('')
+        setPreferredPharmacy('')
+        setFulfillmentMethod('pickup')
+        setDeliveryAddress('')
+        setOrderNotes('')
         setPreferredPharmacy('')
         setOrderNotes('')
         load()
@@ -144,11 +161,6 @@ export default function MedicationOrderPage() {
       if (res.ok) { showToast('تم إلغاء الطلب'); load() }
     } finally { setBusy(false) }
   }
-
-  const PHARMACIES = [
-    'صيدلية النهدي', 'صيدلية الدواء', 'صيدلية الربيع', 'صيدلية حياة',
-    'صيدلية المتحدة', 'صيدلية شفاء', 'أخرى',
-  ]
 
   const tabs = [
     { key: 'all', label: 'الكل' },
@@ -285,9 +297,27 @@ export default function MedicationOrderPage() {
               <select className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500 outline-none"
                 value={preferredPharmacy} onChange={e => setPreferredPharmacy(e.target.value)}>
                 <option value="">-- اختر صيدلية --</option>
-                {PHARMACIES.map(p => <option key={p} value={p}>{p}</option>)}
+                {pharmacies.map(p => <option key={p.id} value={p.name_ar}>{p.name_ar}</option>)}
+              </select>
+              {!pharmacies.length && <p className="text-xs text-amber-700 mt-1">لا توجد صيدليات متاحة في الدليل حالياً.</p>}
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">طريقة الاستلام</label>
+              <select value={fulfillmentMethod} onChange={e => setFulfillmentMethod(e.target.value)}
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500 outline-none">
+                <option value="pickup">استلام من الصيدلية</option>
+                <option value="delivery">توصيل إلى المنزل</option>
               </select>
             </div>
+            {fulfillmentMethod === 'delivery' && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">عنوان التوصيل *</label>
+                <input required value={deliveryAddress} onChange={e => setDeliveryAddress(e.target.value)}
+                  placeholder="العنوان بالتفصيل"
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500 outline-none" />
+              </div>
+            )}
 
             {/* ملاحظات */}
             <div>

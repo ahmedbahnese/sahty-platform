@@ -224,6 +224,39 @@ def resolve_alert(current_user, alert_id):
     return jsonify(alert.to_dict()), 200
 
 
+@emergency_bp.route('/emergency/alerts/<int:alert_id>', methods=['PUT'])
+@token_required
+def update_alert(current_user, alert_id):
+    """تحديث ملاحظات وموقع وبيانات تنبيه الطوارئ قبل إغلاقه."""
+    alert = EmergencyAlert.query.filter_by(
+        id=alert_id, user_id=current_user.id
+    ).first()
+    if not alert:
+        return jsonify({'message': 'التنبيه غير موجود'}), 404
+    if alert.status == 'resolved':
+        return jsonify({'message': 'لا يمكن تعديل تنبيه مغلق'}), 400
+
+    data = request.get_json(silent=True) or {}
+    for field in (
+        'emergency_type', 'severity', 'description', 'location_text',
+        'caller_name', 'caller_phone',
+    ):
+        if field in data:
+            setattr(alert, field, data[field])
+    for field in ('latitude', 'longitude'):
+        if field in data:
+            try:
+                setattr(
+                    alert,
+                    field,
+                    float(data[field]) if data[field] not in (None, '') else None,
+                )
+            except (TypeError, ValueError):
+                return jsonify({'message': 'إحداثيات الموقع غير صالحة'}), 400
+    db.session.commit()
+    return jsonify({'message': 'تم تحديث بيانات الطوارئ', 'alert': alert.to_dict()}), 200
+
+
 # ─────────────────────────────────────────────────────────
 # جهات الاتصال الأسرية
 # ─────────────────────────────────────────────────────────

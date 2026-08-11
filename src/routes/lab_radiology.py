@@ -31,6 +31,7 @@ from src.models.patient import Patient
 from src.models.notification import Notification
 from src.models.lab_radiology import LabRequest, RadiologyRequest
 from src.models.medical_record import LabTest, Radiology
+from src.models.egypt_healthcare import HealthcareDirectoryRecord
 from src.routes.auth import token_required
 
 lab_radiology_bp = Blueprint('lab_radiology', __name__)
@@ -81,6 +82,41 @@ def _get_patient_for_user(user):
     if user.user_type == 'patient':
         return Patient.query.filter_by(user_id=user.id).first()
     return None
+
+
+def _parse_bool(value):
+    return value in (True, 'true', '1', 'yes', 'on')
+
+
+def _parse_datetime(value):
+    if not value:
+        return None
+    try:
+        return datetime.fromisoformat(str(value).replace('Z', '+00:00'))
+    except (TypeError, ValueError):
+        return None
+
+
+def _validate_directory_center(name, facility_type):
+    """لا تسمح الطلبات بمراكز مكتوبة عشوائياً إذا كان الدليل المستورد متاحاً."""
+    name = (name or '').strip()
+    if not name:
+        return None
+    record = HealthcareDirectoryRecord.query.filter(
+        HealthcareDirectoryRecord.facility_type == facility_type,
+        HealthcareDirectoryRecord.name_ar == name,
+    ).first()
+    if record:
+        return record.name_ar
+    # قواعد البيانات القديمة قد لا تحتوي على الاسم العربي نفسه؛ نقبل المطابقة الجزئية
+    record = HealthcareDirectoryRecord.query.filter(
+        HealthcareDirectoryRecord.facility_type == facility_type,
+        db.or_(
+            HealthcareDirectoryRecord.name_ar.ilike(f'%{name}%'),
+            HealthcareDirectoryRecord.name_en.ilike(f'%{name}%'),
+        ),
+    ).first()
+    return record.name_ar if record else None
 
 
 # تعليمات التحضير لكل نوع تحليل
@@ -155,6 +191,12 @@ def create_lab_request(current_user):
     if not test_name:
         return jsonify({'message': 'اسم التحليل مطلوب'}), 400
 
+    if data.get('lab_center_name'):
+        center = _validate_directory_center(data.get('lab_center_name'), 'Laboratory')
+        if HealthcareDirectoryRecord.query.filter_by(facility_type='Laboratory').first() and not center:
+            return jsonify({'message': 'اختر مركز تحاليل من الدليل الطبي الفعلي'}), 400
+        data['lab_center_name'] = center or data.get('lab_center_name')
+
     # تعليمات التحضير
     prep_instructions = _get_preparation_instructions(tests or [{'name': test_name}])
 
@@ -185,6 +227,7 @@ def create_lab_request(current_user):
         ordering_doctor=data.get('ordering_doctor'),
         lab_center_name=data.get('lab_center_name'),
         preparation_instructions=json.dumps(prep_instructions, ensure_ascii=False),
+        preparation_notes=data.get('preparation_notes'),
         scheduled_datetime=scheduled_dt,
         home_collection=home_collection,
         collection_address=data.get('collection_address'),
@@ -216,6 +259,64 @@ def create_lab_request(current_user):
     )
     db.session.commit()
     return jsonify(lab_req.to_dict()), 201
+
+
+def _owned_request(current_user, model, req_id):
+    item = model.query.get_or_404(req_id)
+    if current_user.user_type == 'patient':
+        patient = Patient.query.filter_by(user_id=current_user.id).first()
+        if not patient or item.patient_id != patient.id:
+            return None
+    return item
+
+
+@lab_radiology_bp.route('/lab-requests/<int:req_id>', methods=['PUT'])
+@token_required
+def update_lab_request(current_user, req_id):
+    item = _owned_request(current_user, LabRequest, req_id)
+    if not item:
+        return jsonify({'message': 'غير مصرح'}), 403
+    if item.status not in ('requested', 'approved'):
+        return jsonify({'message': 'لا يمكن تعديل طلب مكتمل أو مرفوض'}), 400
+    data = request.get_json(silent=True) or {}
+    tests = data.get('tests', item.tests)
+    if not isinstance(tests, list) or not tests or any(not isinstance(t, dict) or not t.get('name') for t in tests):
+        return jsonify({'message': 'يجب إدخال تحليل واحد على الأقل'}), 400
+    item.tests_json = json.dumps(tests, ensure_ascii=False)
+    item.test_name = tests[0]['name']
+    item.test_category = tests[0].get('category', item.test_category)
+    item.preparation_instructions = json.dumps(
+        _get_preparation_instructions(tests), ensure_ascii=False
+    )
+    for field in ('urgency', 'clinical_notes', 'ordering_doctor', 'lab_center_name',
+                  'preparation_notes', 'collection_address', 'collection_time',
+                  'collection_staff_name'):
+        if field in data:
+            setattr(item, field, data[field])
+    if 'home_collection' in data:
+        item.home_collection = bool(data['home_collection'])
+    if 'scheduled_datetime' in data:
+        item.scheduled_datetime = _parse_datetime(data['scheduled_datetime'])
+    if 'collection_date' in data:
+        try:
+            item.collection_date = date.fromisoformat(data['collection_date']) if data['collection_date'] else None
+        except ValueError:
+            return jsonify({'message': 'تاريخ السحب غير صالح'}), 400
+    db.session.commit()
+    return jsonify(item.to_dict())
+
+
+@lab_radiology_bp.route('/lab-requests/<int:req_id>', methods=['DELETE'])
+@token_required
+def delete_lab_request(current_user, req_id):
+    item = _owned_request(current_user, LabRequest, req_id)
+    if not item:
+        return jsonify({'message': 'غير مصرح'}), 403
+    if item.status not in ('requested', 'rejected'):
+        return jsonify({'message': 'لا يمكن حذف طلب تمت معالجته'}), 400
+    db.session.delete(item)
+    db.session.commit()
+    return jsonify({'message': 'تم حذف الطلب'})
 
 
 @lab_radiology_bp.route('/lab-requests', methods=['GET'])
@@ -419,6 +520,25 @@ def create_radiology_request(current_user):
     if not data.get('scan_type') or not data.get('body_part'):
         return jsonify({'message': 'نوع الأشعة والجزء المصوَّر مطلوبان'}), 400
 
+    if data.get('radiology_center_name'):
+        center = _validate_directory_center(data.get('radiology_center_name'), 'Radiology Center')
+        if HealthcareDirectoryRecord.query.filter_by(facility_type='Radiology Center').first() and not center:
+            return jsonify({'message': 'اختر مركز أشعة من الدليل الطبي الفعلي'}), 400
+        data['radiology_center_name'] = center or data.get('radiology_center_name')
+
+    try:
+        patient_weight = float(data['patient_weight']) if data.get('patient_weight') else None
+    except (TypeError, ValueError):
+        return jsonify({'message': 'وزن المريض غير صالح'}), 400
+    checklist = data.get('preparation_checklist', [])
+    if isinstance(checklist, str):
+        try:
+            checklist = json.loads(checklist)
+        except Exception:
+            checklist = [checklist] if checklist else []
+    if not isinstance(checklist, list):
+        checklist = []
+
     scheduled_dt = None
     if data.get('scheduled_datetime'):
         try:
@@ -436,6 +556,12 @@ def create_radiology_request(current_user):
         ordering_doctor=data.get('ordering_doctor'),
         radiology_center_name=data.get('radiology_center_name'),
         scheduled_datetime=scheduled_dt,
+        body_part_code=data.get('body_part_code'),
+        patient_weight=patient_weight,
+        requires_sedation=_parse_bool(data.get('requires_sedation')),
+        uses_contrast=_parse_bool(data.get('uses_contrast')),
+        preparation_required=_parse_bool(data.get('preparation_required')),
+        preparation_checklist_json=json.dumps(checklist, ensure_ascii=False),
         status='requested',
     )
     db.session.add(rad_req)
@@ -459,6 +585,48 @@ def create_radiology_request(current_user):
     )
     db.session.commit()
     return jsonify(rad_req.to_dict()), 201
+
+
+@lab_radiology_bp.route('/radiology-requests/<int:req_id>', methods=['PUT'])
+@token_required
+def update_radiology_request(current_user, req_id):
+    item = _owned_request(current_user, RadiologyRequest, req_id)
+    if not item:
+        return jsonify({'message': 'غير مصرح'}), 403
+    if item.status not in ('requested',):
+        return jsonify({'message': 'لا يمكن تعديل طلب تمت معالجته'}), 400
+    data = request.get_json(silent=True) or {}
+    for field in ('scan_type', 'body_part', 'body_part_code', 'urgency', 'clinical_reason',
+                  'ordering_doctor', 'radiology_center_name'):
+        if field in data and data[field] is not None:
+            setattr(item, field, data[field])
+    if 'patient_weight' in data:
+        try:
+            item.patient_weight = float(data['patient_weight']) if data['patient_weight'] else None
+        except (TypeError, ValueError):
+            return jsonify({'message': 'وزن المريض غير صالح'}), 400
+    for field in ('requires_sedation', 'uses_contrast', 'preparation_required'):
+        if field in data:
+            setattr(item, field, _parse_bool(data[field]))
+    if 'preparation_checklist' in data:
+        item.preparation_checklist_json = json.dumps(data['preparation_checklist'] or [], ensure_ascii=False)
+    if 'scheduled_datetime' in data:
+        item.scheduled_datetime = _parse_datetime(data['scheduled_datetime'])
+    db.session.commit()
+    return jsonify(item.to_dict())
+
+
+@lab_radiology_bp.route('/radiology-requests/<int:req_id>', methods=['DELETE'])
+@token_required
+def delete_radiology_request(current_user, req_id):
+    item = _owned_request(current_user, RadiologyRequest, req_id)
+    if not item:
+        return jsonify({'message': 'غير مصرح'}), 403
+    if item.status not in ('requested', 'rejected'):
+        return jsonify({'message': 'لا يمكن حذف طلب تمت معالجته'}), 400
+    db.session.delete(item)
+    db.session.commit()
+    return jsonify({'message': 'تم حذف الطلب'})
 
 
 @lab_radiology_bp.route('/radiology-requests', methods=['GET'])

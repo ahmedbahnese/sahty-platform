@@ -36,6 +36,7 @@ class LabRequest(db.Model):
 
     # تعليمات التحضير
     preparation_instructions = db.Column(db.Text)   # JSON list of strings
+    preparation_notes     = db.Column(db.Text)
 
     # وثيقة الطلب الأصلي
     request_doc_path    = db.Column(db.String(500))
@@ -100,6 +101,7 @@ class LabRequest(db.Model):
             'ordering_doctor':       self.ordering_doctor,
             'lab_center_name':       self.lab_center_name,
             'preparation_instructions': self.preparation_instructions,
+            'preparation_notes':       self.preparation_notes,
             'request_doc_path':      self.request_doc_path,
             'request_doc_name':      self.request_doc_name,
             'scheduled_datetime':    self.scheduled_datetime.isoformat() if self.scheduled_datetime else None,
@@ -146,9 +148,15 @@ class RadiologyRequest(db.Model):
     # معلومات الطلب
     scan_type           = db.Column(db.String(50), nullable=False)  # xray/mri/ct/ultrasound/pet/mammo
     body_part           = db.Column(db.String(200), nullable=False)
+    body_part_code      = db.Column(db.String(80))
     urgency             = db.Column(db.String(20), default='routine')  # routine / urgent / emergency
     clinical_reason     = db.Column(db.Text)
     ordering_doctor     = db.Column(db.String(200))
+    patient_weight      = db.Column(db.Float)
+    requires_sedation   = db.Column(db.Boolean, default=False)
+    uses_contrast       = db.Column(db.Boolean, default=False)
+    preparation_required = db.Column(db.Boolean, default=False)
+    preparation_checklist_json = db.Column(db.Text, default='[]')
 
     # مركز الأشعة
     radiology_center_name = db.Column(db.String(200))
@@ -194,6 +202,13 @@ class RadiologyRequest(db.Model):
         except Exception:
             return []
 
+    @property
+    def preparation_checklist(self):
+        try:
+            return json.loads(self.preparation_checklist_json or '[]')
+        except Exception:
+            return []
+
     def to_dict(self):
         return {
             'id':                     self.id,
@@ -201,9 +216,15 @@ class RadiologyRequest(db.Model):
             'requesting_user_id':     self.requesting_user_id,
             'scan_type':              self.scan_type,
             'body_part':              self.body_part,
+            'body_part_code':         self.body_part_code,
             'urgency':                self.urgency,
             'clinical_reason':        self.clinical_reason,
             'ordering_doctor':        self.ordering_doctor,
+            'patient_weight':         self.patient_weight,
+            'requires_sedation':     self.requires_sedation,
+            'uses_contrast':         self.uses_contrast,
+            'preparation_required':  self.preparation_required,
+            'preparation_checklist': self.preparation_checklist,
             'radiology_center_name':  self.radiology_center_name,
             'request_doc_path':       self.request_doc_path,
             'request_doc_name':       self.request_doc_name,

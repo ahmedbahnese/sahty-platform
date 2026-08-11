@@ -165,6 +165,8 @@ class PharmacyOrder(db.Model):
     # الصيدلية المفضّلة
     preferred_pharmacy_name = db.Column(db.String(200))
     preferred_pharmacy_id   = db.Column(db.Integer)   # قد يُربط بجدول مزودين مستقبلاً
+    fulfillment_method      = db.Column(db.String(30), default='pickup')
+    delivery_address        = db.Column(db.Text)
 
     # ملاحظات عامة
     notes = db.Column(db.Text)
@@ -196,6 +198,8 @@ class PharmacyOrder(db.Model):
             'medications': self.medications,
             'preferred_pharmacy_name': self.preferred_pharmacy_name,
             'preferred_pharmacy_id': self.preferred_pharmacy_id,
+            'fulfillment_method': self.fulfillment_method,
+            'delivery_address': self.delivery_address,
             'notes': self.notes,
             'status': self.status,
             'dispensed_at': self.dispensed_at.isoformat() if self.dispensed_at else None,

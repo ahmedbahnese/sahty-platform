@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import NotificationBell from './NotificationBell'
@@ -22,14 +22,23 @@ import {
   Pill,
   Users,
   ChevronDown,
-  LayoutDashboard
+  LayoutDashboard,
+  Sun,
+  Moon
 } from 'lucide-react'
 
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false)
   const [userMenuOpen, setUserMenuOpen] = useState(false)
+  const [shortcutsOpen, setShortcutsOpen] = useState(false)
+  const [darkMode, setDarkMode] = useState(() => localStorage.getItem('sahty-theme') === 'dark')
   const { user, logout, switchRole, isAuthenticated, isAdmin } = useAuth()
   const location = useLocation()
+
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark', darkMode)
+    localStorage.setItem('sahty-theme', darkMode ? 'dark' : 'light')
+  }, [darkMode])
 
   const handleLogout = async () => {
     await logout()
@@ -65,8 +74,15 @@ export default function Navbar() {
     { path: '/symptom-checker', label: 'فاحص الأعراض', icon: Stethoscope },
   ]
 
+  const serviceShortcuts = [
+    { path: '/lab-requests', label: 'التحاليل', icon: FlaskConical },
+    { path: '/radiology', label: 'الأشعة', icon: Scan },
+    { path: '/medication-orders', label: 'الأدوية', icon: Pill },
+    { path: '/blood-bank', label: 'بنك الدم', icon: Droplets },
+  ]
+
   return (
-    <nav className="sticky top-0 z-50 shadow-sm" style={{ background: '#ffffff', borderBottom: '1px solid #e2e8f0' }}>
+    <nav className="sticky top-0 z-50 shadow-sm bg-white dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
 
@@ -99,10 +115,36 @@ export default function Navbar() {
                 </Link>
               )
             })}
+            <div className="relative">
+              <button
+                onClick={() => setShortcutsOpen(value => !value)}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium text-gray-600 dark:text-gray-200 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-slate-800"
+                aria-expanded={shortcutsOpen}
+              >
+                <ClipboardList className="h-4 w-4" /> الخدمات السريعة
+                <ChevronDown className="h-3.5 w-3.5" />
+              </button>
+              {shortcutsOpen && (
+                <div className="absolute left-0 top-11 w-48 rounded-xl border border-gray-100 dark:border-slate-700 bg-white dark:bg-slate-900 p-1 shadow-xl">
+                  {serviceShortcuts.map(({ path, label, icon: Icon }) => (
+                    <Link key={path} to={path} onClick={() => setShortcutsOpen(false)}
+                      className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-gray-700 dark:text-gray-100 hover:bg-blue-50 dark:hover:bg-slate-800">
+                      <Icon className="h-4 w-4 text-blue-600" /> {label}
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Desktop User */}
-          <div className="hidden md:flex items-center gap-3">
+          <div className="hidden md:flex items-center gap-2">
+            <button type="button" onClick={() => setDarkMode(value => !value)}
+              aria-label={darkMode ? 'تفعيل الوضع الفاتح' : 'تفعيل الوضع الداكن'}
+              title={darkMode ? 'الوضع الفاتح' : 'الوضع الداكن'}
+              className="rounded-xl p-2 text-gray-600 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-slate-800">
+              {darkMode ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+            </button>
             {/* Notification Bell — shows only when logged in */}
             <NotificationBell />
 

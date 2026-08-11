@@ -261,12 +261,23 @@ with app.app_context():
         "ALTER TABLE lab_requests ADD COLUMN IF NOT EXISTS collection_date DATE",
         "ALTER TABLE lab_requests ADD COLUMN IF NOT EXISTS collection_time VARCHAR(10)",
         "ALTER TABLE lab_requests ADD COLUMN IF NOT EXISTS collection_staff_name VARCHAR(200)",
+        "ALTER TABLE lab_requests ADD COLUMN IF NOT EXISTS preparation_notes TEXT",
+
+        # Pharmacy orders — pickup/delivery details
+        "ALTER TABLE pharmacy_orders ADD COLUMN IF NOT EXISTS fulfillment_method VARCHAR(30) DEFAULT 'pickup'",
+        "ALTER TABLE pharmacy_orders ADD COLUMN IF NOT EXISTS delivery_address TEXT",
 
         # Sprint X — Radiology Requests: center, scheduling, doc upload
         "ALTER TABLE radiology_requests ADD COLUMN IF NOT EXISTS radiology_center_name VARCHAR(200)",
         "ALTER TABLE radiology_requests ADD COLUMN IF NOT EXISTS request_doc_path VARCHAR(500)",
         "ALTER TABLE radiology_requests ADD COLUMN IF NOT EXISTS request_doc_name VARCHAR(200)",
         "ALTER TABLE radiology_requests ADD COLUMN IF NOT EXISTS scheduled_datetime DATETIME",
+        "ALTER TABLE radiology_requests ADD COLUMN IF NOT EXISTS body_part_code VARCHAR(80)",
+        "ALTER TABLE radiology_requests ADD COLUMN IF NOT EXISTS patient_weight REAL",
+        "ALTER TABLE radiology_requests ADD COLUMN IF NOT EXISTS requires_sedation BOOLEAN DEFAULT 0",
+        "ALTER TABLE radiology_requests ADD COLUMN IF NOT EXISTS uses_contrast BOOLEAN DEFAULT 0",
+        "ALTER TABLE radiology_requests ADD COLUMN IF NOT EXISTS preparation_required BOOLEAN DEFAULT 0",
+        "ALTER TABLE radiology_requests ADD COLUMN IF NOT EXISTS preparation_checklist_json TEXT DEFAULT '[]'",
 
         # Sprint X — Medications: prescription source, notification settings
         "ALTER TABLE medications ADD COLUMN IF NOT EXISTS prescription_id INTEGER REFERENCES prescriptions(id)",

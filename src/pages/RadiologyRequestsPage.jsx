@@ -35,6 +35,17 @@ const RADIOLOGY_CENTERS = [
   'أخرى',
 ]
 
+const BODY_PARTS = [
+  { code: 'head', label: 'الرأس والمخ' },
+  { code: 'chest', label: 'الصدر' },
+  { code: 'abdomen', label: 'البطن والحوض' },
+  { code: 'spine', label: 'العمود الفقري' },
+  { code: 'knee', label: 'الركبة' },
+  { code: 'shoulder', label: 'الكتف' },
+  { code: 'neck', label: 'الرقبة' },
+  { code: 'other', label: 'جزء آخر' },
+]
+
 export default function RadiologyRequestsPage() {
   const { token, user } = useAuth()
   const [requests, setRequests]   = useState([])
@@ -45,6 +56,8 @@ export default function RadiologyRequestsPage() {
   const [actionModal, setActionModal] = useState(null)
   const [busy, setBusy]           = useState(false)
   const [toast, setToast]         = useState(null)
+  const [radiologyCenters, setRadiologyCenters] = useState([])
+  const [editingRequest, setEditingRequest] = useState(null)
 
   const isAdmin   = ['admin','super_admin','radiology_center'].includes(user?.user_type)
   const isPatient = user?.user_type === 'patient'
@@ -68,40 +81,94 @@ export default function RadiologyRequestsPage() {
   }, [token])
 
   useEffect(() => { load() }, [load])
+  useEffect(() => {
+    fetch('/api/facilities?type=radiology&per_page=100')
+      .then(res => res.ok ? res.json() : null)
+      .then(data => setRadiologyCenters(data?.facilities || []))
+      .catch(() => setRadiologyCenters([]))
+  }, [])
 
   const filtered = requests.filter(r => tab === 'all' || r.status === tab)
 
   // ── نموذج الطلب الجديد ──────────────────────────────────
   const [form, setForm] = useState({
-    scan_type: 'xray', body_part: '', urgency: 'routine',
+    scan_type: 'xray', body_part: '', body_part_code: '', urgency: 'routine',
     clinical_reason: '', ordering_doctor: '', patient_id: '',
     radiology_center_name: '', scheduled_datetime: '',
+    patient_weight: '', requires_sedation: false, uses_contrast: false,
+    preparation_required: false,
   })
   const [requestDoc, setRequestDoc] = useState(null)
+  const [preparationChecklist, setPreparationChecklist] = useState([])
+  const [preparationNotes, setPreparationNotes] = useState('')
 
   const submitRequest = async e => {
     e.preventDefault()
     setBusy(true)
     try {
       const fd = new FormData()
-      Object.entries(form).forEach(([k, v]) => { if (v) fd.append(k, v) })
+      Object.entries(form).forEach(([k, v]) => {
+        if (typeof v === 'boolean') fd.append(k, v ? 'true' : 'false')
+        else if (v) fd.append(k, v)
+      })
       if (isPatient) fd.delete('patient_id')
       if (requestDoc) fd.append('request_doc', requestDoc)
+      fd.append('preparation_checklist', JSON.stringify(preparationChecklist))
+      if (preparationNotes) fd.append('clinical_reason', `${form.clinical_reason || ''}\n${preparationNotes}`.trim())
 
-      const res = await fetch(`${API}/radiology-requests`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
-        body: fd,
-      })
+      const res = editingRequest
+        ? await fetch(`${API}/radiology-requests/${editingRequest.id}`, {
+            method: 'PUT', headers,
+            body: JSON.stringify({ ...form, preparation_checklist: preparationChecklist }),
+          })
+        : await fetch(`${API}/radiology-requests`, {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${token}` },
+            body: fd,
+          })
       const data = await res.json()
       if (res.ok) {
-        showToast('تم إرسال طلب الأشعة بنجاح')
+        showToast(editingRequest ? 'تم تعديل طلب الأشعة' : 'تم إرسال طلب الأشعة بنجاح')
         setShowForm(false)
-        setForm({ scan_type:'xray', body_part:'', urgency:'routine', clinical_reason:'', ordering_doctor:'', patient_id:'', radiology_center_name:'', scheduled_datetime:'' })
+        setForm({ scan_type:'xray', body_part:'', body_part_code:'', urgency:'routine', clinical_reason:'', ordering_doctor:'', patient_id:'', radiology_center_name:'', scheduled_datetime:'', patient_weight:'', requires_sedation:false, uses_contrast:false, preparation_required:false })
         setRequestDoc(null)
+        setPreparationChecklist([])
+        setPreparationNotes('')
+        setEditingRequest(null)
         load()
       } else showToast(data.message || 'حدث خطأ', 'error')
     } finally { setBusy(false) }
+  }
+
+  const startEdit = req => {
+    setEditingRequest(req)
+    setForm({
+      scan_type: req.scan_type || 'xray',
+      body_part: req.body_part || '',
+      body_part_code: req.body_part_code || '',
+      urgency: req.urgency || 'routine',
+      clinical_reason: req.clinical_reason || '',
+      ordering_doctor: req.ordering_doctor || '',
+      patient_id: req.patient_id || '',
+      radiology_center_name: req.radiology_center_name || '',
+      scheduled_datetime: req.scheduled_datetime?.slice(0, 16) || '',
+      patient_weight: req.patient_weight || '',
+      requires_sedation: !!req.requires_sedation,
+      uses_contrast: !!req.uses_contrast,
+      preparation_required: !!req.preparation_required,
+    })
+    setPreparationChecklist(req.preparation_checklist || [])
+    setShowForm(true)
+  }
+
+  const deleteRequest = async req => {
+    if (!window.confirm('هل تريد حذف طلب الأشعة؟')) return
+    const res = await fetch(`${API}/radiology-requests/${req.id}`, {
+      method: 'DELETE', headers: { Authorization: `Bearer ${token}` },
+    })
+    const data = await res.json()
+    if (res.ok) { showToast('تم حذف الطلب'); load() }
+    else showToast(data.message || 'لا يمكن حذف الطلب', 'error')
   }
 
   // ── رفع الصور ────────────────────────────────────────────
@@ -234,7 +301,7 @@ export default function RadiologyRequestsPage() {
       {/* نموذج الطلب */}
       {showForm && (
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
-          <h2 className="font-semibold text-gray-800 mb-4">طلب أشعة جديد</h2>
+          <h2 className="font-semibold text-gray-800 mb-4">{editingRequest ? 'تعديل طلب الأشعة' : 'طلب أشعة جديد'}</h2>
           <form onSubmit={submitRequest} className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
             {/* نوع الأشعة */}
@@ -249,8 +316,20 @@ export default function RadiologyRequestsPage() {
             {/* الجزء المصوَّر */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">الجزء المصوَّر *</label>
-              <input required className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                value={form.body_part} onChange={e => setForm(f=>({...f,body_part:e.target.value}))} placeholder="مثال: الصدر، الركبة اليسرى" />
+              <div className="flex gap-2">
+                <select required value={form.body_part_code}
+                  onChange={e => setForm(f => ({
+                    ...f,
+                    body_part_code: e.target.value,
+                    body_part: BODY_PARTS.find(p => p.code === e.target.value)?.label || '',
+                  }))}
+                  className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                  <option value="">اختر الجزء</option>
+                  {BODY_PARTS.map(part => <option key={part.code} value={part.code}>{part.label}</option>)}
+                </select>
+                <input required className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  value={form.body_part} onChange={e=>setForm(f=>({...f,body_part:e.target.value}))} placeholder="أو اكتب يدوياً" />
+              </div>
             </div>
 
             {/* الأولوية */}
@@ -270,8 +349,9 @@ export default function RadiologyRequestsPage() {
               <select className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 value={form.radiology_center_name} onChange={e => setForm(f=>({...f,radiology_center_name:e.target.value}))}>
                 <option value="">-- اختر مركز --</option>
-                {RADIOLOGY_CENTERS.map(c => <option key={c} value={c}>{c}</option>)}
+                {radiologyCenters.map(c => <option key={c.id} value={c.name_ar}>{c.name_ar}</option>)}
               </select>
+              {!radiologyCenters.length && <p className="text-xs text-amber-700 mt-1">لا توجد مراكز أشعة متاحة في الدليل حالياً.</p>}
             </div>
 
             {/* موعد الفحص */}
@@ -279,6 +359,13 @@ export default function RadiologyRequestsPage() {
               <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-1"><Calendar size={13}/> موعد الفحص</label>
               <input type="datetime-local" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 value={form.scheduled_datetime} onChange={e => setForm(f=>({...f,scheduled_datetime:e.target.value}))} />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">وزن المريض (كجم)</label>
+              <input type="number" min="0" step="0.1" value={form.patient_weight}
+                onChange={e => setForm(f => ({ ...f, patient_weight: e.target.value }))}
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
             </div>
 
             {/* الطبيب الآمر */}
@@ -293,6 +380,47 @@ export default function RadiologyRequestsPage() {
                 <label className="block text-sm font-medium text-gray-700 mb-1">معرّف المريض *</label>
                 <input required={!isPatient} type="number" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   value={form.patient_id} onChange={e => setForm(f=>({...f,patient_id:e.target.value}))} />
+              </div>
+            )}
+
+            <div className="md:col-span-2 grid md:grid-cols-3 gap-3 rounded-xl bg-purple-50 border border-purple-100 p-4">
+              {[
+                ['requires_sedation', 'الفحص يحتاج تخديراً'],
+                ['uses_contrast', 'الفحص بصبغة'],
+                ['preparation_required', 'يحتاج تحضيراً'],
+              ].map(([key, label]) => (
+                <label key={key} className="flex items-center gap-2 text-sm text-purple-900 cursor-pointer">
+                  <input type="checkbox" checked={form[key]}
+                    onChange={e => setForm(f => ({ ...f, [key]: e.target.checked }))}
+                    className="accent-purple-600" />
+                  {label}
+                </label>
+              ))}
+            </div>
+
+            {form.preparation_required && (
+              <div className="md:col-span-2 rounded-xl border border-amber-200 bg-amber-50 p-4">
+                <label className="block text-sm font-medium text-amber-900 mb-2">قائمة تحضير المريض</label>
+                <div className="grid md:grid-cols-2 gap-2">
+                  {[
+                    'الصيام حسب تعليمات المركز',
+                    'إزالة المعادن والمجوهرات',
+                    'إحضار التحاليل السابقة',
+                    'إبلاغ المركز بالحساسية من الصبغة',
+                  ].map(item => (
+                    <label key={item} className="flex items-center gap-2 text-sm text-amber-800">
+                      <input type="checkbox" checked={preparationChecklist.includes(item)}
+                        onChange={e => setPreparationChecklist(items => e.target.checked
+                          ? [...items, item] : items.filter(x => x !== item))}
+                        className="accent-amber-600" />
+                      {item}
+                    </label>
+                  ))}
+                </div>
+                <textarea rows={2} value={preparationNotes}
+                  onChange={e => setPreparationNotes(e.target.value)}
+                  placeholder="تعليمات تحضير إضافية..."
+                  className="mt-3 w-full border border-amber-200 rounded-lg px-3 py-2 text-sm" />
               </div>
             )}
 
@@ -315,9 +443,9 @@ export default function RadiologyRequestsPage() {
             </div>
 
             <div className="md:col-span-2 flex gap-3 justify-end">
-              <button type="button" onClick={() => setShowForm(false)} className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800">إلغاء</button>
+              <button type="button" onClick={() => { setShowForm(false); setEditingRequest(null) }} className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800">إلغاء</button>
               <button type="submit" disabled={busy} className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2 rounded-lg text-sm font-medium disabled:opacity-60">
-                {busy ? 'جاري الإرسال...' : 'إرسال الطلب'}
+                {busy ? 'جاري الحفظ...' : editingRequest ? 'حفظ التعديل' : 'إرسال الطلب'}
               </button>
             </div>
           </form>
@@ -373,6 +501,12 @@ export default function RadiologyRequestsPage() {
 
               {expanded === req.id && (
                 <div className="border-t border-gray-50 p-4 bg-gray-50/50">
+                  {isPatient && ['requested', 'rejected'].includes(req.status) && (
+                    <div className="flex gap-2 mb-3">
+                      <button onClick={() => startEdit(req)} className="rounded-lg bg-blue-50 px-3 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-100">تعديل الطلب</button>
+                      <button onClick={() => deleteRequest(req)} className="rounded-lg bg-red-50 px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-100">حذف الطلب</button>
+                    </div>
+                  )}
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4 text-sm">
                     {req.ordering_doctor && <div><span className="text-gray-500">الطبيب الآمر: </span><span className="font-medium">{req.ordering_doctor}</span></div>}
                     {req.radiology_center_name && <div><span className="text-gray-500">المركز: </span><span className="font-medium">{req.radiology_center_name}</span></div>}
@@ -384,6 +518,10 @@ export default function RadiologyRequestsPage() {
                       </div>
                     )}
                     {req.clinical_reason && <div className="col-span-2"><span className="text-gray-500">السبب: </span><span>{req.clinical_reason}</span></div>}
+                    {req.patient_weight && <div><span className="text-gray-500">الوزن: </span><span className="font-medium">{req.patient_weight} كجم</span></div>}
+                    {req.requires_sedation && <div className="text-purple-700">يتطلب تخديراً</div>}
+                    {req.uses_contrast && <div className="text-purple-700">بصبغة</div>}
+                    {req.preparation_checklist?.length > 0 && <div className="col-span-2 text-amber-700">التحضير: {req.preparation_checklist.join('، ')}</div>}
                     {req.rejection_reason && <div className="col-span-2 text-red-600"><span className="font-medium">سبب الرفض: </span>{req.rejection_reason}</div>}
                   </div>
 

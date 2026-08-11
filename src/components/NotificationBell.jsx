@@ -46,6 +46,14 @@ export default function NotificationBell() {
     return () => clearInterval(pollRef.current)
   }, [fetchUnread])
 
+  const enableBrowserNotifications = async () => {
+    if (!('Notification' in window)) return
+    const permission = await Notification.requestPermission()
+    if (permission === 'granted') {
+      new Notification('صحتي', { body: 'سيتم عرض تنبيهاتك المهمة هنا.' })
+    }
+  }
+
   // Close on outside click
   useEffect(() => {
     const handler = (e) => {
@@ -144,7 +152,14 @@ export default function NotificationBell() {
 
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
-            <h3 className="text-sm font-bold text-gray-900">الإشعارات</h3>
+            <div className="flex items-center gap-2">
+              <h3 className="text-sm font-bold text-gray-900">الإشعارات</h3>
+              {'Notification' in window && Notification.permission !== 'granted' && (
+                <button onClick={enableBrowserNotifications} className="text-xs text-blue-600 hover:underline">
+                  تفعيل المتصفح
+                </button>
+              )}
+            </div>
             {unread > 0 && (
               <button onClick={markAllRead}
                 className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 transition-colors">

@@ -28,14 +28,14 @@ const CATEGORY_LABELS = {
   biochemistry: 'كيمياء حيوية', immunology: 'مناعة', genetics: 'جينات', other: 'أخرى',
 }
 
-const LAB_CENTERS = [
-  'مختبر ابن سينا',
-  'مختبر الأندلس الطبي',
-  'مختبر المملكة',
-  'مختبر بيوميد',
-  'مختبر الحياة الطبي',
-  'مختبر الأمل',
-  'أخرى',
+const COMMON_TESTS = [
+  { name: 'صورة دم كاملة CBC', category: 'blood' },
+  { name: 'سكر صيام', category: 'biochemistry' },
+  { name: 'وظائف الكبد', category: 'biochemistry' },
+  { name: 'وظائف الكلى', category: 'biochemistry' },
+  { name: 'تحليل البول', category: 'urine' },
+  { name: 'كولسترول', category: 'biochemistry' },
+  { name: 'هرمونات الغدة الدرقية', category: 'hormones' },
 ]
 
 // تعليمات التحضير لعرضها في الواجهة
@@ -60,6 +60,8 @@ export default function LabRequestsPage() {
   const [actionModal, setActionModal] = useState(null)
   const [busy, setBusy]           = useState(false)
   const [toast, setToast]         = useState(null)
+  const [labCenters, setLabCenters] = useState([])
+  const [editingRequest, setEditingRequest] = useState(null)
 
   const isAdmin   = ['admin','super_admin','laboratory','lab'].includes(user?.user_type)
   const isPatient = user?.user_type === 'patient'
@@ -80,6 +82,12 @@ export default function LabRequestsPage() {
   }, [token])
 
   useEffect(() => { load() }, [load])
+  useEffect(() => {
+    fetch('/api/facilities?type=lab&per_page=100')
+      .then(res => res.ok ? res.json() : null)
+      .then(data => setLabCenters(data?.facilities || []))
+      .catch(() => setLabCenters([]))
+  }, [])
 
   const filtered = requests.filter(r => tab === 'all' || r.status === tab)
 
@@ -92,12 +100,44 @@ export default function LabRequestsPage() {
   })
   const [selectedTests, setSelectedTests] = useState([{ name: '', category: 'blood' }])
   const [requestDoc, setRequestDoc] = useState(null)
+  const [preparationNotes, setPreparationNotes] = useState('')
 
   const prepInstructions = PREP_BY_CATEGORY[selectedTests[0]?.category] || PREP_BY_CATEGORY.other
 
   const addTest = () => setSelectedTests(ts => [...ts, { name: '', category: 'blood' }])
   const removeTest = idx => setSelectedTests(ts => ts.filter((_, i) => i !== idx))
   const updateTest = (idx, field, val) => setSelectedTests(ts => ts.map((t, i) => i === idx ? { ...t, [field]: val } : t))
+
+  const resetForm = () => {
+    setSelectedTests([{ name: '', category: 'blood' }])
+    setForm({ urgency:'routine', clinical_notes:'', ordering_doctor:'', patient_id:'', lab_center_name:'', scheduled_datetime:'', home_collection:false, collection_address:'', collection_date:'', collection_time:'', collection_staff_name:'' })
+    setPreparationNotes('')
+    setRequestDoc(null)
+    setEditingRequest(null)
+  }
+
+  const startEdit = req => {
+    setEditingRequest(req)
+    setSelectedTests(req.tests?.length ? req.tests : [{ name: req.test_name, category: req.test_category || 'blood' }])
+    setForm({
+      urgency: req.urgency || 'routine', clinical_notes: req.clinical_notes || '',
+      ordering_doctor: req.ordering_doctor || '', patient_id: req.patient_id || '',
+      lab_center_name: req.lab_center_name || '', scheduled_datetime: req.scheduled_datetime?.slice(0, 16) || '',
+      home_collection: !!req.home_collection, collection_address: req.collection_address || '',
+      collection_date: req.collection_date || '', collection_time: req.collection_time || '',
+      collection_staff_name: req.collection_staff_name || '',
+    })
+    setPreparationNotes(req.preparation_notes || '')
+    setShowForm(true)
+  }
+
+  const deleteRequest = async req => {
+    if (!window.confirm('هل تريد حذف طلب التحليل؟')) return
+    const res = await fetch(`${API}/lab-requests/${req.id}`, { method: 'DELETE', headers })
+    const data = await res.json()
+    if (res.ok) { showToast('تم حذف الطلب'); load() }
+    else showToast(data.message || 'لا يمكن حذف الطلب', 'error')
+  }
 
   const submitRequest = async e => {
     e.preventDefault()
@@ -109,6 +149,7 @@ export default function LabRequestsPage() {
       fd.append('test_name', validTests[0].name)
       fd.append('test_category', validTests[0].category)
       fd.append('tests_json', JSON.stringify(validTests))
+      fd.append('preparation_notes', preparationNotes)
       Object.entries(form).forEach(([k, v]) => {
         if (k === 'home_collection') fd.append(k, v ? 'true' : 'false')
         else if (v) fd.append(k, v)
@@ -116,18 +157,19 @@ export default function LabRequestsPage() {
       if (isPatient) fd.delete('patient_id')
       if (requestDoc) fd.append('request_doc', requestDoc)
 
-      const res = await fetch(`${API}/lab-requests`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
-        body: fd,
+      const res = await fetch(editingRequest ? `${API}/lab-requests/${editingRequest.id}` : `${API}/lab-requests`, {
+        method: editingRequest ? 'PUT' : 'POST',
+        ...(editingRequest ? { headers } : {}),
+        ...(!editingRequest ? { headers: { Authorization: `Bearer ${token}` } } : {}),
+        ...(editingRequest ? { body: JSON.stringify({
+          tests: validTests, ...form, preparation_notes: preparationNotes,
+        }) } : { body: fd }),
       })
       const data = await res.json()
       if (res.ok) {
-        showToast('تم إرسال طلب التحليل بنجاح')
+        showToast(editingRequest ? 'تم تعديل طلب التحليل' : 'تم إرسال طلب التحليل بنجاح')
         setShowForm(false)
-        setSelectedTests([{ name: '', category: 'blood' }])
-        setForm({ urgency:'routine', clinical_notes:'', ordering_doctor:'', patient_id:'', lab_center_name:'', scheduled_datetime:'', home_collection:false, collection_address:'', collection_date:'', collection_time:'', collection_staff_name:'' })
-        setRequestDoc(null)
+        resetForm()
         load()
       } else showToast(data.message || 'حدث خطأ', 'error')
     } finally { setBusy(false) }
@@ -251,7 +293,7 @@ export default function LabRequestsPage() {
       {/* نموذج الطلب */}
       {showForm && (
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
-          <h2 className="font-semibold text-gray-800 mb-4">طلب تحليل جديد</h2>
+          <h2 className="font-semibold text-gray-800 mb-4">{editingRequest ? 'تعديل طلب التحليل' : 'طلب تحليل جديد'}</h2>
           <form onSubmit={submitRequest} className="space-y-5">
 
             {/* قائمة التحاليل */}
@@ -281,6 +323,15 @@ export default function LabRequestsPage() {
                         className="text-red-400 hover:text-red-600 p-1"><XCircle size={16}/></button>
                     )}
                   </div>
+                ))}
+              </div>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {COMMON_TESTS.map(test => (
+                  <button key={test.name} type="button"
+                    onClick={() => setSelectedTests(ts => ts.some(t => t.name === test.name) ? ts : [...ts.filter(t => t.name), test])}
+                    className="text-xs rounded-full border border-blue-100 bg-blue-50 px-2.5 py-1 text-blue-700 hover:bg-blue-100">
+                    + {test.name}
+                  </button>
                 ))}
               </div>
             </div>
@@ -315,7 +366,7 @@ export default function LabRequestsPage() {
                 <select className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   value={form.lab_center_name} onChange={e => setForm(f=>({...f, lab_center_name: e.target.value}))}>
                   <option value="">-- اختر مركزاً --</option>
-                  {LAB_CENTERS.map(c => <option key={c} value={c}>{c}</option>)}
+                  {labCenters.map(c => <option key={c.id} value={c.name_ar}>{c.name_ar}</option>)}
                 </select>
               </div>
 
@@ -347,6 +398,12 @@ export default function LabRequestsPage() {
               <label className="block text-sm font-medium text-gray-700 mb-1">ملاحظات سريرية</label>
               <textarea rows={2} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 value={form.clinical_notes} onChange={e => setForm(f => ({...f, clinical_notes: e.target.value}))} placeholder="معلومات إضافية للمختبر..." />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">ملاحظات التحضير الخاصة</label>
+              <textarea rows={2} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                value={preparationNotes} onChange={e => setPreparationNotes(e.target.value)}
+                placeholder="مثال: أوقف الدواء حسب تعليمات الطبيب..." />
             </div>
 
             {/* وثيقة الطلب */}
@@ -397,7 +454,7 @@ export default function LabRequestsPage() {
             </div>
 
             <div className="flex gap-3 justify-end">
-              <button type="button" onClick={() => setShowForm(false)} className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800">إلغاء</button>
+              <button type="button" onClick={() => { setShowForm(false); resetForm() }} className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800">إلغاء</button>
               <button type="submit" disabled={busy} className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg text-sm font-medium disabled:opacity-60">
                 {busy ? 'جاري الإرسال...' : 'إرسال الطلب'}
               </button>
@@ -456,6 +513,12 @@ export default function LabRequestsPage() {
 
               {expanded === req.id && (
                 <div className="border-t border-gray-50 p-4 bg-gray-50/50">
+                  {isPatient && ['requested', 'rejected'].includes(req.status) && (
+                    <div className="flex gap-2 mb-3">
+                      <button onClick={() => startEdit(req)} className="rounded-lg bg-blue-50 px-3 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-100">تعديل الطلب</button>
+                      <button onClick={() => deleteRequest(req)} className="rounded-lg bg-red-50 px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-100">حذف الطلب</button>
+                    </div>
+                  )}
                   {/* تفاصيل */}
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-3 text-sm">
                     {req.ordering_doctor && <div><span className="text-gray-500">الطبيب: </span><span className="font-medium">{req.ordering_doctor}</span></div>}
