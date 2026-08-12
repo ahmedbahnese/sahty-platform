@@ -944,7 +944,7 @@ def delete_ecg(current_user, rid):
 # ──────────────────────────────────────────────
 @medical_record_bp.route('/public/<string:token>', methods=['GET'])
 def get_public_report(token):
-    """تقرير طبي للقراءة فقط عبر رمز QR — بدون تسجيل دخول."""
+    """التقرير الطبي الشامل للقراءة فقط عبر رمز QR — بدون تسجيل دخول."""
     import hmac, hashlib, os
     secret = os.environ.get('SESSION_SECRET', 'sehaty-secret')
     # token = patient_id:signature
@@ -964,12 +964,39 @@ def get_public_report(token):
     if not patient:
         return jsonify({'message': 'لم يتم العثور على الملف'}), 404
 
-    # رمز QR عام محدود عمداً: لا يعرض أي تشخيص أو دواء أو نتيجة طبية.
+    allergies = [a.to_dict() for a in Allergy.query.filter_by(patient_id=patient.id).all()]
+    diseases = [d.to_dict() for d in Disease.query.filter_by(patient_id=patient.id).all()]
+    medications = [m.to_dict() for m in Medication.query.filter_by(patient_id=patient.id, is_active=True).all()]
+    vaccinations = [v.to_dict() for v in Vaccination.query.filter_by(patient_id=patient.id).all()]
+    lab_tests = [l.to_dict() for l in LabTest.query.filter_by(patient_id=patient.id).order_by(LabTest.test_date.desc()).limit(20).all()]
+    radiology = [r.to_dict() for r in Radiology.query.filter_by(patient_id=patient.id).order_by(Radiology.scan_date.desc()).limit(10).all()]
+    history = MedicalHistory.query.filter_by(patient_id=patient.id).first()
+    from datetime import date as dt_date
+    age = None
+    if patient.date_of_birth:
+        today = dt_date.today()
+        age = today.year - patient.date_of_birth.year - (
+            (today.month, today.day) < (patient.date_of_birth.month, patient.date_of_birth.day)
+        )
     return jsonify({
         'generated_at': datetime.utcnow().isoformat(),
         'patient': {
             'name': f'{patient.first_name} {patient.last_name}',
+            'date_of_birth': patient.date_of_birth.isoformat() if patient.date_of_birth else None,
+            'age': age,
+            'gender': patient.gender,
+            'blood_type': patient.blood_type,
+            'height': patient.height,
+            'weight': patient.weight,
+            'bmi': round(patient.weight / ((patient.height / 100) ** 2), 1) if patient.height and patient.weight else None,
         },
+        'allergies': allergies,
+        'active_diseases': [d for d in diseases if d.get('status') in ('active', 'chronic')],
+        'current_medications': medications,
+        'vaccinations': vaccinations,
+        'recent_lab_tests': lab_tests,
+        'recent_radiology': radiology,
+        'medical_history': history.to_dict() if history else {},
     }), 200
 
 

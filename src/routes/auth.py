@@ -447,6 +447,90 @@ def switch_role(current_user):
         },
     })
 
+
+@auth_bp.route('/apply-role', methods=['POST'])
+@token_required
+def apply_role(current_user):
+    """Submit a professional role request without replacing the patient account."""
+    requested_role = (request.get_json(silent=True) or {}).get('role')
+    if requested_role not in ('doctor', 'nurse'):
+        return jsonify({'message': 'يمكن التقديم كطبيب أو تمريض فقط'}), 400
+
+    data = request.get_json(silent=True) or {}
+    existing = ProfessionalRoleRequest.query.filter_by(
+        user_id=current_user.id,
+        requested_role=requested_role,
+        status='PENDING_APPROVAL',
+    ).first()
+    if existing:
+        return jsonify({'message': 'يوجد طلب قيد المراجعة لهذا الدور'}), 409
+
+    role = Role.query.filter_by(name=requested_role).first()
+    if not role:
+        role = Role(name=requested_role, label_ar=ROLE_LABELS[requested_role])
+        db.session.add(role)
+        db.session.flush()
+    user_role = UserRole.query.filter_by(
+        user_id=current_user.id, role_id=role.id
+    ).first()
+    if user_role and user_role.status == 'ACTIVE':
+        return jsonify({'message': 'هذا الدور معتمد بالفعل'}), 409
+    if not user_role:
+        user_role = UserRole(user_id=current_user.id, role_id=role.id, status='PENDING_APPROVAL')
+        db.session.add(user_role)
+    else:
+        user_role.status = 'PENDING_APPROVAL'
+
+    request_row = ProfessionalRoleRequest(
+        user_id=current_user.id,
+        requested_role=requested_role,
+        status='PENDING_APPROVAL',
+        credentials={
+            'full_name': data.get('full_name') or '',
+            'license_number': data.get('license_number') or '',
+            'qualification': data.get('qualification') or '',
+            'specialization': data.get('specialization') or '',
+        },
+        documents={
+            'id_document': data.get('id_document'),
+            'professional_license': data.get('professional_license'),
+        },
+    )
+    db.session.add(request_row)
+
+    # The existing provider record is unique per user. Reuse it when possible;
+    # additional roles remain represented by ProfessionalRoleRequest/UserRole.
+    provider = ProviderRegistration.query.filter_by(user_id=current_user.id).first()
+    if not provider:
+        patient = Patient.query.filter_by(user_id=current_user.id).first()
+        full_name = data.get('full_name') or (
+            f'{patient.first_name} {patient.last_name}' if patient else current_user.username
+        )
+        provider = ProviderRegistration(
+            user_id=current_user.id,
+            provider_type=requested_role,
+            legal_name=full_name,
+            license_number=data.get('license_number') or f'PENDING-{current_user.id}',
+            phone=patient.phone if patient else '',
+            address=data.get('address') or '',
+            city=data.get('city') or '',
+            details={'qualification': data.get('qualification'), 'specialization': data.get('specialization')},
+            status='pending',
+        )
+        db.session.add(provider)
+
+    db.session.add(Notification(
+        user_id=current_user.id,
+        title='تم استلام طلب الدور المهني',
+        message=f'تم استلام طلبك للتقديم كـ {ROLE_LABELS[requested_role]} وسيتم مراجعته.',
+        type='system',
+    ))
+    db.session.commit()
+    return jsonify({
+        'message': 'تم إرسال طلبك بنجاح. سيظل حساب المريض متاحاً حتى اعتماد الدور.',
+        'request': request_row.to_dict(),
+    }), 201
+
 @auth_bp.route('/logout', methods=['POST'])
 @token_required
 def logout(current_user):

@@ -5,6 +5,7 @@ from flask import Blueprint, jsonify, request
 
 from src.models.admin import AuditLog
 from src.models.doctor import Doctor
+from src.models.patient import Patient
 from src.models.provider import PROVIDER_ROLES, ProviderRegistration
 from src.models.user import User, db
 from src.models.professional import (
@@ -56,6 +57,83 @@ def list_providers(current_user):
     if provider_type in PROVIDER_ROLES:
         query = query.filter_by(provider_type=provider_type)
     return jsonify([registration.to_dict() for registration in query.all()])
+
+
+@admin_bp.route('/role-requests', methods=['GET'])
+@admin_only
+def list_role_requests(current_user):
+    status = request.args.get('status', 'PENDING_APPROVAL')
+    query = ProfessionalRoleRequest.query.order_by(ProfessionalRoleRequest.submitted_at.desc())
+    if status:
+        query = query.filter_by(status=status)
+    return jsonify([item.to_dict() for item in query.all()])
+
+
+@admin_bp.route('/role-requests/<int:request_id>/review', methods=['PATCH'])
+@admin_only
+def review_role_request(current_user, request_id):
+    item = db.session.get(ProfessionalRoleRequest, request_id)
+    if not item:
+        return jsonify({'message': 'طلب الدور غير موجود'}), 404
+    decision = (request.get_json(silent=True) or {}).get('status')
+    if decision not in ('APPROVED', 'REJECTED', 'MORE_INFORMATION'):
+        return jsonify({'message': 'حالة الطلب غير صالحة'}), 400
+
+    item.status = decision
+    item.reviewed_at = datetime.utcnow()
+    item.reviewed_by = current_user.id
+    if decision == 'REJECTED':
+        item.rejection_reason = (request.get_json(silent=True) or {}).get('review_note') or None
+
+    role = Role.query.filter_by(name=item.requested_role).first()
+    if not role:
+        role = Role(name=item.requested_role, label_ar=item.requested_role)
+        db.session.add(role)
+        db.session.flush()
+    user_role = UserRole.query.filter_by(user_id=item.user_id, role_id=role.id).first()
+    if not user_role:
+        user_role = UserRole(user_id=item.user_id, role_id=role.id)
+        db.session.add(user_role)
+    user_role.status = 'ACTIVE' if decision == 'APPROVED' else (
+        'PENDING_APPROVAL' if decision == 'MORE_INFORMATION' else 'REJECTED'
+    )
+    user_role.activated_at = datetime.utcnow() if decision == 'APPROVED' else None
+
+    if decision == 'APPROVED' and item.requested_role == 'doctor':
+        patient = Patient.query.filter_by(user_id=item.user_id).first()
+        if patient and not Doctor.query.filter_by(user_id=item.user_id).first():
+            credentials = item.credentials or {}
+            db.session.add(Doctor(
+                user_id=item.user_id,
+                first_name=patient.first_name,
+                last_name=patient.last_name,
+                email=patient.email,
+                phone=patient.phone,
+                license_number=credentials.get('license_number') or f'LIC-{item.user_id}',
+                specialization=credentials.get('specialization') or '',
+                is_verified=True,
+                is_active=True,
+            ))
+    if decision == 'APPROVED' and item.requested_role == 'nurse':
+        patient = Patient.query.filter_by(user_id=item.user_id).first()
+        if patient and not NurseProfile.query.filter_by(user_id=item.user_id).first():
+            credentials = item.credentials or {}
+            db.session.add(NurseProfile(
+                user_id=item.user_id,
+                full_name=credentials.get('full_name') or f'{patient.first_name} {patient.last_name}',
+                qualification=credentials.get('qualification') or 'غير محدد',
+                license_number=credentials.get('license_number') or f'LIC-{item.user_id}',
+                is_active=True,
+            ))
+    db.session.add(Notification(
+        user_id=item.user_id,
+        title='تم تحديث طلب الدور المهني',
+        message='تم اعتماد طلبك ويمكنك التبديل إلى الدور الجديد.' if decision == 'APPROVED'
+        else 'تم تحديث حالة طلب الدور المهني.',
+        type='system',
+    ))
+    db.session.commit()
+    return jsonify(item.to_dict()), 200
 
 
 @admin_bp.route('/providers/<int:registration_id>/review', methods=['PATCH'])

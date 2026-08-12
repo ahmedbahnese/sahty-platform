@@ -13,7 +13,7 @@ import json
 import uuid
 from datetime import datetime
 
-from flask import Blueprint, request, jsonify, send_from_directory
+from flask import Blueprint, request, jsonify, send_from_directory, g
 from werkzeug.utils import secure_filename
 
 from src.models.user import db
@@ -144,13 +144,20 @@ def create_pharmacy_order(current_user):
 @pharmacy_order_bp.route('/pharmacy-orders', methods=['GET'])
 @token_required
 def list_pharmacy_orders(current_user):
-    if current_user.user_type == 'patient':
+    role = getattr(g, 'current_role', current_user.user_type)
+    if role == 'patient':
         patient = Patient.query.filter_by(user_id=current_user.id).first()
         if not patient:
             return jsonify([]), 200
         q = PharmacyOrder.query.filter_by(patient_id=patient.id)
+    elif role == 'pharmacy':
+        # A pharmacy only sees orders explicitly addressed to it. Legacy orders
+        # without a selected pharmacy remain visible to admins, not every store.
+        provider_id = request.args.get('pharmacy_id', type=int)
+        q = PharmacyOrder.query.filter(
+            PharmacyOrder.preferred_pharmacy_id == provider_id
+        ) if provider_id else PharmacyOrder.query.filter_by(preferred_pharmacy_id=None)
     else:
-        # صيدلية أو مسؤول
         q = PharmacyOrder.query
 
     status_filter = request.args.get('status')
@@ -165,7 +172,7 @@ def list_pharmacy_orders(current_user):
 @token_required
 def get_pharmacy_order(current_user, order_id):
     order = PharmacyOrder.query.get_or_404(order_id)
-    if current_user.user_type == 'patient':
+    if getattr(g, 'current_role', current_user.user_type) == 'patient':
         patient = Patient.query.filter_by(user_id=current_user.id).first()
         if not patient or order.patient_id != patient.id:
             return jsonify({'message': 'غير مصرح'}), 403
@@ -179,7 +186,7 @@ def get_pharmacy_order(current_user, order_id):
 @pharmacy_order_bp.route('/pharmacy-orders/<int:order_id>/confirm', methods=['PUT'])
 @token_required
 def confirm_pharmacy_order(current_user, order_id):
-    if current_user.user_type not in ('admin', 'super_admin', 'pharmacy'):
+    if getattr(g, 'current_role', current_user.user_type) not in ('admin', 'super_admin', 'pharmacy'):
         return jsonify({'message': 'غير مصرح'}), 403
     order = PharmacyOrder.query.get_or_404(order_id)
     if order.status != 'pending':
@@ -198,7 +205,7 @@ def confirm_pharmacy_order(current_user, order_id):
 @pharmacy_order_bp.route('/pharmacy-orders/<int:order_id>/dispense', methods=['PUT'])
 @token_required
 def dispense_pharmacy_order(current_user, order_id):
-    if current_user.user_type not in ('admin', 'super_admin', 'pharmacy'):
+    if getattr(g, 'current_role', current_user.user_type) not in ('admin', 'super_admin', 'pharmacy'):
         return jsonify({'message': 'غير مصرح'}), 403
     order = PharmacyOrder.query.get_or_404(order_id)
     if order.status not in ('pending', 'confirmed'):

@@ -52,6 +52,8 @@ export default function MedicationOrderPage() {
   const [fulfillmentMethod, setFulfillmentMethod] = useState('pickup')
   const [deliveryAddress, setDeliveryAddress] = useState('')
   const [orderNotes, setOrderNotes] = useState('')
+  const [location, setLocation] = useState(null)
+  const [locationLoading, setLocationLoading] = useState(false)
 
   const isPharmacy = ['pharmacy', 'admin', 'super_admin'].includes(user?.user_type)
 
@@ -85,6 +87,37 @@ export default function MedicationOrderPage() {
       .then(data => setPharmacies(data?.facilities || []))
       .catch(() => setPharmacies([]))
   }, [])
+
+  const findNearestPharmacy = () => {
+    if (!navigator.geolocation) {
+      showToast('المتصفح لا يدعم تحديد الموقع', 'error')
+      return
+    }
+    setLocationLoading(true)
+    navigator.geolocation.getCurrentPosition(async ({ coords }) => {
+      const nextLocation = { lat: coords.latitude, lng: coords.longitude }
+      setLocation(nextLocation)
+      try {
+        const res = await fetch(`/api/facilities?type=pharmacy&per_page=100&nearest=1&lat=${coords.latitude}&lng=${coords.longitude}`)
+        const data = await res.json()
+        const nearest = data?.facilities?.[0]
+        if (nearest) {
+          setPharmacies(data.facilities)
+          setPreferredPharmacy(nearest.name_ar)
+          showToast(`تم اختيار أقرب صيدلية: ${nearest.name_ar}`)
+        } else {
+          showToast('لم نعثر على صيدلية قريبة', 'error')
+        }
+      } catch {
+        showToast('تعذر البحث عن الصيدلية الأقرب', 'error')
+      } finally {
+        setLocationLoading(false)
+      }
+    }, () => {
+      setLocationLoading(false)
+      showToast('تعذر تحديد الموقع. تحقق من إذن الموقع.', 'error')
+    })
+  }
 
   const filtered = orders.filter(o => tab === 'all' || o.status === tab)
 
@@ -222,12 +255,13 @@ export default function MedicationOrderPage() {
             {/* وصفة ورقية */}
             {orderType === 'paper_prescription' && (
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">صورة الوصفة الطبية (اختياري)</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">صورة الوصفة الطبية *</label>
                 <input type="file" accept=".jpg,.jpeg,.png,.pdf,.webp"
+                  required
                   onChange={e => setPrescriptionImage(e.target.files[0])}
                   className="w-full text-sm text-gray-500 file:ml-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-sm file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100" />
                 {prescriptionImage && <p className="text-xs text-emerald-600 mt-1">✓ {prescriptionImage.name}</p>}
-                <p className="text-xs text-gray-400 mt-1">ارفع صورة واضحة للوصفة الطبية</p>
+                <p className="text-xs text-gray-400 mt-1">ارفع صورة واضحة أو ملف PDF للروشتة لإرسالها إلى الصيدلية الأقرب.</p>
               </div>
             )}
 
@@ -291,14 +325,21 @@ export default function MedicationOrderPage() {
 
             {/* الصيدلية المفضّلة */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-1">
+              <div className="mb-1 flex items-center justify-between gap-2">
+                <label className="flex items-center gap-1 text-sm font-medium text-gray-700">
                 <Building2 size={13}/> الصيدلية المفضّلة
-              </label>
+                </label>
+                <button type="button" onClick={findNearestPharmacy} disabled={locationLoading}
+                  className="flex items-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700 hover:bg-emerald-100 disabled:opacity-60">
+                  {locationLoading ? 'جاري البحث...' : 'اختيار الأقرب بالموقع'}
+                </button>
+              </div>
               <select className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500 outline-none"
                 value={preferredPharmacy} onChange={e => setPreferredPharmacy(e.target.value)}>
                 <option value="">-- اختر صيدلية --</option>
-                {pharmacies.map(p => <option key={p.id} value={p.name_ar}>{p.name_ar}</option>)}
+                {pharmacies.map(p => <option key={p.id} value={p.name_ar}>{p.name_ar}{p.distance_km != null ? ` — ${p.distance_km} كم` : ''}</option>)}
               </select>
+              {location && <p className="mt-1 text-xs text-emerald-600">تم استخدام موقعك للعثور على أقرب صيدلية.</p>}
               {!pharmacies.length && <p className="text-xs text-amber-700 mt-1">لا توجد صيدليات متاحة في الدليل حالياً.</p>}
             </div>
 

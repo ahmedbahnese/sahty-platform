@@ -185,9 +185,7 @@ export default function BloodBankPage() {
   }
 
   const tabs = [
-    { key:'requests', label:'طلبات الدم' },
     { key:'banks',    label:'بنوك الدم' },
-    { key:'donate',   label:'سجّل متبرعاً' },
   ]
 
   return (
@@ -201,21 +199,6 @@ export default function BloodBankPage() {
           </div>
           <h1 className="text-4xl font-bold text-gray-900 mb-3">بنك الدم الرقمي</h1>
           <p className="text-lg text-gray-600 max-w-2xl mx-auto">طلبات الدم · بنوك الدم بمواقعها وأرقامها · تسجيل المتبرعين</p>
-        </div>
-
-        {/* Quick stats — real data from API */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-          {[
-            [stats.total_donors.toLocaleString('ar-EG'),   'متبرع نشط',       'text-red-600'],
-            [stats.active_requests.toLocaleString('ar-EG'),'طلب نشط',         'text-blue-600'],
-            [stats.total_donations.toLocaleString('ar-EG'),'عملية تبرع',      'text-green-600'],
-            [stats.critical_requests.toLocaleString('ar-EG'),'طلب حرج',       'text-orange-600'],
-          ].map(([v,l,c])=>(
-            <div key={l} className="bg-white p-5 rounded-xl shadow-sm border border-gray-100 text-center">
-              <div className={`text-3xl font-bold mb-1 ${c}`}>{v}</div>
-              <div className="text-gray-600 text-sm">{l}</div>
-            </div>
-          ))}
         </div>
 
         {/* Tabs */}

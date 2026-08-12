@@ -146,6 +146,25 @@ export function AuthProvider({ children }) {
     }
   }
 
+  const applyRole = async (role, details = {}) => {
+    try {
+      const response = await fetch(`${API_BASE}/auth/apply-role`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${tokenRef.current}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ role, ...details }),
+      })
+      const data = await response.json()
+      return response.ok
+        ? { success: true, message: data.message, request: data.request }
+        : { success: false, message: data.message }
+    } catch {
+      return { success: false, message: 'خطأ في الاتصال بالخادم' }
+    }
+  }
+
   const logout = async () => {
     const currentToken = tokenRef.current
     _clearSession()
@@ -190,6 +209,7 @@ export function AuthProvider({ children }) {
     login,
     register,
     switchRole,
+    applyRole,
     logout,
     changePassword,
     isAuthenticated: !!user,

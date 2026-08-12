@@ -2,7 +2,7 @@
 مسارات API للوصفات الطبية.
 يشمل: الإنشاء، الإرسال للصيدلية، تأكيد الصرف، التاريخ.
 """
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, g
 from datetime import datetime, date, timedelta
 from src.models.user import db, User
 from src.models.patient import Patient
@@ -51,19 +51,20 @@ def list_prescriptions(current_user):
     """
     status_filter = request.args.get('status')
 
-    if current_user.user_type == 'patient':
+    role = getattr(g, 'current_role', current_user.user_type)
+    if role == 'patient':
         patient = Patient.query.filter_by(user_id=current_user.id).first()
         if not patient:
             return jsonify({'message': 'لم يتم العثور على ملف المريض'}), 404
         query = Prescription.query.filter_by(patient_id=patient.id)
 
-    elif current_user.user_type == 'doctor':
+    elif role == 'doctor':
         doctor = Doctor.query.filter_by(user_id=current_user.id).first()
         if not doctor:
             return jsonify({'message': 'لم يتم العثور على ملف الطبيب'}), 404
         query = Prescription.query.filter_by(doctor_id=doctor.id)
 
-    elif current_user.user_type == 'pharmacy':
+    elif role == 'pharmacy':
         query = Prescription.query.filter_by(pharmacy_user_id=current_user.id)
 
     else:

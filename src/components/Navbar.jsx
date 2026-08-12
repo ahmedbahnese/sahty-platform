@@ -32,7 +32,10 @@ export default function Navbar() {
   const [userMenuOpen, setUserMenuOpen] = useState(false)
   const [shortcutsOpen, setShortcutsOpen] = useState(false)
   const [darkMode, setDarkMode] = useState(() => localStorage.getItem('sahty-theme') === 'dark')
-  const { user, logout, switchRole, isAuthenticated, isAdmin } = useAuth()
+  const { user, logout, switchRole, applyRole, isAuthenticated, isAdmin } = useAuth()
+  const [roleFormOpen, setRoleFormOpen] = useState(false)
+  const [roleForm, setRoleForm] = useState({ role: 'doctor', full_name: '', license_number: '', qualification: '', specialization: '' })
+  const [roleMessage, setRoleMessage] = useState(null)
   const location = useLocation()
 
   useEffect(() => {
@@ -43,6 +46,13 @@ export default function Navbar() {
   const handleLogout = async () => {
     await logout()
     setUserMenuOpen(false)
+  }
+
+  const submitRoleApplication = async (event) => {
+    event.preventDefault()
+    const result = await applyRole(roleForm.role, roleForm)
+    setRoleMessage({ type: result.success ? 'success' : 'error', text: result.message })
+    if (result.success) setRoleFormOpen(false)
   }
 
   const isActive = (path) => location.pathname === path
@@ -121,7 +131,7 @@ export default function Navbar() {
                 className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium text-gray-600 dark:text-gray-200 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-slate-800"
                 aria-expanded={shortcutsOpen}
               >
-                <ClipboardList className="h-4 w-4" /> الخدمات السريعة
+                <ClipboardList className="h-4 w-4" /> الخدمات الطبية
                 <ChevronDown className="h-3.5 w-3.5" />
               </button>
               {shortcutsOpen && (
@@ -190,6 +200,14 @@ export default function Navbar() {
                               ))}
                             </div>
                           </div>
+                        )}
+                        {user?.user_type === 'patient' && (
+                          <button
+                            onClick={() => { setRoleFormOpen(true); setUserMenuOpen(false); setRoleMessage(null) }}
+                            className="mx-3 mb-2 w-[calc(100%-1.5rem)] rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-right text-xs font-semibold text-blue-700 hover:bg-blue-100"
+                          >
+                            تقديم كطبيب أو تمريض
+                          </button>
                         )}
                         {userMenuItems.map(item => {
                           const Icon = item.icon
@@ -335,6 +353,45 @@ export default function Navbar() {
               </div>
             )}
           </div>
+        </div>
+      )}
+
+      {roleFormOpen && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/40 p-4" dir="rtl">
+          <form onSubmit={submitRoleApplication} className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl">
+            <div className="mb-5 flex items-start justify-between gap-4">
+              <div>
+                <h2 className="text-lg font-bold text-gray-900">التقديم لدور مهني</h2>
+                <p className="mt-1 text-xs text-gray-500">سيظل حساب المريض متاحاً حتى اعتماد الطلب.</p>
+              </div>
+              <button type="button" onClick={() => setRoleFormOpen(false)} className="text-gray-400 hover:text-gray-700"><X className="h-5 w-5" /></button>
+            </div>
+            {roleMessage && <div className={`mb-4 rounded-lg p-3 text-sm ${roleMessage.type === 'success' ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'}`}>{roleMessage.text}</div>}
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="text-sm text-gray-700 sm:col-span-2">الدور المطلوب
+                <select value={roleForm.role} onChange={e => setRoleForm(f => ({ ...f, role: e.target.value }))} className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2">
+                  <option value="doctor">طبيب</option>
+                  <option value="nurse">تمريض</option>
+                </select>
+              </label>
+              <label className="text-sm text-gray-700 sm:col-span-2">الاسم المهني
+                <input required value={roleForm.full_name} onChange={e => setRoleForm(f => ({ ...f, full_name: e.target.value }))} className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2" />
+              </label>
+              <label className="text-sm text-gray-700">رقم الترخيص
+                <input required value={roleForm.license_number} onChange={e => setRoleForm(f => ({ ...f, license_number: e.target.value }))} className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2" />
+              </label>
+              <label className="text-sm text-gray-700">المؤهل
+                <input required value={roleForm.qualification} onChange={e => setRoleForm(f => ({ ...f, qualification: e.target.value }))} className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2" />
+              </label>
+              {roleForm.role === 'doctor' && <label className="text-sm text-gray-700 sm:col-span-2">التخصص
+                <input value={roleForm.specialization} onChange={e => setRoleForm(f => ({ ...f, specialization: e.target.value }))} className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2" />
+              </label>}
+            </div>
+            <div className="mt-6 flex justify-end gap-2">
+              <button type="button" onClick={() => setRoleFormOpen(false)} className="rounded-lg px-4 py-2 text-sm text-gray-600 hover:bg-gray-50">إلغاء</button>
+              <button type="submit" className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700">إرسال الطلب</button>
+            </div>
+          </form>
         </div>
       )}
     </nav>
