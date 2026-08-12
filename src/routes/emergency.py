@@ -41,7 +41,7 @@ def _make_notification(user_id, title, message, ref_type, ref_id):
 def _patient_emergency_info(patient: Patient) -> dict:
     """بناء قاموس المعلومات الطارئة للمريض."""
     allergies = [a.allergen for a in Allergy.query.filter_by(patient_id=patient.id).all()]
-    meds = [m.medication_name for m in
+    meds = [m.name for m in
             Medication.query.filter_by(patient_id=patient.id, is_active=True).all()]
     return {
         'name':        f"{patient.first_name} {patient.last_name}",

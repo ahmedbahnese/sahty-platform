@@ -101,6 +101,8 @@ export default function EmergencyPage() {
 
   /* alerts history */
   const [alerts, setAlerts]         = useState([])
+  const [editingAlertId, setEditingAlertId] = useState(null)
+  const [editingAlert, setEditingAlert] = useState(null)
 
   const hdr = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }
 
@@ -213,6 +215,56 @@ export default function EmergencyPage() {
       if (res.ok) { showToast(data.message); loadAlerts() }
       else showToast(data.message || 'حدث خطأ', 'error')
     } finally { setBusy(false) }
+  }
+
+  const beginAlertEdit = alert => {
+    setEditingAlertId(alert.id)
+    setEditingAlert({
+      emergency_type: alert.emergency_type || '',
+      severity: alert.severity || 'urgent',
+      description: alert.description || '',
+      location_text: alert.location_text || '',
+      caller_name: alert.caller_name || '',
+      caller_phone: alert.caller_phone || '',
+      latitude: alert.latitude ?? '',
+      longitude: alert.longitude ?? '',
+    })
+  }
+
+  const saveAlertEdit = async event => {
+    event.preventDefault()
+    if (!editingAlertId || !editingAlert) return
+    setBusy(true)
+    try {
+      const res = await fetch(`${API}/emergency/alerts/${editingAlertId}`, {
+        method: 'PUT',
+        headers: hdr,
+        body: JSON.stringify(editingAlert),
+      })
+      const data = await res.json()
+      if (res.ok) {
+        showToast('تم حفظ بيانات الطوارئ')
+        setEditingAlertId(null)
+        setEditingAlert(null)
+        loadAlerts()
+      } else showToast(data.message || 'تعذر حفظ البيانات', 'error')
+    } finally { setBusy(false) }
+  }
+
+  const setAlertLocation = () => {
+    if (!navigator.geolocation) {
+      showToast('المتصفح لا يدعم تحديد الموقع', 'error')
+      return
+    }
+    navigator.geolocation.getCurrentPosition(({ coords: next }) => {
+      setEditingAlert(form => ({
+        ...form,
+        latitude: next.latitude,
+        longitude: next.longitude,
+        location_text: `${next.latitude.toFixed(5)}, ${next.longitude.toFixed(5)}`,
+      }))
+      showToast('تم تحديث موقع التنبيه')
+    }, () => showToast('تعذر تحديد الموقع. تحقق من إذن الموقع.', 'error'))
   }
 
   /* ── Alerts ── */
@@ -817,10 +869,51 @@ export default function EmergencyPage() {
                                   className="flex items-center gap-1 text-xs border border-gray-200 hover:bg-gray-100 text-gray-600 px-2.5 py-1.5 rounded-lg">
                                   <CheckCircle size={11}/> إغلاق
                                 </button>
+                                <button onClick={() => beginAlertEdit(a)}
+                                  className="flex items-center gap-1 rounded-lg border border-blue-200 px-2.5 py-1.5 text-xs text-blue-700 hover:bg-blue-50">
+                                  <Activity size={11}/> تعديل البيانات
+                                </button>
                               </>
                             )}
                           </div>
                         </div>
+                        {editingAlertId === a.id && editingAlert && (
+                          <form onSubmit={saveAlertEdit} className="mt-3 space-y-3 rounded-xl border border-blue-100 bg-blue-50/60 p-3">
+                            <div className="grid gap-3 sm:grid-cols-2">
+                              <label className="text-xs font-medium text-gray-700">نوع الطوارئ
+                                <select value={editingAlert.emergency_type} onChange={e => setEditingAlert(f => ({ ...f, emergency_type: e.target.value }))} className="mt-1 w-full rounded-lg border border-gray-200 bg-white px-2.5 py-2 text-sm">
+                                  {EMERGENCY_TYPES.map(type => <option key={type} value={type}>{type}</option>)}
+                                </select>
+                              </label>
+                              <label className="text-xs font-medium text-gray-700">درجة الخطورة
+                                <select value={editingAlert.severity} onChange={e => setEditingAlert(f => ({ ...f, severity: e.target.value }))} className="mt-1 w-full rounded-lg border border-gray-200 bg-white px-2.5 py-2 text-sm">
+                                  {Object.entries(SEVERITY_CFG).map(([value, config]) => <option key={value} value={value}>{config.label}</option>)}
+                                </select>
+                              </label>
+                              <label className="text-xs font-medium text-gray-700 sm:col-span-2">العنوان أو موقع الحالة
+                                <input value={editingAlert.location_text} onChange={e => setEditingAlert(f => ({ ...f, location_text: e.target.value }))} placeholder="العنوان التفصيلي أو وصف الموقع" className="mt-1 w-full rounded-lg border border-gray-200 bg-white px-2.5 py-2 text-sm" />
+                              </label>
+                              <label className="text-xs font-medium text-gray-700 sm:col-span-2">الملاحظات ووصف الحالة
+                                <textarea value={editingAlert.description} onChange={e => setEditingAlert(f => ({ ...f, description: e.target.value }))} rows={2} placeholder="أضف أي ملاحظات مهمة للمستجيب" className="mt-1 w-full rounded-lg border border-gray-200 bg-white px-2.5 py-2 text-sm" />
+                              </label>
+                              <label className="text-xs font-medium text-gray-700">اسم المتصل
+                                <input value={editingAlert.caller_name} onChange={e => setEditingAlert(f => ({ ...f, caller_name: e.target.value }))} className="mt-1 w-full rounded-lg border border-gray-200 bg-white px-2.5 py-2 text-sm" />
+                              </label>
+                              <label className="text-xs font-medium text-gray-700">هاتف المتصل
+                                <input value={editingAlert.caller_phone} onChange={e => setEditingAlert(f => ({ ...f, caller_phone: e.target.value }))} className="mt-1 w-full rounded-lg border border-gray-200 bg-white px-2.5 py-2 text-sm" />
+                              </label>
+                            </div>
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <button type="button" onClick={setAlertLocation} className="flex items-center gap-1 rounded-lg border border-blue-200 bg-white px-3 py-2 text-xs font-semibold text-blue-700 hover:bg-blue-100">
+                                <Navigation size={12}/> استخدام موقعي الحالي
+                              </button>
+                              <div className="flex gap-2">
+                                <button type="button" onClick={() => { setEditingAlertId(null); setEditingAlert(null) }} className="rounded-lg px-3 py-2 text-xs text-gray-600 hover:bg-white">إلغاء</button>
+                                <button type="submit" disabled={busy} className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold text-white hover:bg-blue-700 disabled:opacity-60">حفظ التعديل</button>
+                              </div>
+                            </div>
+                          </form>
+                        )}
                         {a.family_notified && (
                           <p className="text-xs text-green-600 mt-2 flex items-center gap-1">
                             <CheckCircle size={11}/> تم إشعار العائلة
