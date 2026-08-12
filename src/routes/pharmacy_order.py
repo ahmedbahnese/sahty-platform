@@ -75,6 +75,8 @@ def create_pharmacy_order(current_user):
     order_type = data.get('order_type', 'manual')
     if order_type not in ('paper_prescription', 'manual', 'from_prescription'):
         return jsonify({'message': 'نوع الطلب غير صالح'}), 400
+    if order_type == 'paper_prescription' and 'prescription_image' not in request.files:
+        return jsonify({'message': 'صورة الروشتة مطلوبة لهذا النوع من الطلبات'}), 400
 
     # الأدوية (JSON string)
     meds_raw = data.get('medications_json', '[]')
@@ -121,9 +123,6 @@ def create_pharmacy_order(current_user):
         if saved_name:
             order.prescription_image_path = saved_name
             order.prescription_image_name = request.files['prescription_image'].filename
-    elif order_type == 'paper_prescription' and not data.get('prescription_image_path'):
-        pass   # الصورة اختيارية لكن يُفضَّل
-
     db.session.commit()
 
     # إشعار المريض

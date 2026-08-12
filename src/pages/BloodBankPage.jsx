@@ -52,7 +52,7 @@ const API = (path, opts = {}) =>
 export default function BloodBankPage() {
   const [searchParams] = useSearchParams()
   const [activeTab, setActiveTab] = useState(
-    searchParams.get('tab') === 'donate' ? 'donate' : searchParams.get('tab') === 'banks' ? 'banks' : 'requests'
+    'banks'
   )
 
   /* stats */
