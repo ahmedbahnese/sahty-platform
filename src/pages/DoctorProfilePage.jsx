@@ -23,8 +23,10 @@ export default function DoctorProfilePage() {
   const [bookingLoading, setBookingLoading] = useState(false)
   const [bookingForm, setBookingForm] = useState({ reason: '', symptoms: '', appointment_type: 'in_person' })
   const [bookingSuccess, setBookingSuccess] = useState(false)
+  const [confirmedAppointment, setConfirmedAppointment] = useState(null)
   const [error, setError] = useState(null)
   const [slotDays, setSlotDays] = useState(7)
+  const [selectedDate, setSelectedDate] = useState('')
 
   const authHeaders = () => ({
     'Content-Type': 'application/json',
@@ -36,7 +38,10 @@ export default function DoctorProfilePage() {
   }, [id])
 
   useEffect(() => {
-    if (doctor) fetchSlots()
+    if (doctor) {
+      setSelectedDate('')
+      fetchSlots()
+    }
   }, [doctor, slotDays])
 
   async function fetchDoctor() {
@@ -60,6 +65,7 @@ export default function DoctorProfilePage() {
       if (res.ok) {
         const data = await res.json()
         setSlots(data.slots || [])
+        setSelectedDate(current => current || data.slots?.[0]?.date || '')
       }
     } finally {
       setSlotsLoading(false)
@@ -84,7 +90,9 @@ export default function DoctorProfilePage() {
       })
       const data = await res.json()
       if (res.ok) {
+        setConfirmedAppointment(data.appointment)
         setBookingSuccess(true)
+        setBookingOpen(false)
         fetchSlots()
       } else {
         setError(data.message || 'فشل الحجز')
@@ -102,11 +110,19 @@ export default function DoctorProfilePage() {
     acc[slot.date].push(slot)
     return acc
   }, {})
+  const availableDates = Object.keys(slotsByDate)
+  const visibleSlots = slotsByDate[selectedDate] || []
 
   const formatDate = (iso) => {
     const d = new Date(iso)
     return d.toLocaleDateString('ar-EG', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
   }
+
+  const formatDateShort = (iso) => new Date(`${iso}T00:00:00`).toLocaleDateString('ar-EG', {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+  })
 
   if (loading) return (
     <div className="min-h-screen flex items-center justify-center">
@@ -256,30 +272,55 @@ export default function DoctorProfilePage() {
                   <p className="text-sm">لا توجد أوقات متاحة خلال هذه الفترة</p>
                 </div>
               ) : (
-                <div className="space-y-4">
-                  {Object.entries(slotsByDate).map(([date, daySlots]) => (
-                    <div key={date}>
-                      <p className="text-xs font-semibold text-gray-500 mb-2">{formatDate(date)}</p>
-                      <div className="flex flex-wrap gap-2">
-                        {daySlots.map(slot => (
-                          <button
-                            key={slot.datetime}
-                            onClick={() => { setSelectedSlot(slot); setBookingOpen(true) }}
-                            className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-all ${
-                              selectedSlot?.datetime === slot.datetime
-                                ? 'text-white border-blue-600'
-                                : 'text-gray-700 border-gray-200 hover:border-blue-400 hover:bg-blue-50'
-                            }`}
-                            style={selectedSlot?.datetime === slot.datetime
-                              ? { background: 'linear-gradient(135deg, #0f2444 0%, #2563eb 100%)' }
-                              : {}}
-                          >
-                            {slot.time}
-                          </button>
-                        ))}
-                      </div>
+                <div className="space-y-5">
+                  <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1" role="tablist" aria-label="اختر تاريخ الموعد">
+                    {availableDates.map(date => (
+                      <button
+                        key={date}
+                        type="button"
+                        role="tab"
+                        aria-selected={selectedDate === date}
+                        onClick={() => { setSelectedDate(date); setSelectedSlot(null) }}
+                        className={`min-w-[92px] rounded-xl border px-3 py-2 text-center text-xs font-semibold transition ${
+                          selectedDate === date
+                            ? 'border-blue-600 bg-blue-600 text-white shadow-sm'
+                            : 'border-slate-200 bg-white text-slate-600 hover:border-blue-300 hover:bg-blue-50'
+                        }`}
+                      >
+                        <span className="block">{formatDateShort(date)}</span>
+                      </button>
+                    ))}
+                  </div>
+                  <div>
+                    <p className="mb-2 text-sm font-bold text-slate-800">{selectedDate && formatDate(selectedDate)}</p>
+                    <div className="flex flex-wrap gap-2">
+                      {visibleSlots.map(slot => (
+                        <button
+                          key={slot.datetime}
+                          type="button"
+                          disabled={!slot.available}
+                          onClick={() => { setSelectedSlot(slot); setBookingOpen(true) }}
+                          aria-label={`${slot.time}${slot.available ? '' : ' غير متاح'}`}
+                          className={`rounded-lg border px-3 py-1.5 text-sm font-medium transition-all ${
+                            !slot.available
+                              ? 'cursor-not-allowed border-slate-100 bg-slate-100 text-slate-400 line-through'
+                              : selectedSlot?.datetime === slot.datetime
+                                ? 'border-blue-600 text-white'
+                                : 'border-slate-200 text-slate-700 hover:border-blue-400 hover:bg-blue-50'
+                          }`}
+                          style={selectedSlot?.datetime === slot.datetime && slot.available
+                            ? { background: 'linear-gradient(135deg, #0f2444 0%, #2563eb 100%)' }
+                            : {}}
+                        >
+                          {slot.time}
+                        </button>
+                      ))}
                     </div>
-                  ))}
+                    <div className="mt-3 flex flex-wrap gap-3 text-xs text-slate-500">
+                      <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-blue-600" /> متاح للحجز</span>
+                      <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-slate-300" /> محجوز</span>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
@@ -337,7 +378,15 @@ export default function DoctorProfilePage() {
                 <div className="text-center py-3">
                   <CheckCircle className="h-10 w-10 text-green-500 mx-auto mb-2" />
                   <p className="text-sm font-semibold text-green-700">تم الحجز بنجاح!</p>
-                  <p className="text-xs text-gray-500 mt-1">ستصلك إشعار بالتأكيد</p>
+                  {confirmedAppointment && (
+                    <div className="mt-3 rounded-xl bg-emerald-50 p-3 text-right text-xs text-emerald-800">
+                      <p className="font-bold">د. {doctor.first_name} {doctor.last_name}</p>
+                      <p className="mt-1">{doctor.specialization}</p>
+                      <p className="mt-1">{formatDate(confirmedAppointment.appointment_date)} — {new Date(confirmedAppointment.appointment_date).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })}</p>
+                      <p className="mt-1">الحالة: بانتظار تأكيد الطبيب</p>
+                    </div>
+                  )}
+                  <p className="text-xs text-gray-500 mt-2">تم إرسال إشعار إلى الطبيب</p>
                   <button onClick={() => navigate('/appointments')}
                     className="mt-3 w-full py-2 text-sm text-blue-600 border border-blue-200 rounded-xl hover:bg-blue-50 transition-colors">
                     عرض مواعيدي

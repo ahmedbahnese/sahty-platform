@@ -180,15 +180,18 @@ def get_available_slots(doctor_id):
             # تجاوز الأوقات الماضية
             if slot_time > start_dt:
                 is_booked = slot_time.replace(second=0, microsecond=0) in booked_times
-                if not is_booked:
-                    slots.append({
-                        'datetime':  slot_time.isoformat(),
-                        'date':      day_date.isoformat(),
-                        'time':      slot_time.strftime('%H:%M'),
-                        'day':       DAYS_AR.get(weekday, ''),
-                        'duration':  duration,
-                        'available': True,
-                    })
+                slots.append({
+                    'datetime':  slot_time.isoformat(),
+                    'date':      day_date.isoformat(),
+                    'time':      slot_time.strftime('%H:%M'),
+                    'day':       DAYS_AR.get(weekday, ''),
+                    'duration':  duration,
+                    # Keep booked slots in the response so the UI can explain
+                    # why a time cannot be selected instead of silently
+                    # shifting the schedule.
+                    'available': not is_booked,
+                    'status':    'booked' if is_booked else 'available',
+                })
             slot_time += timedelta(minutes=duration)
 
     return jsonify({

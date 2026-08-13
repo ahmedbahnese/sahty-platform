@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import NotificationBell from './NotificationBell'
+import RoleSidebar from './RoleSidebar'
 import { 
   Menu, 
   X, 
@@ -19,6 +20,7 @@ import {
   FlaskConical,
   Scan,
   Bot,
+  Bell,
   Pill,
   Users,
   ChevronDown,
@@ -32,7 +34,7 @@ export default function Navbar() {
   const [userMenuOpen, setUserMenuOpen] = useState(false)
   const [shortcutsOpen, setShortcutsOpen] = useState(false)
   const [darkMode, setDarkMode] = useState(() => localStorage.getItem('sahty-theme') === 'dark')
-  const { user, logout, switchRole, applyRole, isAuthenticated, isAdmin } = useAuth()
+  const { user, logout, switchRole, applyRole, isAuthenticated, isAdmin, roleLabel } = useAuth()
   const [roleFormOpen, setRoleFormOpen] = useState(false)
   const [roleForm, setRoleForm] = useState({ role: 'doctor', full_name: '', license_number: '', qualification: '', specialization: '' })
   const [roleMessage, setRoleMessage] = useState(null)
@@ -65,25 +67,6 @@ export default function Navbar() {
     { path: '/emergency', label: 'الطوارئ', icon: Phone }
   ]
 
-  const userMenuItems = [
-    { path: '/dashboard', label: 'لوحة التحكم', icon: LayoutDashboard },
-    { path: '/medical-record', label: 'الملف الطبي', icon: ClipboardList },
-    { path: '/clinical-summary', label: 'التقرير الطبي الشامل', icon: FileText },
-    { path: '/appointments', label: 'المواعيد', icon: Calendar },
-    { path: '/prescriptions', label: 'الوصفات الدوائية', icon: FileText },
-    { path: '/lab-requests', label: 'طلبات التحاليل', icon: FlaskConical },
-    { path: '/radiology', label: 'طلبات الأشعة', icon: Scan },
-    { path: '/medications', label: 'متابعة الأدوية', icon: Pill },
-    { path: '/family-health', label: 'صحة الأسرة', icon: Users },
-    { path: '/account-settings', label: 'إعدادات الحساب', icon: Settings },
-    { path: '/vaccinations', label: 'التطعيمات', icon: Shield },
-    { path: '/pharmacies', label: 'الصيدليات', icon: Pill },
-    { path: '/labs-directory', label: 'المعامل', icon: FlaskConical },
-    { path: '/radiology-centers', label: 'مراكز الأشعة', icon: Scan },
-    { path: '/nursing', label: 'خدمات التمريض', icon: Heart },
-    { path: '/symptom-checker', label: 'فاحص الأعراض', icon: Stethoscope },
-  ]
-
   const serviceShortcuts = [
     { path: '/lab-requests', label: 'التحاليل', icon: FlaskConical },
     { path: '/radiology', label: 'الأشعة', icon: Scan },
@@ -105,8 +88,8 @@ export default function Navbar() {
             <span className="text-lg font-bold" style={{ color: '#0f2444' }}>صحتي</span>
           </Link>
 
-          {/* Desktop Nav */}
-          <div className="hidden md:flex items-center gap-1">
+          {/* Desktop public navigation. Authenticated users use the role-aware sidebar. */}
+          <div className={`${isAuthenticated ? 'hidden' : 'hidden md:flex'} items-center gap-1`}>
             {navLinks.map((link) => {
               const Icon = link.icon
               return (
@@ -183,9 +166,10 @@ export default function Navbar() {
                           {user?.profile?.first_name} {user?.profile?.last_name}
                         </p>
                         <p className="text-xs text-gray-400 truncate">{user?.email}</p>
+                        <p className="mt-1 text-xs font-semibold text-blue-600">{roleLabel}</p>
                       </div>
                       <div className="max-h-[calc(100vh-9rem)] overflow-y-auto py-1">
-                        {user?.active_roles?.length > 1 && (
+                         {user?.active_roles?.length > 1 && (
                           <div className="border-b border-gray-100 px-4 py-2">
                             <p className="mb-2 text-xs font-semibold text-gray-400">تبديل الدور</p>
                             <div className="flex flex-wrap gap-1">
@@ -209,7 +193,13 @@ export default function Navbar() {
                             تقديم كطبيب أو تمريض
                           </button>
                         )}
-                        {userMenuItems.map(item => {
+                         {[
+                           { path: '/account-settings', label: 'الملف الشخصي', icon: User },
+                           { path: '/account-settings#settings', label: 'الإعدادات', icon: Settings },
+                           { path: '/account-settings#password', label: 'تغيير كلمة المرور', icon: Settings },
+                           { path: '/dashboard', label: 'الإشعارات', icon: Bell },
+                           { path: '/services', label: 'المساعدة', icon: Bot },
+                         ].map(item => {
                           const Icon = item.icon
                           return (
                             <Link
@@ -283,78 +273,39 @@ export default function Navbar() {
         </div>
       </div>
 
-      {/* Mobile Menu */}
-      {isOpen && (
-        <div className="md:hidden bg-white border-t border-gray-100 px-4 pt-3 pb-4 space-y-1">
-          {navLinks.map((link) => {
-            const Icon = link.icon
-            return (
-              <Link
-                key={link.path}
-                to={link.path}
-                className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all ${
-                  isActive(link.path)
-                    ? 'text-white'
-                    : 'text-gray-700 hover:bg-gray-50'
-                }`}
-                style={isActive(link.path) ? { background: 'linear-gradient(135deg, #0f2444 0%, #2563eb 100%)' } : {}}
-                onClick={() => setIsOpen(false)}
-              >
-                <Icon className="h-5 w-5" />
-                <span>{link.label}</span>
-              </Link>
-            )
-          })}
-          <div className="border-t border-gray-100 pt-3 mt-2">
-            {isAuthenticated ? (
-              <div className="space-y-1">
-                <div className="px-4 py-2 flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-sm font-bold"
-                    style={{ background: 'linear-gradient(135deg, #0f2444 0%, #2563eb 100%)' }}>
-                    {(user?.profile?.first_name || 'U').charAt(0).toUpperCase()}
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold text-gray-900">
-                      {user?.profile?.first_name} {user?.profile?.last_name}
-                    </p>
-                    <p className="text-xs text-gray-400">{user?.email}</p>
-                  </div>
-                </div>
-                {userMenuItems.slice(0, 4).map(item => {
-                  const Icon = item.icon
-                  return (
-                    <Link key={item.path} to={item.path}
-                      className="flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm text-gray-700 hover:bg-gray-50"
-                      onClick={() => setIsOpen(false)}>
-                      <Icon className="h-4 w-4 text-gray-400" />
-                      {item.label}
-                    </Link>
-                  )
-                })}
-                <button
-                  onClick={() => { handleLogout(); setIsOpen(false) }}
-                  className="flex items-center gap-3 w-full px-4 py-2.5 rounded-xl text-sm text-red-600 hover:bg-red-50"
-                >
-                  <LogOut className="h-4 w-4" />
-                  تسجيل الخروج
-                </button>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                <Link to="/login" onClick={() => setIsOpen(false)}
-                  className="block px-4 py-3 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 text-center border border-gray-200">
-                  تسجيل الدخول
-                </Link>
-                <Link to="/register" onClick={() => setIsOpen(false)}
-                  className="block px-4 py-3 rounded-xl text-sm font-semibold text-white text-center"
-                  style={{ background: 'linear-gradient(135deg, #0f2444 0%, #2563eb 100%)' }}>
-                  إنشاء حساب جديد
-                </Link>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
+       {isAuthenticated && <RoleSidebar open={isOpen} onClose={() => setIsOpen(false)} />}
+
+       {/* Public mobile navigation remains available when no account is active. */}
+       {!isAuthenticated && isOpen && (
+         <div className="border-t border-gray-100 bg-white px-4 pb-4 pt-3 md:hidden">
+           <div className="space-y-1">
+             {navLinks.map(link => {
+               const Icon = link.icon
+               return (
+                 <Link
+                   key={link.path}
+                   to={link.path}
+                   onClick={() => setIsOpen(false)}
+                   className={`flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold ${
+                     isActive(link.path) ? 'bg-blue-600 text-white' : 'text-slate-700 hover:bg-slate-50'
+                   }`}
+                 >
+                   <Icon className="h-5 w-5" />
+                   {link.label}
+                 </Link>
+               )
+             })}
+           </div>
+           <div className="mt-3 grid gap-2 border-t border-gray-100 pt-3">
+             <Link to="/login" onClick={() => setIsOpen(false)} className="rounded-xl border border-slate-200 px-4 py-3 text-center text-sm font-semibold text-slate-700">
+               تسجيل الدخول
+             </Link>
+             <Link to="/register" onClick={() => setIsOpen(false)} className="rounded-xl bg-blue-700 px-4 py-3 text-center text-sm font-semibold text-white">
+               إنشاء حساب جديد
+             </Link>
+           </div>
+         </div>
+       )}
 
       {roleFormOpen && (
         <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/40 p-4" dir="rtl">

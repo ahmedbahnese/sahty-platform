@@ -173,6 +173,16 @@ def book_appointment(current_user):
     if appt_date < datetime.utcnow():
         return jsonify({'message': 'لا يمكن حجز موعد في الماضي'}), 400
 
+    # Prevent two patients from reserving the same doctor slot between the
+    # availability read and the booking request. The UI also disables booked
+    # slots, but this server-side check is the source of truth.
+    existing = Appointment.query.filter_by(
+        doctor_id=doctor.id,
+        appointment_date=appt_date,
+    ).filter(Appointment.status.in_(['scheduled', 'confirmed'])).first()
+    if existing:
+        return jsonify({'message': 'هذا الموعد لم يعد متاحاً، يرجى اختيار وقت آخر'}), 409
+
     # ── دعم الحجز لفرد من الأسرة ──────────────────────────────────────────────
     for_member_id = data.get('for_family_member_id')
     for_member_name = None

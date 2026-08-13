@@ -1,0 +1,146 @@
+I want to improve the Sehaty UI/UX based on the attached reference screenshots.
+
+IMPORTANT:
+These screenshots are UI/UX references for the interaction and layout.
+Do not copy branding, logos, names, or proprietary assets from the screenshots.
+Use Sehaty branding and the existing design system.
+
+1. DOCTOR APPOINTMENT BOOKING SCREEN
+
+Create a professional appointment booking experience inspired by the first reference image.
+
+The screen should contain:
+
+- Doctor profile photo
+- Doctor name
+- Medical specialty
+- Consultation price
+- Doctor rating if available
+- Available dates displayed horizontally
+- Selected date clearly highlighted
+- Available time slots
+- Unavailable/booked time slots disabled
+- Appointment type if supported
+- Payment method selection
+- Saved payment method display only when securely available
+- Alternative payment methods
+- Confirm appointment button
+- Clear booking summary before confirmation
+
+The booking flow must use REAL doctor availability and appointment data from the backend.
+Do not use mock or hardcoded time slots.
+
+After booking:
+- Create the appointment in the database.
+- Show confirmation.
+- Display appointment date/time.
+- Display doctor name and specialty.
+- Generate the correct appointment status.
+- Trigger the existing notification workflow.
+
+2. RESPONSIVE SIDEBAR
+
+Create a professional responsive sidebar inspired by the second reference image.
+
+Desktop:
+- Persistent left sidebar
+- Sehaty logo/branding
+- Search
+- Main navigation
+- Active item highlight
+- Icons
+- Collapsible sidebar
+
+Mobile/tablet:
+- Sidebar becomes a drawer
+- Open/close button
+- Smooth interaction
+- No horizontal scrolling
+
+Navigation should be organized according to the user's actual role.
+
+PATIENT NAVIGATION:
+- Dashboard
+- Doctors
+- Appointments
+- Medical Record
+- Clinical Summary
+- Prescriptions
+- Medications
+- Laboratory Results
+- Radiology
+- Family Health
+- Blood Bank
+- Emergency
+- AI Assistant
+- Notifications
+- Settings
+
+DOCTOR NAVIGATION:
+Use only doctor-authorized sections.
+
+ADMIN NAVIGATION:
+Use only admin-authorized sections.
+
+Do not expose admin navigation items to ordinary users.
+
+3. USER ACCOUNT MENU
+
+Create an account dropdown inspired by the third reference image.
+
+When clicking the user's avatar/name, show:
+
+- Profile
+- Settings
+- Change Password
+- Notifications
+- Help
+- Logout
+
+Display:
+- User avatar
+- Full name
+- Email
+- Active role
+
+The menu must close when clicking outside.
+
+4. UX REQUIREMENTS
+
+- Arabic-first RTL interface
+- English support
+- Responsive design
+- Accessible keyboard navigation
+- Proper loading states
+- Empty states
+- Error states
+- Skeleton loaders where appropriate
+- Consistent spacing and typography
+- Consistent Sehaty design system
+- Do not introduce unrelated visual redesigns
+
+5. IMPORTANT
+
+Reuse existing API endpoints and components whenever possible.
+
+Do not create duplicate appointment, doctor, authentication, or user APIs.
+
+Do not change backend business logic unless required to support the UI.
+
+Before coding:
+- Inspect the current appointment flow.
+- Inspect doctor availability APIs.
+- Inspect authentication and role routing.
+- Inspect existing sidebar/navigation components.
+- Inspect existing profile/account components.
+
+Then implement the UI incrementally.
+
+After implementation:
+- Run all existing tests.
+- Add UI tests for the booking flow.
+- Test patient role.
+- Test doctor role.
+- Test admin role.
+- Test desktop and mobile layouts.
+- Report all files changed and all tests passed.

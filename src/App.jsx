@@ -85,11 +85,12 @@ function getDashboardPath(user) {
 
 function AppContent() {
   const [splash, setSplash] = useState(true)
+  const { isAuthenticated } = useAuth()
 
   if (splash) return <SplashScreen onDone={() => setSplash(false)} />
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className={`min-h-screen bg-gray-50 ${isAuthenticated ? 'lg:pl-72' : ''}`}>
       <Navbar />
       <main className="flex-1">
         <Routes>
