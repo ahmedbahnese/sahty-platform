@@ -5,7 +5,7 @@ import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import {
   Users, Plus, Heart, User, Calendar, Activity, Brain,
-  ChevronDown, ChevronUp, X, Check, Target, FileText
+  ChevronDown, ChevronUp, X, Check, Target, FileText, Pencil, Trash2, Printer
 } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 
@@ -31,6 +31,9 @@ export default function FamilyHealthPage() {
   const [showMemberForm, setShowMemberForm] = useState(false)
   const [showRecordForm, setShowRecordForm] = useState(false)
   const [showGoalForm, setShowGoalForm] = useState(false)
+  const [editingMemberId, setEditingMemberId] = useState(null)
+  const [editingRecordId, setEditingRecordId] = useState(null)
+  const [memberReport, setMemberReport] = useState(null)
 
   const [groupForm, setGroupForm] = useState({ name: '', description: '' })
   const [memberForm, setMemberForm] = useState({
@@ -96,13 +99,14 @@ export default function FamilyHealthPage() {
   const addMember = async (e) => {
     e.preventDefault()
     try {
-      const res = await fetch(API(`/groups/${activeGroup.id}/members`), {
-        method: 'POST', headers: authHeader(), body: JSON.stringify(memberForm)
+      const res = await fetch(API(editingMemberId ? `/members/${editingMemberId}` : `/groups/${activeGroup.id}/members`), {
+        method: editingMemberId ? 'PUT' : 'POST', headers: authHeader(), body: JSON.stringify(memberForm)
       })
       const data = await res.json()
       if (data.success) {
-        setMsg({ type: 'success', text: 'تم إضافة الفرد' })
+        setMsg({ type: 'success', text: editingMemberId ? 'تم تعديل بيانات الفرد' : 'تم إضافة الفرد' })
         setShowMemberForm(false)
+        setEditingMemberId(null)
         loadGroup(activeGroup)
         // Auto-add to emergency contacts if they have a phone number
         if (memberForm.phone) {
@@ -123,19 +127,67 @@ export default function FamilyHealthPage() {
     } catch (e) { setMsg({ type: 'error', text: 'خطأ في الإضافة' }) }
   }
 
+  const editMember = (member) => {
+    setEditingMemberId(member.id)
+    setMemberForm({
+      first_name: member.first_name || '', last_name: member.last_name || '',
+      relationship: member.relationship || '', date_of_birth: member.date_of_birth || '',
+      gender: member.gender || '', blood_type: member.blood_type || '', phone: member.phone || '',
+      chronic_diseases: member.chronic_diseases || [], allergies: member.allergies || [],
+      current_medications: member.current_medications || [], notes: member.notes || ''
+    })
+    setShowMemberForm(true)
+  }
+
+  const deleteMember = async (member) => {
+    if (!window.confirm(`حذف ${member.full_name} من الأسرة؟`)) return
+    const res = await fetch(API(`/members/${member.id}`), { method: 'DELETE', headers: authHeader() })
+    const data = await res.json()
+    if (data.success) { setMsg({ type: 'success', text: 'تم حذف الفرد' }); loadGroup(activeGroup) }
+    else setMsg({ type: 'error', text: data.error || 'تعذر حذف الفرد' })
+  }
+
   const addRecord = async (e) => {
     e.preventDefault()
     try {
-      const res = await fetch(API(`/members/${activeMember.id}/records`), {
-        method: 'POST', headers: authHeader(), body: JSON.stringify(recordForm)
+      const path = editingRecordId ? `/members/${activeMember.id}/records/${editingRecordId}` : `/members/${activeMember.id}/records`
+      const res = await fetch(API(path), {
+        method: editingRecordId ? 'PUT' : 'POST', headers: authHeader(), body: JSON.stringify(recordForm)
       })
       const data = await res.json()
       if (data.success) {
-        setMsg({ type: 'success', text: 'تم إضافة السجل الصحي' })
+        setMsg({ type: 'success', text: editingRecordId ? 'تم تعديل السجل الصحي' : 'تم إضافة السجل الصحي' })
         setShowRecordForm(false)
+        setEditingRecordId(null)
         loadMember(activeMember)
       }
     } catch (e) { setMsg({ type: 'error', text: 'خطأ في الإضافة' }) }
+  }
+
+  const editRecord = (record) => {
+    setEditingRecordId(record.id)
+    setRecordForm({
+      record_type: record.record_type || 'checkup', title: record.title || '',
+      description: record.description || '', date: record.date || '',
+      next_due_date: record.next_due_date || '', doctor_name: record.doctor_name || '',
+      hospital_name: record.hospital_name || ''
+    })
+    setShowRecordForm(true)
+  }
+
+  const deleteRecord = async (record) => {
+    if (!window.confirm('حذف هذا السجل الصحي؟')) return
+    const res = await fetch(API(`/members/${activeMember.id}/records/${record.id}`), { method: 'DELETE', headers: authHeader() })
+    const data = await res.json()
+    if (data.success) { setMsg({ type: 'success', text: 'تم حذف السجل' }); loadMember(activeMember) }
+    else setMsg({ type: 'error', text: data.error || 'تعذر حذف السجل' })
+  }
+
+  const loadMemberReport = async () => {
+    const res = await fetch(API(`/members/${activeMember.id}/report`), { headers: authHeader() })
+    const data = await res.json()
+    if (data.success) setMemberReport(data)
+    else setMsg({ type: 'error', text: data.error || 'تعذر إنشاء التقرير' })
   }
 
   const addGoal = async (e) => {
@@ -227,15 +279,20 @@ export default function FamilyHealthPage() {
               <Button onClick={runAIAnalysis} disabled={aiLoading} variant="outline" className="text-blue-600 border-blue-300">
                 {aiLoading ? '⏳' : '🤖'} تحليل ذكي
               </Button>
-              <Button onClick={() => setShowMemberForm(!showMemberForm)} className="bg-green-600 hover:bg-green-700">
+              <Button onClick={() => { setEditingMemberId(null); setShowMemberForm(!showMemberForm) }} className="bg-green-600 hover:bg-green-700">
                 <Plus size={18} className="ml-1" /> إضافة فرد
               </Button>
             </div>
           )}
           {view === 'member-detail' && (
-            <Button onClick={() => setShowRecordForm(!showRecordForm)} className="bg-blue-600 hover:bg-blue-700">
-              <Plus size={18} className="ml-1" /> إضافة سجل
-            </Button>
+            <div className="flex gap-2">
+              <Button onClick={loadMemberReport} variant="outline" className="text-blue-600 border-blue-300">
+                <FileText size={16} className="ml-1" /> التقرير الشامل
+              </Button>
+              <Button onClick={() => { setEditingRecordId(null); setShowRecordForm(!showRecordForm) }} className="bg-blue-600 hover:bg-blue-700">
+                <Plus size={18} className="ml-1" /> إضافة سجل
+              </Button>
+            </div>
           )}
           {view === 'goals' && (
             <Button onClick={() => setShowGoalForm(!showGoalForm)} className="bg-purple-600 hover:bg-purple-700">
@@ -326,7 +383,7 @@ export default function FamilyHealthPage() {
           <>
             {showMemberForm && (
               <div className="bg-white rounded-xl shadow-sm border p-5 mb-6">
-                <h3 className="font-bold text-gray-800 mb-4">إضافة فرد جديد</h3>
+                <h3 className="font-bold text-gray-800 mb-4">{editingMemberId ? 'تعديل بيانات الفرد' : 'إضافة فرد جديد'}</h3>
                 <form onSubmit={addMember} className="space-y-3">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <div>
@@ -378,8 +435,8 @@ export default function FamilyHealthPage() {
                       placeholder="أمراض مزمنة، حساسية، ملاحظات..." />
                   </div>
                   <div className="flex gap-2">
-                    <Button type="submit" className="bg-green-600 hover:bg-green-700">إضافة</Button>
-                    <Button type="button" variant="outline" onClick={() => setShowMemberForm(false)}>إلغاء</Button>
+                    <Button type="submit" className="bg-green-600 hover:bg-green-700">{editingMemberId ? 'حفظ التعديل' : 'إضافة'}</Button>
+                    <Button type="button" variant="outline" onClick={() => { setShowMemberForm(false); setEditingMemberId(null) }}>إلغاء</Button>
                   </div>
                 </form>
               </div>
@@ -395,15 +452,21 @@ export default function FamilyHealthPage() {
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {members.map(m => (
-                  <div key={m.id} onClick={() => loadMember(m)}
+                    <div key={m.id} onClick={() => loadMember(m)}
                     className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 cursor-pointer hover:border-blue-300 hover:shadow-md transition-all">
-                    <div className="flex items-center gap-3 mb-3">
-                      <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${m.gender === 'female' ? 'bg-pink-100' : 'bg-blue-100'}`}>
-                        <User size={24} className={m.gender === 'female' ? 'text-pink-600' : 'text-blue-600'} />
+                    <div className="flex items-start justify-between gap-3 mb-3">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${m.gender === 'female' ? 'bg-pink-100' : 'bg-blue-100'}`}>
+                          <User size={24} className={m.gender === 'female' ? 'text-pink-600' : 'text-blue-600'} />
+                        </div>
+                        <div>
+                          <h3 className="font-bold text-gray-800">{m.full_name}</h3>
+                          <p className="text-sm text-gray-500">{m.relationship}{m.age ? ` — ${m.age} سنة` : ''}</p>
+                        </div>
                       </div>
-                      <div>
-                        <h3 className="font-bold text-gray-800">{m.full_name}</h3>
-                        <p className="text-sm text-gray-500">{m.relationship}{m.age ? ` — ${m.age} سنة` : ''}</p>
+                      <div className="flex gap-1">
+                        <button onClick={e => { e.stopPropagation(); editMember(m) }} className="rounded-lg p-2 text-gray-400 hover:bg-blue-50 hover:text-blue-600" title="تعديل"><Pencil size={16} /></button>
+                        <button onClick={e => { e.stopPropagation(); deleteMember(m) }} className="rounded-lg p-2 text-gray-400 hover:bg-red-50 hover:text-red-600" title="حذف"><Trash2 size={16} /></button>
                       </div>
                     </div>
                     <div className="flex flex-wrap gap-2 text-xs">
@@ -441,7 +504,7 @@ export default function FamilyHealthPage() {
 
             {showRecordForm && (
               <div className="bg-white rounded-xl shadow-sm border p-5 mb-6">
-                <h3 className="font-bold text-gray-800 mb-4">إضافة سجل صحي</h3>
+                <h3 className="font-bold text-gray-800 mb-4">{editingRecordId ? 'تعديل السجل الصحي' : 'إضافة سجل صحي'}</h3>
                 <form onSubmit={addRecord} className="space-y-3">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <div>
@@ -478,7 +541,7 @@ export default function FamilyHealthPage() {
                   </div>
                   <div className="flex gap-2">
                     <Button type="submit" className="bg-blue-600 hover:bg-blue-700">حفظ</Button>
-                    <Button type="button" variant="outline" onClick={() => setShowRecordForm(false)}>إلغاء</Button>
+                    <Button type="button" variant="outline" onClick={() => { setShowRecordForm(false); setEditingRecordId(null) }}>إلغاء</Button>
                   </div>
                 </form>
               </div>
@@ -503,7 +566,11 @@ export default function FamilyHealthPage() {
                         </span>
                         <span className="font-medium text-gray-800">{r.title}</span>
                       </div>
-                      <span className="text-sm text-gray-400">{r.date}</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm text-gray-400">{r.date}</span>
+                        <button onClick={() => editRecord(r)} className="rounded p-1 text-gray-400 hover:bg-blue-50 hover:text-blue-600" title="تعديل"><Pencil size={14} /></button>
+                        <button onClick={() => deleteRecord(r)} className="rounded p-1 text-gray-400 hover:bg-red-50 hover:text-red-600" title="حذف"><Trash2 size={14} /></button>
+                      </div>
                     </div>
                     {r.description && <p className="text-sm text-gray-600 mt-2">{r.description}</p>}
                     <div className="flex gap-4 mt-2 text-xs text-gray-400">
@@ -601,6 +668,37 @@ export default function FamilyHealthPage() {
         )}
 
       </div>
+      {memberReport && (
+        <div className="fixed inset-0 z-[60] overflow-y-auto bg-black/50 p-4" dir="rtl">
+          <div className="mx-auto my-8 max-w-2xl rounded-2xl bg-white p-6 shadow-2xl">
+            <div className="mb-5 flex items-start justify-between gap-4">
+              <div>
+                <h2 className="text-xl font-bold">التقرير الطبي الشامل</h2>
+                <p className="text-sm text-gray-500">{memberReport.member.full_name} — {memberReport.member.relationship}</p>
+              </div>
+              <div className="flex gap-2">
+                <button onClick={() => window.print()} className="rounded-lg border px-3 py-2 text-sm"><Printer size={15} className="ml-1 inline" /> طباعة</button>
+                <button onClick={() => setMemberReport(null)}><X /></button>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3 rounded-xl bg-gray-50 p-4 text-sm md:grid-cols-4">
+              <span>العمر: {memberReport.member.age || '—'}</span>
+              <span>الهاتف: {memberReport.member.phone || '—'}</span>
+              <span>الفصيلة: {memberReport.member.blood_type || '—'}</span>
+              <span>الجنس: {memberReport.member.gender || '—'}</span>
+            </div>
+            <div className="mt-5 space-y-3">
+              {memberReport.records.length ? memberReport.records.map(record => (
+                <div key={record.id} className="rounded-xl border p-3 text-sm">
+                  <div className="flex justify-between gap-3"><b>{record.title}</b><span className="text-gray-400">{record.date}</span></div>
+                  {record.description && <p className="mt-1 text-gray-600">{record.description}</p>}
+                  {record.next_due_date && <p className="mt-1 text-xs text-orange-600">المتابعة: {record.next_due_date}</p>}
+                </div>
+              )) : <p className="text-center text-gray-400">لا توجد سجلات صحية</p>}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -58,7 +58,6 @@ export default function Navbar() {
   const isActive = (path) => location.pathname === path
 
   const navLinks = [
-    { path: '/', label: 'الرئيسية', icon: Heart },
     { path: '/doctors', label: 'الأطباء', icon: Stethoscope },
     { path: '/hospitals', label: 'الدليل الطبي', icon: LayoutDashboard },
     { path: '/services', label: 'الخدمات', icon: Shield },
@@ -76,6 +75,7 @@ export default function Navbar() {
     { path: '/radiology', label: 'طلبات الأشعة', icon: Scan },
     { path: '/medications', label: 'متابعة الأدوية', icon: Pill },
     { path: '/family-health', label: 'صحة الأسرة', icon: Users },
+    { path: '/account-settings', label: 'إعدادات الحساب', icon: Settings },
     { path: '/vaccinations', label: 'التطعيمات', icon: Shield },
     { path: '/pharmacies', label: 'الصيدليات', icon: Pill },
     { path: '/labs-directory', label: 'المعامل', icon: FlaskConical },
@@ -184,7 +184,7 @@ export default function Navbar() {
                         </p>
                         <p className="text-xs text-gray-400 truncate">{user?.email}</p>
                       </div>
-                      <div className="py-1">
+                      <div className="max-h-[calc(100vh-9rem)] overflow-y-auto py-1">
                         {user?.active_roles?.length > 1 && (
                           <div className="border-b border-gray-100 px-4 py-2">
                             <p className="mb-2 text-xs font-semibold text-gray-400">تبديل الدور</p>

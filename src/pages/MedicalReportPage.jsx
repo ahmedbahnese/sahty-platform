@@ -57,7 +57,7 @@ export default function MedicalReportPage() {
     </div>
   )
 
-  const { patient, allergies, active_diseases, current_medications, vaccinations, recent_lab_tests, recent_radiology, medical_history } = report
+  const { patient, allergies, active_diseases, current_medications, vaccinations, recent_lab_tests, recent_radiology, surgeries = [], medical_history } = report
 
   return (
     <div className="min-h-screen bg-gray-50" dir="rtl">
@@ -123,6 +123,9 @@ export default function MedicalReportPage() {
                 ['الطول',         patient?.height ? `${patient.height} سم` : '—'],
                 ['الوزن',         patient?.weight ? `${patient.weight} كجم` : '—'],
                 ['مؤشر الكتلة BMI', patient?.bmi || '—'],
+                ['الهاتف', patient?.phone || '—'],
+                ['العنوان', patient?.address || '—'],
+                ['طوارئ', patient?.emergency_contact_phone || '—'],
               ].map(([label, val]) => (
                 <div key={label} className="bg-gray-50 rounded-xl p-3">
                   <p className="text-xs text-gray-400 mb-0.5">{label}</p>
@@ -131,6 +134,27 @@ export default function MedicalReportPage() {
               ))}
             </div>
           </Section>
+
+          {surgeries.length > 0 && (
+            <Section title="التاريخ الجراحي" icon={Activity} color="orange">
+              <div className="space-y-2">
+                {surgeries.map((s, i) => (
+                  <div key={i} className="rounded-xl bg-orange-50 border border-orange-100 p-3 text-sm">
+                    <div className="flex justify-between gap-3">
+                      <span className="font-semibold">{s.name}</span>
+                      <span className="text-xs text-gray-500">{s.surgery_date || '—'}</span>
+                    </div>
+                    {(s.hospital || s.surgeon || s.outcome) && (
+                      <p className="mt-1 text-xs text-gray-600">
+                        {[s.hospital, s.surgeon, s.outcome].filter(Boolean).join(' · ')}
+                      </p>
+                    )}
+                    {s.notes && <p className="mt-1 text-xs text-gray-600">{s.notes}</p>}
+                  </div>
+                ))}
+              </div>
+            </Section>
+          )}
 
           {/* الحساسية */}
           {allergies?.length > 0 && (

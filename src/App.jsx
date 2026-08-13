@@ -33,6 +33,7 @@ import PharmaciesPage from './pages/PharmaciesPage'
 import LabsDirectoryPage from './pages/LabsDirectoryPage'
 import RadiologyCentersPage from './pages/RadiologyCentersPage'
 import HealthcareDirectoryPage from './pages/HealthcareDirectoryPage'
+import AccountSettingsPage from './pages/AccountSettingsPage'
 import NursingDashboardPage from './pages/NursingDashboardPage'
 import FloatingAIChat from './components/FloatingAIChat'
 import SplashScreen from './components/SplashScreen'
@@ -139,6 +140,7 @@ function AppContent() {
           <Route path="/clinical-summary" element={<RoleRoute roles={['patient']}><ClinicalSummaryPage /></RoleRoute>} />
           <Route path="/medical-record/report" element={<RoleRoute roles={['patient']}><MedicalReportPage /></RoleRoute>} />
           <Route path="/family-health" element={<RoleRoute roles={['patient']}><FamilyHealthPage /></RoleRoute>} />
+          <Route path="/account-settings" element={<ProtectedRoute><AccountSettingsPage /></ProtectedRoute>} />
           <Route path="/vaccinations" element={<RoleRoute roles={['patient']}><VaccinationPage /></RoleRoute>} />
           <Route path="/symptom-checker" element={<SymptomCheckerPage />} />
           <Route path="/medications" element={<RoleRoute roles={['patient', 'pharmacy']}><MedicationTrackingPage /></RoleRoute>} />

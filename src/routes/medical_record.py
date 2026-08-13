@@ -700,6 +700,10 @@ def get_medical_report(current_user):
             'height': patient.height,
             'weight': patient.weight,
             'bmi': round(patient.weight / ((patient.height / 100) ** 2), 1) if patient.height and patient.weight else None,
+            'phone': patient.phone,
+            'address': patient.address,
+            'emergency_contact_name': patient.emergency_contact_name,
+            'emergency_contact_phone': patient.emergency_contact_phone,
         },
         'allergies': allergies,
         'active_diseases': [d for d in diseases if d.get('status') in ('active', 'chronic')],
@@ -707,6 +711,7 @@ def get_medical_report(current_user):
         'vaccinations': vaccinations,
         'recent_lab_tests': lab_tests,
         'recent_radiology': radiology,
+        'surgeries': [s.to_dict() for s in Surgery.query.filter_by(patient_id=patient.id).order_by(Surgery.surgery_date.desc()).all()],
         'medical_history': history.to_dict() if history else {},
     }), 200
 
@@ -989,6 +994,10 @@ def get_public_report(token):
             'height': patient.height,
             'weight': patient.weight,
             'bmi': round(patient.weight / ((patient.height / 100) ** 2), 1) if patient.height and patient.weight else None,
+            'phone': patient.phone,
+            'address': patient.address,
+            'emergency_contact_name': patient.emergency_contact_name,
+            'emergency_contact_phone': patient.emergency_contact_phone,
         },
         'allergies': allergies,
         'active_diseases': [d for d in diseases if d.get('status') in ('active', 'chronic')],
@@ -996,6 +1005,7 @@ def get_public_report(token):
         'vaccinations': vaccinations,
         'recent_lab_tests': lab_tests,
         'recent_radiology': radiology,
+        'surgeries': [s.to_dict() for s in Surgery.query.filter_by(patient_id=patient.id).order_by(Surgery.surgery_date.desc()).all()],
         'medical_history': history.to_dict() if history else {},
     }), 200
 

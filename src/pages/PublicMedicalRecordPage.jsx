@@ -44,11 +44,11 @@ export default function PublicMedicalRecordPage() {
     </div>
   )
 
-  const { patient, allergies = [], active_diseases = [], current_medications = [], vaccinations = [], recent_lab_tests = [], recent_radiology = [] } = record
+  const { patient, allergies = [], active_diseases = [], current_medications = [], vaccinations = [], recent_lab_tests = [], recent_radiology = [], surgeries = [], medical_history = {} } = record
   return (
     <div className="min-h-screen bg-gray-50 px-4 py-6" dir="rtl">
       <div className="mx-auto max-w-4xl space-y-4">
-        <div className="rounded-2xl bg-gradient-to-l from-blue-700 to-indigo-700 p-6 text-white shadow-lg">
+        <div className="print:hidden rounded-2xl bg-gradient-to-l from-blue-700 to-indigo-700 p-6 text-white shadow-lg">
           <div className="flex items-start justify-between gap-4">
             <div>
               <div className="mb-3 flex items-center gap-2 text-blue-100"><Heart className="h-5 w-5" /> صحتك في أمان</div>
@@ -58,15 +58,19 @@ export default function PublicMedicalRecordPage() {
             <FileText className="h-10 w-10 text-blue-200" />
           </div>
           <p className="mt-5 border-t border-white/20 pt-4 text-lg font-semibold">{patient?.name || 'مريض'}</p>
+          <button onClick={() => window.print()} className="mt-4 rounded-xl bg-white/15 px-4 py-2 text-sm hover:bg-white/25">🖨 طباعة / PDF</button>
         </div>
 
         <Section title="بيانات المريض" icon={FileText}>
           <div className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
-            {[['العمر', patient?.age ? `${patient.age} سنة` : '—'], ['الجنس', patient?.gender === 'male' ? 'ذكر' : patient?.gender === 'female' ? 'أنثى' : '—'], ['فصيلة الدم', patient?.blood_type || '—'], ['BMI', patient?.bmi || '—']].map(([label, value]) => (
+            {[['العمر', patient?.age ? `${patient.age} سنة` : '—'], ['الجنس', patient?.gender === 'male' ? 'ذكر' : patient?.gender === 'female' ? 'أنثى' : '—'], ['فصيلة الدم', patient?.blood_type || '—'], ['الهاتف', patient?.phone || '—'], ['العنوان', patient?.address || '—'], ['طوارئ', patient?.emergency_contact_phone || '—'], ['BMI', patient?.bmi || '—']].map(([label, value]) => (
               <div key={label} className="rounded-xl bg-gray-50 p-3"><p className="text-xs text-gray-400">{label}</p><p className="mt-1 font-semibold">{value}</p></div>
             ))}
           </div>
         </Section>
+
+        {surgeries.length > 0 && <Section title="التاريخ الجراحي" icon={Activity}><div className="space-y-2">{surgeries.map(item => <div key={item.id || item.name} className="rounded-xl bg-orange-50 p-3 text-sm"><p className="font-semibold">{item.name}</p><p className="mt-1 text-gray-600">{item.surgery_date || '—'}{item.hospital ? ` · ${item.hospital}` : ''}{item.surgeon ? ` · ${item.surgeon}` : ''}</p></div>)}</div></Section>}
+        {Object.keys(medical_history).some(key => medical_history[key]) && <Section title="التاريخ المرضي" icon={Activity}><div className="space-y-2 text-sm">{medical_history.chronic_conditions && <p><b>الأمراض المزمنة:</b> {medical_history.chronic_conditions}</p>}{medical_history.family_history?.length > 0 && <p><b>التاريخ العائلي:</b> {medical_history.family_history.map(item => `${item.disease} (${item.relation})`).join('، ')}</p>}{medical_history.general_notes && <p><b>ملاحظات:</b> {medical_history.general_notes}</p>}</div></Section>}
 
         {allergies.length > 0 && <Section title="الحساسية" icon={AlertTriangle}><div className="flex flex-wrap gap-2">{allergies.map(item => <span key={item.id || item.allergen} className="rounded-full bg-red-50 px-3 py-1.5 text-sm text-red-700">{item.allergen} — {severityLabels[item.severity] || item.severity || 'غير محدد'}</span>)}</div></Section>}
         {active_diseases.length > 0 && <Section title="الأمراض والتشخيصات" icon={Activity}><div className="space-y-2">{active_diseases.map(item => <div key={item.id || item.name} className="rounded-xl bg-purple-50 p-3 text-sm"><span className="font-semibold">{item.name}</span><span className="mr-2 text-gray-500">{statusLabels[item.status] || item.status || ''}</span></div>)}</div></Section>}
@@ -76,6 +80,7 @@ export default function PublicMedicalRecordPage() {
         {vaccinations.length > 0 && <Section title="التطعيمات" icon={Syringe}><div className="flex flex-wrap gap-2">{vaccinations.map(item => <span key={item.id || item.vaccine_name} className="rounded-full bg-amber-50 px-3 py-1.5 text-sm text-amber-800">{item.vaccine_name || item.name}</span>)}</div></Section>}
         <p className="pb-4 text-center text-xs text-gray-400">هذا التقرير للقراءة فقط ولا يسمح بتعديل السجلات الطبية.</p>
       </div>
+      <style>{`@media print { nav, footer, .print\\:hidden { display: none !important; } body { background: white !important; } }`}</style>
     </div>
   )
 }

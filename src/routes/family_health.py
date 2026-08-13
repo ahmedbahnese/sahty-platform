@@ -242,6 +242,70 @@ def add_member_record(current_user, member_id):
     return jsonify({'success': True, 'record': record.to_dict()}), 201
 
 
+@family_bp.route('/members/<int:member_id>/records/<int:record_id>', methods=['PUT'])
+@token_required
+def update_member_record(current_user, member_id, record_id):
+    member = _get_member_or_404(current_user, member_id)
+    if isinstance(member, tuple):
+        return member
+    record = FamilyMemberHealthRecord.query.filter_by(
+        id=record_id, member_id=member_id
+    ).first()
+    if not record:
+        return jsonify({'success': False, 'error': 'السجل غير موجود'}), 404
+
+    data = request.get_json() or {}
+    for field in ('record_type', 'title', 'description', 'result', 'doctor_name', 'hospital_name'):
+        if field in data:
+            setattr(record, field, data[field])
+    for field in ('date', 'next_due_date'):
+        if field in data:
+            value = data[field]
+            if value:
+                try:
+                    setattr(record, field, date.fromisoformat(value))
+                except ValueError:
+                    return jsonify({'success': False, 'error': 'تنسيق التاريخ غير صحيح'}), 400
+            elif field == 'next_due_date':
+                record.next_due_date = None
+    db.session.commit()
+    return jsonify({'success': True, 'record': record.to_dict()})
+
+
+@family_bp.route('/members/<int:member_id>/records/<int:record_id>', methods=['DELETE'])
+@token_required
+def delete_member_record(current_user, member_id, record_id):
+    member = _get_member_or_404(current_user, member_id)
+    if isinstance(member, tuple):
+        return member
+    record = FamilyMemberHealthRecord.query.filter_by(
+        id=record_id, member_id=member_id
+    ).first()
+    if not record:
+        return jsonify({'success': False, 'error': 'السجل غير موجود'}), 404
+    db.session.delete(record)
+    db.session.commit()
+    return jsonify({'success': True, 'message': 'تم حذف السجل'})
+
+
+@family_bp.route('/members/<int:member_id>/report', methods=['GET'])
+@token_required
+def get_member_report(current_user, member_id):
+    """تقرير شامل مبسط لفرد الأسرة، مع التحقق من ملكية المجموعة."""
+    member = _get_member_or_404(current_user, member_id)
+    if isinstance(member, tuple):
+        return member
+    records = FamilyMemberHealthRecord.query.filter_by(
+        member_id=member_id
+    ).order_by(FamilyMemberHealthRecord.date.desc()).all()
+    return jsonify({
+        'success': True,
+        'member': member.to_dict(),
+        'records': [record.to_dict() for record in records],
+        'generated_at': datetime.utcnow().isoformat(),
+    })
+
+
 # ─────────────────────────────────────────
 # أهداف صحية
 # ─────────────────────────────────────────
