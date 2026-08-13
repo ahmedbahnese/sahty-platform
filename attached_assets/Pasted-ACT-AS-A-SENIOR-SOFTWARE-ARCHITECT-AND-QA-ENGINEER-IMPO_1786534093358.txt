@@ -1,0 +1,147 @@
+ACT AS A SENIOR SOFTWARE ARCHITECT AND QA ENGINEER.
+
+IMPORTANT:
+DO NOT IMPLEMENT NEW FEATURES.
+DO NOT REDESIGN THE APPLICATION.
+DO NOT DELETE EXISTING FEATURES.
+DO NOT MODIFY BUSINESS LOGIC UNLESS REQUIRED TO FIX A VERIFIED BUG.
+
+Your task is to perform a COMPLETE AUDIT of the existing Sahti project.
+
+The project is already connected to GitHub.
+
+First inspect the entire existing codebase, database schema, APIs, authentication, authorization, routes, components, pages, dashboards and integrations.
+
+Create a complete CURRENT STATE REPORT.
+
+For every existing feature, classify it as:
+
+1. FULLY IMPLEMENTED AND WORKING
+2. IMPLEMENTED BUT NOT VERIFIED
+3. PARTIALLY IMPLEMENTED
+4. FRONTEND ONLY / MOCK
+5. BACKEND ONLY
+6. BROKEN
+7. NOT IMPLEMENTED
+
+Do NOT assume that a feature works simply because its UI exists.
+
+Verify the actual implementation by tracing:
+
+UI
+→ frontend logic
+→ API
+→ backend
+→ database
+→ authentication
+→ authorization
+→ response
+→ UI state
+
+Identify all broken workflows.
+
+Specifically audit:
+
+- Registration
+- Login
+- Logout
+- Password handling
+- Patient account
+- Doctor account
+- Nurse account
+- Admin account
+- Role permissions
+- Dashboards
+- Medical record
+- Family accounts
+- Appointments
+- Doctors
+- Hospitals
+- Pharmacies
+- Laboratories
+- Radiology
+- Blood bank
+- Emergency services
+- Smart assistant
+- Medical image/report upload
+- Medication management
+- Vaccination
+- Notifications
+- Location services
+- Search and filters
+- File uploads
+- PDF/Excel export
+- APIs
+- Database
+- Authentication persistence
+- Session persistence
+- Mobile responsiveness
+
+Also identify:
+
+- Dead buttons
+- "Coming Soon" pages
+- Placeholder content
+- Mock data
+- Fake API responses
+- Missing API endpoints
+- Missing database tables
+- Broken routes
+- Console errors
+- Runtime errors
+- TypeScript errors
+- Authentication bugs
+- Authorization bugs
+- Database errors
+- Missing environment variables
+- Broken integrations
+
+IMPORTANT:
+Do not fix anything yet.
+
+First produce a detailed audit report.
+
+Create:
+
+1. PROJECT_STATUS.md
+2. FEATURE_MATRIX.md
+3. BUG_LIST.md
+4. DATABASE_AUDIT.md
+5. API_AUDIT.md
+6. ROLE_PERMISSION_AUDIT.md
+7. QA_TEST_PLAN.md
+
+For FEATURE_MATRIX.md use:
+
+Feature | Status | Frontend | Backend | Database | Tested | Bugs | Priority
+
+For BUG_LIST.md use:
+
+Bug ID | Description | Location | Severity | Reproduction Steps | Expected | Actual | Recommended Fix
+
+Use severity:
+
+CRITICAL
+HIGH
+MEDIUM
+LOW
+
+At the end provide:
+
+A. What is actually working
+B. What is partially implemented
+C. What is broken
+D. What is only UI/mock
+E. What is missing
+F. What must be fixed first
+G. What should NOT be touched yet
+
+Do not ask me questions.
+
+Do not start implementing features.
+
+Complete the audit and save all reports.
+
+Commit the audit documentation to GitHub with:
+
+"Project audit and QA baseline"
