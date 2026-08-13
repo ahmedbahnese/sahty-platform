@@ -32,7 +32,7 @@ function StarRating({ rating }) {
   )
 }
 
-function PharmacyCard({ pharmacy, coords }) {
+function PharmacyCard({ pharmacy }) {
   const mapsUrl = `https://www.google.com/maps/search/${encodeURIComponent(pharmacy.name + ' ' + pharmacy.address)}`
 
   return (
@@ -93,9 +93,8 @@ export default function PharmaciesPage() {
   const [govFilter, setGovFilter]         = useState('')
   const [deliveryOnly, setDeliveryOnly]   = useState(false)
   const [openOnly, setOpenOnly]           = useState(false)
-  const [coords, setCoords]               = useState(null)
+  const [, setCoords]                     = useState(null)
   const [locLoading, setLocLoading]       = useState(false)
-  const [showFilters, setShowFilters]     = useState(false)
 
   const applyFilters = useCallback(() => {
     let list = pharmacies
@@ -195,7 +194,7 @@ export default function PharmaciesPage() {
           </div>
         ) : (
           <div className="grid md:grid-cols-2 gap-4">
-            {filtered.map(p => <PharmacyCard key={p.id} pharmacy={p} coords={coords} />)}
+            {filtered.map(p => <PharmacyCard key={p.id} pharmacy={p} />)}
           </div>
         )}
       </div>

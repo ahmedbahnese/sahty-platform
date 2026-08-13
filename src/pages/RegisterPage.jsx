@@ -465,7 +465,7 @@ export default function RegisterPage() {
   })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const [success, setSuccess] = useState('')
+  const [success] = useState('')
 
   const { register } = useAuth()
   const navigate = useNavigate()

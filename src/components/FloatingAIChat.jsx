@@ -27,7 +27,7 @@ export default function FloatingAIChat() {
 
   // File upload state
   const [showDocMenu, setShowDocMenu] = useState(false)
-  const [uploadingDoc, setUploadingDoc] = useState(false)
+  const [, setUploadingDoc] = useState(false)
   const fileInputRef = useRef(null)
   const pendingDocType = useRef('general')
 

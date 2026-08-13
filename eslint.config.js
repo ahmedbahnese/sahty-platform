@@ -37,7 +37,12 @@ export default [
     rules: {
       ...js.configs.recommended.rules,
       ...reactHooks.configs.recommended.rules,
-      'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]' }],
+      // JSX-only component arguments (for example `icon: Icon`) are not
+      // counted as reads by ESLint's core rule without the React plugin.
+      'no-unused-vars': ['error', {
+        varsIgnorePattern: '^[A-Z_]',
+        argsIgnorePattern: '^[A-Z_]',
+      }],
       'react-refresh/only-export-components': [
         'warn',
         { allowConstantExport: true },

@@ -8,7 +8,6 @@ import {
   Activity, TrendingUp, ChevronDown, ChevronUp, Trash2, Edit,
   Download, Bell, Users, BarChart3,
 } from 'lucide-react'
-import { useAuth } from '../contexts/AuthContext'
 
 const API = (path) => `/api/medications${path}`
 const authHeader = () => ({
@@ -17,7 +16,6 @@ const authHeader = () => ({
 })
 
 export default function MedicationTrackingPage() {
-  const { user } = useAuth()
   const [medications, setMedications] = useState([])
   const [todaySummary, setTodaySummary] = useState([])
   const [adherenceStats, setAdherenceStats] = useState(null)
@@ -87,7 +85,7 @@ export default function MedicationTrackingPage() {
         setForm({ name: '', dosage: '', frequency: '', start_date: '', end_date: '', form: 'tablet', instructions: '', side_effects: '', schedule_times: ['08:00'], notify_family: false, notify_doctor_on_missed: false, missed_dose_threshold: 3 })
         fetchData()
       } else setMsg({ type: 'error', text: data.error || 'حدث خطأ' })
-    } catch (e) { setMsg({ type: 'error', text: 'خطأ في الاتصال' }) }
+    } catch { setMsg({ type: 'error', text: 'خطأ في الاتصال' }) }
   }
 
   const handleImportFromPrescription = async (prescriptionId) => {
@@ -103,7 +101,7 @@ export default function MedicationTrackingPage() {
         setShowImport(false)
         fetchData()
       } else setMsg({ type: 'error', text: data.error || 'حدث خطأ' })
-    } catch (e) { setMsg({ type: 'error', text: 'خطأ في الاتصال' }) }
+    } catch { setMsg({ type: 'error', text: 'خطأ في الاتصال' }) }
     setImportBusy(false)
   }
 
@@ -135,7 +133,7 @@ export default function MedicationTrackingPage() {
       const data = await res.json()
       if (data.success) setAiAnalysis(data.analysis)
       else setMsg({ type: 'error', text: data.error || 'لم يتمكن الذكاء الاصطناعي من التحليل' })
-    } catch (e) { setMsg({ type: 'error', text: 'خطأ في التحليل' }) }
+    } catch { setMsg({ type: 'error', text: 'خطأ في التحليل' }) }
     setAiLoading(false)
   }
 

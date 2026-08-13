@@ -71,14 +71,14 @@ function LabCard({ lab }) {
 }
 
 export default function LabsDirectoryPage() {
-  const [labs, setLabs]             = useState(SAMPLE_LABS)
+  const [labs]                      = useState(SAMPLE_LABS)
   const [filtered, setFiltered]     = useState(SAMPLE_LABS)
   const [search, setSearch]         = useState('')
   const [govFilter, setGovFilter]   = useState('')
   const [homeOnly, setHomeOnly]     = useState(false)
   const [openOnly, setOpenOnly]     = useState(false)
   const [locLoading, setLocLoading] = useState(false)
-  const [coords, setCoords]         = useState(null)
+  const [, setCoords]               = useState(null)
 
   const applyFilters = useCallback(() => {
     let list = labs

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { Badge } from '../components/ui/badge'
@@ -319,8 +319,6 @@ export default function ClinicalSummaryPage() {
   const [error, setError] = useState(null)
   const [selectedVisit, setSelectedVisit] = useState(null)
   const [encounterOpen, setEncounterOpen] = useState(false)
-  const printRef = useRef()
-
   useEffect(() => {
     if (!token) return
     fetch(`${API}/clinical-summary`, { headers: authHeaders(token) })

@@ -3,3 +3,4 @@
 - [Portable dependency locks](portable-dependency-locks.md) — imported lockfiles can contain private registry URLs that must be replaced before external installs.
 - [Incremental directory imports](incremental-directory-imports.md) — seed imported datasets per category so adding a new source file later remains idempotent and complete.
 - [Migration startup order](migration-startup-order.md) — Flask-Migrate imports the app before upgrade, so startup must not query or mutate schema.
+- [JSX lint arguments](jsx-lint-arguments.md) — core no-unused-vars needs an uppercase argument ignore pattern for JSX component props without eslint-react.

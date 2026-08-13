@@ -67,7 +67,7 @@ function CenterCard({ center }) {
 }
 
 export default function RadiologyCentersPage() {
-  const [centers, setCenters]       = useState(SAMPLE_CENTERS)
+  const [centers]                   = useState(SAMPLE_CENTERS)
   const [filtered, setFiltered]     = useState(SAMPLE_CENTERS)
   const [search, setSearch]         = useState('')
   const [govFilter, setGovFilter]   = useState('')

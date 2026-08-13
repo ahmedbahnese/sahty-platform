@@ -8,14 +8,6 @@ import {
   TestTube2, Users, XCircle, ClipboardList, Pill, Syringe
 } from 'lucide-react'
 
-const providerLabels = {
-  doctor: 'الأطباء',
-  hospital: 'المستشفيات',
-  pharmacy: 'الصيدليات',
-  lab: 'المعامل',
-  radiology_center: 'مراكز الأشعة',
-}
-
 const roleDescriptions = {
   patient: 'إدارة مواعيدك وملفك الصحي',
   doctor: 'إدارة المرضى والمواعيد والاستشارات',

@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback } from 'react'
-import { useAuth } from '../contexts/AuthContext'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -459,7 +458,6 @@ function AddMemberVacModal({ onClose, onSave, prefill = {} }) {
 }
 
 export default function VaccinationPage() {
-  const { user } = useAuth()
   const [tab, setTab] = useState('my')
   const [vaccinations, setVaccinations] = useState([])
   const [schedule, setSchedule] = useState([])

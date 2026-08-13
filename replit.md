@@ -10,6 +10,17 @@
 - تشغيل التطبيق بعد الترقية: `PORT=5000 python main.py`
 - الاختبارات: `pytest -q`
 
+## التشغيل على Replit
+
+يُشغّل workflow التطبيق بعد بناء الواجهة وترقية قاعدة البيانات:
+
+```bash
+npm run build && flask --app main db upgrade && PORT=5000 gunicorn --bind 0.0.0.0:5000 wsgi:application
+```
+
+يستخدم التشغيل الافتراضي SQLite. يجب أن يكون `SESSION_SECRET` مضبوطاً في Secrets؛
+أما `OPENAI_API_KEY` وخدمات التخزين السحابي فهي اختيارية للميزات المرتبطة بها.
+
 ## ترحيلات قاعدة البيانات
 
 يتم إنشاء الجداول وترقيتها حصراً عبر Flask-Migrate/Alembic. لا يستدعي التطبيق

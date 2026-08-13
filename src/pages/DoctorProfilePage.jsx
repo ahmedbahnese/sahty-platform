@@ -12,7 +12,7 @@ const DAYS_AR = ['الاثنين', 'الثلاثاء', 'الأربعاء', 'ال
 export default function DoctorProfilePage() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const { user, isAuthenticated, token } = useAuth()
+  const { isAuthenticated, token } = useAuth()
 
   const [doctor, setDoctor] = useState(null)
   const [slots, setSlots] = useState([])

@@ -61,7 +61,6 @@ export default function RadiologyRequestsPage() {
 
   const isAdmin   = ['admin','super_admin','radiology_center'].includes(user?.user_type)
   const isPatient = user?.user_type === 'patient'
-  const isDoctor  = user?.user_type === 'doctor'
 
   const headers = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }
 

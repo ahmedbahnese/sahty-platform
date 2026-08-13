@@ -65,7 +65,7 @@ const RELATIONSHIPS = ['أب','أم','زوج/زوجة','ابن/ابنة','أخ/�
 
 /* ──────────────── component ──────────────── */
 export default function EmergencyPage() {
-  const { token, user, isAuthenticated } = useAuth()
+  const { token, isAuthenticated } = useAuth()
   const [tab, setTab]     = useState('sos')
   const [toast, setToast] = useState(null)
   const [busy, setBusy]   = useState(false)

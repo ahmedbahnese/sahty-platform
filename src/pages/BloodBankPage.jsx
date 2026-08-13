@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef } from 'react'
-import { useSearchParams } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -50,13 +49,12 @@ const API = (path, opts = {}) =>
 
 /* ──────────────────────────────────────────────── */
 export default function BloodBankPage() {
-  const [searchParams] = useSearchParams()
   const [activeTab, setActiveTab] = useState(
     'banks'
   )
 
   /* stats */
-  const [stats, setStats] = useState({ total_donors: 0, active_requests: 0, total_donations: 0, critical_requests: 0 })
+  const [, setStats] = useState({ total_donors: 0, active_requests: 0, total_donations: 0, critical_requests: 0 })
 
   /* requests state */
   const [requests, setRequests]       = useState([])

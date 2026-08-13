@@ -390,7 +390,7 @@ function CancelModal({ appt, onClose, onCancelled, token }) {
 }
 
 export default function AppointmentsPage() {
-  const { user, token, isPatient, isDoctor } = useAuth()
+  const { token, isPatient, isDoctor } = useAuth()
   const [appointments, setAppointments]   = useState([])
   const [stats, setStats]                 = useState({})
   const [notifications, setNotifications] = useState([])

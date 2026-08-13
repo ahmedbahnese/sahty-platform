@@ -42,7 +42,6 @@ const statusColors = { active: 'bg-blue-100 text-blue-800', chronic: 'bg-purple-
 const statusLabels = { active: 'نشط', chronic: 'مزمن', resolved: 'شُفي', normal: 'طبيعي', abnormal: 'غير طبيعي', critical: 'حرج' }
 const severityLabels = { mild: 'خفيف', moderate: 'متوسط', severe: 'شديد' }
 const scanTypeLabels = { xray: 'أشعة X', mri: 'رنين مغناطيسي', ct: 'أشعة مقطعية', ultrasound: 'موجات صوتية', pet: 'PET Scan', mammo: 'ماموجرام' }
-const anesthesiaLabels = { general: 'عامة', local: 'موضعية', spinal: 'نخاعية', epidural: 'فوق الجافية' }
 const outcomeLabels = { successful: 'ناجحة', complicated: 'مع مضاعفات', failed: 'فاشلة' }
 
 // ── مكوّن رفع/تصوير صورة ──
@@ -616,7 +615,6 @@ const VACCINE_SCHEDULE = [
 function VaccinationsTab({ api }) {
   const [given, setGiven] = useState([])
   const [open, setOpen] = useState(false)
-  const [scheduleOpen, setScheduleOpen] = useState(false)
   const [editing, setEditing] = useState(null)
   const [form, setForm] = useState({})
   const [loading, setLoading] = useState(false)
@@ -664,7 +662,7 @@ function VaccinationsTab({ api }) {
   }
   const remove = async (id) => { if (confirm('حذف هذا التطعيم؟')) { await api.del(`/vaccinations/${id}`); loadGiven() } }
 
-  const VaccineRow = ({ v, compact }) => {
+  const VaccineRow = ({ v }) => {
     const given_ = isGiven(v.key)
     const overdue_ = isOverdue(v)
     const due_ = isDue(v)

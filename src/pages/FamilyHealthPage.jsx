@@ -7,13 +7,11 @@ import {
   Users, Plus, Heart, User, Calendar, Activity, Brain,
   ChevronDown, ChevronUp, X, Check, Target, FileText, Pencil, Trash2, Printer
 } from 'lucide-react'
-import { useAuth } from '../contexts/AuthContext'
 
 const API = (path) => `/api/family${path}`
 const authHeader = () => ({ 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token')}` })
 
 export default function FamilyHealthPage() {
-  const { user } = useAuth()
   const [groups, setGroups] = useState([])
   const [activeGroup, setActiveGroup] = useState(null)
   const [members, setMembers] = useState([])
@@ -93,7 +91,7 @@ export default function FamilyHealthPage() {
         setGroupForm({ name: '', description: '' })
         fetchGroups()
       }
-    } catch (e) { setMsg({ type: 'error', text: 'خطأ في الإنشاء' }) }
+    } catch { setMsg({ type: 'error', text: 'خطأ في الإنشاء' }) }
   }
 
   const addMember = async (e) => {
@@ -121,10 +119,10 @@ export default function FamilyHealthPage() {
                 is_primary: false,
               }),
             })
-          } catch (_) { /* ignore — emergency contact is bonus, not critical */ }
+          } catch { /* ignore — emergency contact is bonus, not critical */ }
         }
       }
-    } catch (e) { setMsg({ type: 'error', text: 'خطأ في الإضافة' }) }
+    } catch { setMsg({ type: 'error', text: 'خطأ في الإضافة' }) }
   }
 
   const editMember = (member) => {
@@ -161,7 +159,7 @@ export default function FamilyHealthPage() {
         setEditingRecordId(null)
         loadMember(activeMember)
       }
-    } catch (e) { setMsg({ type: 'error', text: 'خطأ في الإضافة' }) }
+    } catch { setMsg({ type: 'error', text: 'خطأ في الإضافة' }) }
   }
 
   const editRecord = (record) => {
@@ -202,7 +200,7 @@ export default function FamilyHealthPage() {
         setShowGoalForm(false)
         loadGroup(activeGroup)
       }
-    } catch (e) { setMsg({ type: 'error', text: 'خطأ في الإضافة' }) }
+    } catch { setMsg({ type: 'error', text: 'خطأ في الإضافة' }) }
   }
 
   const updateGoalProgress = async (goalId, progress, status) => {
@@ -223,7 +221,7 @@ export default function FamilyHealthPage() {
       const data = await res.json()
       if (data.success) setAiAnalysis(data.analysis)
       else setMsg({ type: 'error', text: data.error || 'خطأ في التحليل' })
-    } catch (e) { setMsg({ type: 'error', text: 'خطأ في التحليل' }) }
+    } catch { setMsg({ type: 'error', text: 'خطأ في التحليل' }) }
     setAiLoading(false)
   }
 

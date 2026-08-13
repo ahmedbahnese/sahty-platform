@@ -98,7 +98,7 @@ function PrescriptionCard({ rx, onAction, userType }) {
             {/* الأدوية */}
             <div className="space-y-2 mt-3">
               <p className="text-sm font-semibold text-gray-800">الأدوية الموصوفة:</p>
-              {rx.items?.map((item, i) => (
+              {rx.items?.map(item => (
                 <div key={item.id} className="bg-gray-50 rounded-xl p-3">
                   <div className="flex items-start justify-between gap-2">
                     <div>
@@ -348,7 +348,7 @@ function SendPharmacyModal({ rx, onClose, onSent, token }) {
 }
 
 export default function PrescriptionsPage() {
-  const { user, token, isPatient, isDoctor, isProvider } = useAuth()
+  const { user, token, isDoctor } = useAuth()
   const isPharmacy = user?.user_type === 'pharmacy'
 
   const [prescriptions, setPrescriptions] = useState([])
