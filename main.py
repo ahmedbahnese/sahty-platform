@@ -165,8 +165,13 @@ app.config['SQLALCHEMY_ENGINE_OPTIONS']      = {
 db.init_app(app)
 migrate = Migrate(app, db)  # Flask-Migrate — run `flask db init/migrate/upgrade`
 
-with app.app_context():
-    db.create_all()
+def initialize_application_data():
+    """Seed reference data after migrations have been applied.
+
+    Schema creation and upgrades are deliberately handled by Flask-Migrate.
+    This function only inserts idempotent application data and is called by
+    the executable entry point after the migration command has completed.
+    """
 
     # ── Imported Egypt healthcare directory ──────────────────────────────────
     # Seed by natural names so startup is safe on every restart and deployment.
@@ -235,68 +240,6 @@ with app.app_context():
     # idempotent and keeps the legacy normalized directory intact.
     import_directory_if_needed()
 
-
-    # ── Safe column migrations (won't fail on existing dbs) ──────────────────
-    from sqlalchemy import text
-    migrations = [
-        # Existing safe migrations
-        "ALTER TABLE diseases ADD COLUMN IF NOT EXISTS attachment_data TEXT",
-        "ALTER TABLE vaccinations ADD COLUMN IF NOT EXISTS attachment_data TEXT",
-        "ALTER TABLE lab_tests ADD COLUMN IF NOT EXISTS attachment_data TEXT",
-        "ALTER TABLE radiology_scans ADD COLUMN IF NOT EXISTS attachment_data TEXT",
-        "ALTER TABLE radiology_scans ADD COLUMN IF NOT EXISTS report_data TEXT",
-        "ALTER TABLE medications ADD COLUMN IF NOT EXISTS attachment_data TEXT",
-
-        # Sprint X — Lab Requests: multiple tests, center, home collection, scheduling, doc upload
-        "ALTER TABLE lab_requests ADD COLUMN IF NOT EXISTS tests_json TEXT DEFAULT '[]'",
-        "ALTER TABLE lab_requests ADD COLUMN IF NOT EXISTS lab_center_name VARCHAR(200)",
-        "ALTER TABLE lab_requests ADD COLUMN IF NOT EXISTS preparation_instructions TEXT",
-        "ALTER TABLE lab_requests ADD COLUMN IF NOT EXISTS request_doc_path VARCHAR(500)",
-        "ALTER TABLE lab_requests ADD COLUMN IF NOT EXISTS request_doc_name VARCHAR(200)",
-        "ALTER TABLE lab_requests ADD COLUMN IF NOT EXISTS scheduled_datetime DATETIME",
-        "ALTER TABLE lab_requests ADD COLUMN IF NOT EXISTS home_collection BOOLEAN DEFAULT 0",
-        "ALTER TABLE lab_requests ADD COLUMN IF NOT EXISTS collection_address TEXT",
-        "ALTER TABLE lab_requests ADD COLUMN IF NOT EXISTS collection_lat REAL",
-        "ALTER TABLE lab_requests ADD COLUMN IF NOT EXISTS collection_lng REAL",
-        "ALTER TABLE lab_requests ADD COLUMN IF NOT EXISTS collection_date DATE",
-        "ALTER TABLE lab_requests ADD COLUMN IF NOT EXISTS collection_time VARCHAR(10)",
-        "ALTER TABLE lab_requests ADD COLUMN IF NOT EXISTS collection_staff_name VARCHAR(200)",
-        "ALTER TABLE lab_requests ADD COLUMN IF NOT EXISTS preparation_notes TEXT",
-
-        # Pharmacy orders — pickup/delivery details
-        "ALTER TABLE pharmacy_orders ADD COLUMN IF NOT EXISTS fulfillment_method VARCHAR(30) DEFAULT 'pickup'",
-        "ALTER TABLE pharmacy_orders ADD COLUMN IF NOT EXISTS delivery_address TEXT",
-
-        # Sprint X — Radiology Requests: center, scheduling, doc upload
-        "ALTER TABLE radiology_requests ADD COLUMN IF NOT EXISTS radiology_center_name VARCHAR(200)",
-        "ALTER TABLE radiology_requests ADD COLUMN IF NOT EXISTS request_doc_path VARCHAR(500)",
-        "ALTER TABLE radiology_requests ADD COLUMN IF NOT EXISTS request_doc_name VARCHAR(200)",
-        "ALTER TABLE radiology_requests ADD COLUMN IF NOT EXISTS scheduled_datetime DATETIME",
-        "ALTER TABLE radiology_requests ADD COLUMN IF NOT EXISTS body_part_code VARCHAR(80)",
-        "ALTER TABLE radiology_requests ADD COLUMN IF NOT EXISTS patient_weight REAL",
-        "ALTER TABLE radiology_requests ADD COLUMN IF NOT EXISTS requires_sedation BOOLEAN DEFAULT 0",
-        "ALTER TABLE radiology_requests ADD COLUMN IF NOT EXISTS uses_contrast BOOLEAN DEFAULT 0",
-        "ALTER TABLE radiology_requests ADD COLUMN IF NOT EXISTS preparation_required BOOLEAN DEFAULT 0",
-        "ALTER TABLE radiology_requests ADD COLUMN IF NOT EXISTS preparation_checklist_json TEXT DEFAULT '[]'",
-
-        # Sprint X — Medications: prescription source, notification settings
-        "ALTER TABLE medications ADD COLUMN IF NOT EXISTS prescription_id INTEGER REFERENCES prescriptions(id)",
-        "ALTER TABLE medications ADD COLUMN IF NOT EXISTS source VARCHAR(30) DEFAULT 'manual'",
-        "ALTER TABLE medications ADD COLUMN IF NOT EXISTS notify_family BOOLEAN DEFAULT 0",
-        "ALTER TABLE medications ADD COLUMN IF NOT EXISTS notify_doctor_on_missed BOOLEAN DEFAULT 0",
-        "ALTER TABLE medications ADD COLUMN IF NOT EXISTS missed_dose_threshold INTEGER DEFAULT 3",
-
-        # Sprint 5-8 — Family member in appointments, vaccination tracking
-        "ALTER TABLE appointments ADD COLUMN IF NOT EXISTS for_family_member_id INTEGER REFERENCES family_members(id)",
-        "ALTER TABLE appointments ADD COLUMN IF NOT EXISTS for_member_name VARCHAR(200)",
-    ]
-    with db.engine.connect() as conn:
-        for stmt in migrations:
-            try:
-                conn.execute(text(stmt))
-                conn.commit()
-            except Exception:
-                conn.rollback()
 
     # ── Bootstrap first super-admin ───────────────────────────────────────────
     bootstrap_email    = os.environ.get('ADMIN_EMAIL', 'admin@sehaty.com')
@@ -434,6 +377,8 @@ def serve(path):
 
 
 if __name__ == '__main__':
+    with app.app_context():
+        initialize_application_data()
     port = int(os.environ.get('PORT', 5001))
     debug_mode = os.environ.get('FLASK_ENV', 'production') == 'development'
     app.run(host='0.0.0.0', port=port, debug=debug_mode)
