@@ -1,11 +1,26 @@
+databases:
+  - name: sahty-database
+    databaseName: sahty
+    user: sahty
+    plan: free
+
 services:
   - type: web
     name: sahty-platform
     env: python
-    buildCommand: pip install -r requirements.txt
+    buildCommand: pip install -r requirements.txt && npm ci --include=dev && npm run build
     startCommand: flask --app main db upgrade && gunicorn --bind 0.0.0.0:$PORT wsgi:application
+    healthCheckPath: /api/health
     envVars:
       - key: FLASK_ENV
         value: production
+      # Override this value when using a custom frontend domain. The service
+      # URL is also added automatically by the Flask application on Render.
+      - key: CORS_ORIGINS
+        value: https://sahty-platform.onrender.com
+      - key: DATABASE_URL
+        fromDatabase:
+          name: sahty-database
+          property: connectionString
       - key: SESSION_SECRET
         generateValue: true

@@ -93,14 +93,27 @@ def add_security_headers(response):
     return response
 
 # ── CORS ──────────────────────────────────────────────────────────────────────
-cors_origins = [
-    origin.strip()
-    for origin in os.environ.get(
-        'CORS_ORIGINS',
-        'http://localhost:5173,http://127.0.0.1:5173',
-    ).split(',')
-    if origin.strip()
-]
+# Same-origin browser requests do not need CORS. Keep localhost convenient for
+# development, while production uses explicit configured origins and the
+# deployment's own public URL when Render provides it.
+configured_cors_origins = os.environ.get('CORS_ORIGINS')
+if configured_cors_origins:
+    cors_origins = [
+        origin.strip().rstrip('/')
+        for origin in configured_cors_origins.split(',')
+        if origin.strip()
+    ]
+else:
+    cors_origins = (
+        ['http://localhost:5173', 'http://127.0.0.1:5173']
+        if os.environ.get('FLASK_ENV') != 'production'
+        else []
+    )
+render_external_url = os.environ.get('RENDER_EXTERNAL_URL')
+if render_external_url:
+    render_external_url = render_external_url.strip().rstrip('/')
+    if render_external_url not in cors_origins:
+        cors_origins.append(render_external_url)
 CORS(app, origins=cors_origins, supports_credentials=True)
 
 # ── Rate Limiting ─────────────────────────────────────────────────────────────
@@ -154,6 +167,14 @@ database_url = os.environ.get('DATABASE_URL', f'sqlite:///{db_path}')
 # Heroku/Render use postgres:// — SQLAlchemy 2.x needs postgresql://
 if database_url.startswith('postgres://'):
     database_url = database_url.replace('postgres://', 'postgresql://', 1)
+
+if (
+    os.environ.get('FLASK_ENV') == 'production'
+    and not database_url.startswith(('postgresql://', 'postgresql+psycopg2://'))
+):
+    raise RuntimeError(
+        'DATABASE_URL must point to a managed PostgreSQL database in production'
+    )
 
 app.config['SQLALCHEMY_DATABASE_URI']        = database_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
@@ -336,6 +357,24 @@ def ensure_test_login_fixture():
         national_id=f'TEST-{user.id}',
     ))
     db.session.commit()
+
+# ── Platform health checks ───────────────────────────────────────────────────
+@app.get('/healthz')
+def liveness_check():
+    """Lightweight process check for platforms and uptime monitors."""
+    return jsonify({'status': 'ok'}), 200
+
+
+@app.get('/readyz')
+def readiness_check():
+    """Readiness check that confirms the application can reach its database."""
+    try:
+        from sqlalchemy import text
+        db.session.execute(text('SELECT 1'))
+        return jsonify({'status': 'ready', 'database': 'ok'}), 200
+    except Exception:
+        db.session.rollback()
+        return jsonify({'status': 'not_ready', 'database': 'unavailable'}), 503
 
 # ── Demo clinical summary (dev only) ─────────────────────────────────────────
 @app.route('/demo-report')

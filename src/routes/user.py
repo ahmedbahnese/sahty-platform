@@ -1,4 +1,5 @@
 from flask import Blueprint, jsonify, request
+from sqlalchemy import text
 from src.models.user import User, db
 from src.routes.auth import token_required, role_required
 from werkzeug.security import generate_password_hash
@@ -94,4 +95,18 @@ def delete_user(current_user, user_id):
 
 @user_bp.route('/health', methods=['GET'])
 def health_check():
-    return jsonify({'status': 'ok', 'message': 'صحتك في أمان API تعمل بنجاح'}), 200
+    """Public health check used by the deployment platform."""
+    try:
+        db.session.execute(text('SELECT 1'))
+        return jsonify({
+            'status': 'ok',
+            'database': 'ok',
+            'message': 'صحتك في أمان API تعمل بنجاح',
+        }), 200
+    except Exception:
+        db.session.rollback()
+        return jsonify({
+            'status': 'degraded',
+            'database': 'unavailable',
+            'message': 'قاعدة البيانات غير متاحة',
+        }), 503
