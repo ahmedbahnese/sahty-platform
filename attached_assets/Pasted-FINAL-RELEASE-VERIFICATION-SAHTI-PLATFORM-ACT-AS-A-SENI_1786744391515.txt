@@ -1,0 +1,483 @@
+FINAL RELEASE VERIFICATION – SAHTI PLATFORM
+
+ACT AS A SENIOR SOFTWARE ARCHITECT, QA ENGINEER, SECURITY ENGINEER, AND RELEASE ENGINEER.
+
+IMPORTANT:
+This is a FINAL VERIFICATION ONLY.
+
+DO NOT add new product features.
+DO NOT redesign the frontend.
+DO NOT refactor working code unnecessarily.
+DO NOT remove existing routes or functionality.
+DO NOT make speculative changes.
+DO NOT consume the remaining project work on new development.
+
+The previous stabilization phase was accepted.
+
+The previous security phase requested the following:
+
+1. Fix medical file IDOR and enforce object-level authorization.
+2. Prevent cross-patient access to:
+   - medical records
+   - medications
+   - prescriptions
+   - appointments
+   - notifications
+   - uploaded medical files
+3. Prevent public exposure of donor identifying/location information.
+4. Prevent self-registration of:
+   - admin
+   - super_admin
+   - unapproved professional roles
+5. Verify server-side role assignment and active-role switching.
+6. Replace raw internal error responses with safe public errors and internal logging.
+7. Add automated negative authorization tests for:
+   - patient A vs patient B
+   - doctor A vs doctor B
+   - provider vs provider
+   - admin vs super-admin
+
+Your task now is to VERIFY whether these requirements were actually implemented.
+
+==================================================
+1. GIT / MERGE VERIFICATION
+==================================================
+
+First inspect the current Git state.
+
+Verify:
+
+- Current branch
+- Current commit
+- Remote repository
+- Working tree status
+- Uncommitted changes
+- Untracked files
+- Merge conflicts
+- Merge state
+- Whether the latest changes were successfully committed
+- Whether the local branch is synchronized with GitHub
+- Whether the remote branch contains the latest intended changes
+
+Run appropriate Git checks.
+
+IMPORTANT:
+
+Do NOT force push.
+
+Do NOT reset --hard.
+
+Do NOT discard changes.
+
+Do NOT overwrite another branch.
+
+If conflicts exist, DO NOT automatically resolve them.
+
+Report the exact conflict and stop that part of verification.
+
+If there are no conflicts, explicitly state:
+
+GIT STATUS: CLEAN
+MERGE STATUS: CLEAN
+REMOTE SYNC: VERIFIED
+
+Only claim synchronization if it was actually verified.
+
+==================================================
+2. BUILD / RUNTIME VERIFICATION
+==================================================
+
+Verify that the project can actually start.
+
+Test:
+
+- Backend startup
+- Frontend startup
+- Database connection
+- API availability
+- Required environment configuration
+- Production build if configured
+
+Check for:
+
+- Python errors
+- TypeScript errors
+- JavaScript errors
+- Import errors
+- Missing dependencies
+- Database errors
+- Migration errors
+- Runtime exceptions
+
+Do not change configuration just to hide an error.
+
+==================================================
+3. DATABASE / MIGRATION VERIFICATION
+==================================================
+
+Verify:
+
+- Database is reachable.
+- Current schema matches the application models.
+- Latest migrations are present.
+- Migrations can be applied.
+- No migration conflict exists.
+- No unexpected destructive migration exists.
+
+Do NOT delete the existing database.
+
+Do NOT recreate the database.
+
+Do NOT modify migrations unless absolutely necessary to correct a verified problem.
+
+==================================================
+4. SECURITY VERIFICATION
+==================================================
+
+Verify every security requirement from the previous task.
+
+------------------------------------------
+A. MEDICAL FILE IDOR
+------------------------------------------
+
+Verify that a user cannot access another user's medical file by changing:
+
+- file ID
+- URL
+- API parameter
+- request body
+- download endpoint
+
+Test:
+
+Patient A → Patient A file = ALLOWED
+
+Patient A → Patient B file = DENIED
+
+Doctor A → Doctor B restricted file = DENIED unless explicitly authorized by existing business rules.
+
+Provider → unauthorized patient file = DENIED.
+
+Verify authorization is enforced SERVER-SIDE.
+
+Do not rely on frontend hiding.
+
+------------------------------------------
+B. CROSS-PATIENT MEDICAL DATA
+------------------------------------------
+
+Test object-level authorization for:
+
+Medical records
+Medications
+Prescriptions
+Appointments
+Notifications
+Uploads
+
+Use at least:
+
+Patient A
+Patient B
+Doctor A
+Doctor B
+Provider
+
+Attempt unauthorized access using direct API requests.
+
+Expected result:
+
+HTTP 401 or 403 as appropriate.
+
+Never return another user's data.
+
+------------------------------------------
+C. BLOOD DONOR PRIVACY
+------------------------------------------
+
+Verify that public endpoints do NOT expose donor identifying or sensitive location information.
+
+Check:
+
+- donor name
+- phone
+- email
+- exact address
+- precise location
+- private identifying information
+
+Public blood-bank search must expose only the minimum information required by the existing product design.
+
+------------------------------------------
+D. PRIVILEGED ROLE REGISTRATION
+------------------------------------------
+
+Verify that a normal user cannot self-register as:
+
+admin
+super_admin
+doctor without approval
+nurse without approval
+other privileged professional roles
+
+Test direct API manipulation of role fields.
+
+Do not rely on frontend restrictions.
+
+------------------------------------------
+E. SERVER-SIDE ROLE ASSIGNMENT
+------------------------------------------
+
+Verify that role assignment is controlled by the backend.
+
+A malicious request must not be able to change:
+
+user role
+active role
+approval status
+administrator status
+
+by modifying request parameters.
+
+------------------------------------------
+F. ACTIVE ROLE SWITCHING
+------------------------------------------
+
+Verify that active-role switching is server-side authorized.
+
+Examples:
+
+Patient → allowed
+
+Approved Patient + Doctor → allowed to switch between those active roles
+
+Pending Doctor → cannot activate Doctor role
+
+Unapproved Nurse → cannot activate Nurse role
+
+Patient → Admin by manipulating API = DENIED
+
+Doctor → Super Admin by manipulating API = DENIED
+
+------------------------------------------
+G. ERROR HANDLING
+------------------------------------------
+
+Verify that production/API responses do not expose:
+
+- stack traces
+- SQL errors
+- filesystem paths
+- secrets
+- internal exception details
+- tokens
+- database credentials
+- sensitive debugging information
+
+Verify that internal errors are logged safely while public responses contain safe generic errors.
+
+==================================================
+5. AUTOMATED SECURITY TESTS
+==================================================
+
+Run the complete existing test suite.
+
+Also verify that negative authorization tests exist for:
+
+1. Patient A → Patient B
+2. Doctor A → Doctor B
+3. Provider A → Provider B
+4. Admin → Super Admin restricted operation
+5. Unauthorized file access
+6. Unauthorized role escalation
+7. Unauthorized active-role switching
+
+If these tests already exist, RUN THEM.
+
+If they do not exist, do NOT spend time implementing a large new test framework.
+
+Only report them as missing.
+
+==================================================
+6. REGRESSION VERIFICATION
+==================================================
+
+Verify that the security fixes did not break existing functionality.
+
+At minimum verify:
+
+- Registration
+- Login
+- Logout
+- Session persistence
+- Patient dashboard
+- Doctor dashboard
+- Nurse dashboard
+- Admin dashboard
+- Appointments
+- Medical records
+- Medications
+- Prescriptions
+- Notifications
+- File upload/download
+- Family functionality
+- Existing API routes
+
+Do not assume functionality works because the route exists.
+
+==================================================
+7. NO FEATURE CREEP
+==================================================
+
+Do NOT implement:
+
+- new healthcare directory features
+- new nursing features
+- new AI features
+- new family features
+- new animations
+- new UI
+- new integrations
+- new government integration
+- new database facilities
+- new product requirements
+
+This task is ONLY verification.
+
+==================================================
+8. FINAL PRODUCTION CHECK
+==================================================
+
+Calculate a realistic Production Readiness assessment based ONLY on verified results.
+
+Do not give a high score simply because code exists.
+
+Use:
+
+VERIFIED WORKING
+PARTIALLY VERIFIED
+NOT VERIFIED
+FAILED
+
+For every major area explain the evidence.
+
+==================================================
+9. FINAL REPORT
+==================================================
+
+Create:
+
+FINAL_RELEASE_AUDIT.md
+
+Include exactly:
+
+# SAHTI FINAL RELEASE AUDIT
+
+## 1. Git Status
+- Branch
+- Commit
+- Remote
+- Working tree
+- Merge status
+- Remote synchronization
+
+## 2. Build & Runtime
+- Frontend
+- Backend
+- Database
+- Migrations
+- Build
+- Runtime errors
+
+## 3. Security Verification
+
+| Security Requirement | Status | Evidence | Remaining Risk |
+|---|---|---|---|
+
+## 4. Authorization Tests
+
+| Test | Expected | Actual | Status |
+|---|---|---|---|
+
+## 5. Regression Tests
+
+| Area | Result | Evidence |
+|---|---|---|
+
+## 6. Tests
+- Total tests
+- Passed
+- Failed
+- Skipped
+- Not available
+
+Do NOT invent test counts.
+
+## 7. Security Issues Fixed
+
+List only issues that are actually verified as fixed.
+
+## 8. Security Issues Still Open
+
+List every unresolved issue.
+
+## 9. Migration Changes
+
+State whether migrations were changed.
+
+## 10. Production Readiness
+
+Give a realistic score and explain exactly why.
+
+## 11. Remaining Blockers
+
+Separate into:
+
+CRITICAL
+HIGH
+MEDIUM
+LOW
+
+## 12. FINAL RELEASE DECISION
+
+Choose exactly one:
+
+READY
+READY WITH WARNINGS
+NOT READY
+
+Do not choose READY unless all critical blockers have been verified as resolved.
+
+==================================================
+10. GIT FINAL CHECK
+==================================================
+
+At the end:
+
+Do NOT create unnecessary code changes.
+
+If no code changes were necessary, do not create a fake commit.
+
+If verification generated only FINAL_RELEASE_AUDIT.md:
+
+Commit only that report with:
+
+"Final release audit and verification"
+
+Then push normally.
+
+DO NOT force push.
+
+Finally report:
+
+GIT: PASS/FAIL
+MERGE: PASS/FAIL
+BUILD: PASS/FAIL
+DATABASE: PASS/FAIL
+SECURITY: PASS/FAIL
+TESTS: PASS/FAIL
+PRODUCTION READINESS: X/100
+FINAL DECISION: READY / READY WITH WARNINGS / NOT READY
+
+IMPORTANT:
+Never claim PASS, VERIFIED, FIXED, or READY unless you actually verified it.
