@@ -103,3 +103,4 @@ sift-stack-py
 speechrecognition
 sqlalchemy
 werkzeug
+pytest

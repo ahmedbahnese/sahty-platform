@@ -20,7 +20,7 @@ from src.models.user import db
 from src.models.patient import Patient
 from src.models.medication import PharmacyOrder
 from src.models.notification import Notification
-from src.routes.auth import token_required
+from src.routes.auth import token_required, current_role
 
 pharmacy_order_bp = Blueprint('pharmacy_order', __name__)
 
@@ -50,6 +50,19 @@ def _notify(user_id, title, message, ref_id=None):
         user_id=user_id, title=title, message=message,
         type='pharmacy_order', reference_id=ref_id, reference_type='pharmacy_order',
     ))
+
+
+def _can_access_order(current_user, order):
+    role = current_role(current_user)
+    if role in ('admin', 'super_admin'):
+        return True
+    if role == 'patient':
+        patient = Patient.query.filter_by(user_id=current_user.id).first()
+        return bool(patient and order.patient_id == patient.id)
+    if role == 'pharmacy':
+        # preferred_pharmacy_id is a provider/user identifier in current data.
+        return order.preferred_pharmacy_id in (None, current_user.id)
+    return False
 
 
 # ─────────────────────────────────────────
@@ -156,8 +169,10 @@ def list_pharmacy_orders(current_user):
         q = PharmacyOrder.query.filter(
             PharmacyOrder.preferred_pharmacy_id == provider_id
         ) if provider_id else PharmacyOrder.query.filter_by(preferred_pharmacy_id=None)
-    else:
+    elif role in ('admin', 'super_admin'):
         q = PharmacyOrder.query
+    else:
+        return jsonify({'message': 'غير مصرح'}), 403
 
     status_filter = request.args.get('status')
     if status_filter:
@@ -171,10 +186,8 @@ def list_pharmacy_orders(current_user):
 @token_required
 def get_pharmacy_order(current_user, order_id):
     order = PharmacyOrder.query.get_or_404(order_id)
-    if getattr(g, 'current_role', current_user.user_type) == 'patient':
-        patient = Patient.query.filter_by(user_id=current_user.id).first()
-        if not patient or order.patient_id != patient.id:
-            return jsonify({'message': 'غير مصرح'}), 403
+    if not _can_access_order(current_user, order):
+        return jsonify({'message': 'غير مصرح'}), 403
     return jsonify(order.to_dict()), 200
 
 
@@ -185,9 +198,11 @@ def get_pharmacy_order(current_user, order_id):
 @pharmacy_order_bp.route('/pharmacy-orders/<int:order_id>/confirm', methods=['PUT'])
 @token_required
 def confirm_pharmacy_order(current_user, order_id):
-    if getattr(g, 'current_role', current_user.user_type) not in ('admin', 'super_admin', 'pharmacy'):
+    if current_role(current_user) not in ('admin', 'super_admin', 'pharmacy'):
         return jsonify({'message': 'غير مصرح'}), 403
     order = PharmacyOrder.query.get_or_404(order_id)
+    if not _can_access_order(current_user, order):
+        return jsonify({'message': 'غير مصرح'}), 403
     if order.status != 'pending':
         return jsonify({'message': 'الطلب ليس في حالة انتظار'}), 400
     order.status = 'confirmed'
@@ -204,9 +219,11 @@ def confirm_pharmacy_order(current_user, order_id):
 @pharmacy_order_bp.route('/pharmacy-orders/<int:order_id>/dispense', methods=['PUT'])
 @token_required
 def dispense_pharmacy_order(current_user, order_id):
-    if getattr(g, 'current_role', current_user.user_type) not in ('admin', 'super_admin', 'pharmacy'):
+    if current_role(current_user) not in ('admin', 'super_admin', 'pharmacy'):
         return jsonify({'message': 'غير مصرح'}), 403
     order = PharmacyOrder.query.get_or_404(order_id)
+    if not _can_access_order(current_user, order):
+        return jsonify({'message': 'غير مصرح'}), 403
     if order.status not in ('pending', 'confirmed'):
         return jsonify({'message': 'لا يمكن صرف هذا الطلب في حالته الحالية'}), 400
     order.status = 'dispensed'
@@ -225,10 +242,12 @@ def dispense_pharmacy_order(current_user, order_id):
 @token_required
 def cancel_pharmacy_order(current_user, order_id):
     order = PharmacyOrder.query.get_or_404(order_id)
-    if current_user.user_type == 'patient':
+    if current_role(current_user) == 'patient':
         patient = Patient.query.filter_by(user_id=current_user.id).first()
         if not patient or order.patient_id != patient.id:
             return jsonify({'message': 'غير مصرح'}), 403
+    if not _can_access_order(current_user, order):
+        return jsonify({'message': 'غير مصرح'}), 403
     data = request.get_json(silent=True) or {}
     order.status = 'cancelled'
     order.cancelled_reason = data.get('reason', '')

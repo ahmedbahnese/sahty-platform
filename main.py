@@ -6,6 +6,7 @@ import datetime
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from flask import Flask, send_from_directory, jsonify, request as flask_request
+from werkzeug.exceptions import HTTPException
 from flask import current_app
 from flask_cors import CORS
 from flask_migrate import Migrate
@@ -72,6 +73,15 @@ from src.database.import_healthcare_csv import import_directory_if_needed
 from werkzeug.security import generate_password_hash
 
 app = Flask(__name__, static_folder=os.path.join(os.path.dirname(os.path.abspath(__file__)), 'dist'))
+
+
+@app.errorhandler(Exception)
+def handle_unexpected_error(error):
+    """Return a stable public error without exposing implementation details."""
+    if isinstance(error, HTTPException):
+        return error
+    app.logger.exception('Unhandled API exception', exc_info=error)
+    return jsonify({'message': 'حدث خطأ داخلي. يرجى المحاولة لاحقاً'}), 500
 
 # ── Security ──────────────────────────────────────────────────────────────────
 app.config['SECRET_KEY'] = os.environ.get('SESSION_SECRET')

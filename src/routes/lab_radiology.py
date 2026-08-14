@@ -32,7 +32,7 @@ from src.models.notification import Notification
 from src.models.lab_radiology import LabRequest, RadiologyRequest
 from src.models.medical_record import LabTest, Radiology
 from src.models.egypt_healthcare import HealthcareDirectoryRecord
-from src.routes.auth import token_required
+from src.routes.auth import token_required, current_role, has_active_role
 
 lab_radiology_bp = Blueprint('lab_radiology', __name__)
 
@@ -79,7 +79,7 @@ def _notify(user_id, title, message, ref_type, ref_id):
 
 def _get_patient_for_user(user):
     """إذا كان المستخدم مريضاً، أعِد سجل المريض. وإلا None."""
-    if user.user_type == 'patient':
+    if current_role(user) == 'patient':
         return Patient.query.filter_by(user_id=user.id).first()
     return None
 
@@ -164,17 +164,12 @@ def create_lab_request(current_user):
         data = request.form.to_dict()
 
     # تحديد المريض
-    if current_user.user_type == 'patient':
+    if current_role(current_user) == 'patient':
         patient = Patient.query.filter_by(user_id=current_user.id).first()
         if not patient:
             return jsonify({'message': 'لم يتم العثور على ملف المريض'}), 404
     else:
-        patient_id = data.get('patient_id')
-        if not patient_id:
-            return jsonify({'message': 'معرّف المريض مطلوب'}), 400
-        patient = Patient.query.get(patient_id)
-        if not patient:
-            return jsonify({'message': 'المريض غير موجود'}), 404
+        return jsonify({'message': 'يجب إنشاء طلب التحليل من حساب المريض'}), 403
 
     # التحاليل — قائمة JSON أو اسم واحد
     tests_raw = data.get('tests_json') or data.get('tests', '[]')
@@ -263,10 +258,13 @@ def create_lab_request(current_user):
 
 def _owned_request(current_user, model, req_id):
     item = model.query.get_or_404(req_id)
-    if current_user.user_type == 'patient':
+    role = current_role(current_user)
+    if role == 'patient':
         patient = Patient.query.filter_by(user_id=current_user.id).first()
         if not patient or item.patient_id != patient.id:
             return None
+    elif role not in ('admin', 'super_admin') and item.requesting_user_id != current_user.id:
+        return None
     return item
 
 
@@ -323,13 +321,15 @@ def delete_lab_request(current_user, req_id):
 @token_required
 def list_lab_requests(current_user):
     """قائمة الطلبات — بحسب دور المستخدم."""
-    if current_user.user_type == 'patient':
+    if current_role(current_user) == 'patient':
         patient = Patient.query.filter_by(user_id=current_user.id).first()
         if not patient:
             return jsonify([]), 200
         requests_q = LabRequest.query.filter_by(patient_id=patient.id)
-    else:
+    elif current_role(current_user) in ('admin', 'super_admin'):
         requests_q = LabRequest.query
+    else:
+        requests_q = LabRequest.query.filter_by(requesting_user_id=current_user.id)
 
     status_filter = request.args.get('status')
     if status_filter:
@@ -343,10 +343,12 @@ def list_lab_requests(current_user):
 @token_required
 def get_lab_request(current_user, req_id):
     lab_req = LabRequest.query.get_or_404(req_id)
-    if current_user.user_type == 'patient':
+    if current_role(current_user) == 'patient':
         patient = Patient.query.filter_by(user_id=current_user.id).first()
         if not patient or lab_req.patient_id != patient.id:
             return jsonify({'message': 'غير مصرح'}), 403
+    elif current_role(current_user) not in ('admin', 'super_admin') and lab_req.requesting_user_id != current_user.id:
+        return jsonify({'message': 'غير مصرح'}), 403
     return jsonify(lab_req.to_dict()), 200
 
 
@@ -354,9 +356,14 @@ def get_lab_request(current_user, req_id):
 @token_required
 def approve_lab_request(current_user, req_id):
     """اعتماد طلب التحليل — للمختبر أو المسؤول."""
-    if current_user.user_type not in ('admin', 'super_admin', 'laboratory', 'lab'):
+    if current_role(current_user) not in ('admin', 'super_admin', 'laboratory', 'lab'):
         return jsonify({'message': 'غير مصرح لك بالاعتماد'}), 403
-    lab_req = LabRequest.query.get_or_404(req_id)
+    lab_req = _owned_request(current_user, LabRequest, req_id)
+    if not lab_req or (
+        current_role(current_user) not in ('admin', 'super_admin', 'laboratory', 'lab')
+        and lab_req.requesting_user_id != current_user.id
+    ):
+        return jsonify({'message': 'غير مصرح'}), 403
     if lab_req.status != 'requested':
         return jsonify({'message': f'الطلب بحالة "{lab_req.status}" ولا يمكن اعتماده'}), 400
     data = request.get_json(silent=True) or {}
@@ -382,7 +389,9 @@ def approve_lab_request(current_user, req_id):
 @token_required
 def reject_lab_request(current_user, req_id):
     """رفض طلب التحليل."""
-    if current_user.user_type not in ('admin', 'super_admin', 'laboratory', 'lab'):
+    if not (
+        has_active_role(current_user, 'admin', 'super_admin', 'laboratory', 'lab')
+    ):
         return jsonify({'message': 'غير مصرح لك بالرفض'}), 403
     lab_req = LabRequest.query.get_or_404(req_id)
     if lab_req.status not in ('requested',):
@@ -406,7 +415,9 @@ def reject_lab_request(current_user, req_id):
 @token_required
 def upload_lab_results(current_user, req_id):
     """رفع نتائج التحليل — نص + ملف اختياري."""
-    lab_req = LabRequest.query.get_or_404(req_id)
+    lab_req = _owned_request(current_user, LabRequest, req_id)
+    if not lab_req:
+        return jsonify({'message': 'غير مصرح'}), 403
     if lab_req.status == 'rejected':
         return jsonify({'message': 'لا يمكن رفع نتائج لطلب مرفوض'}), 400
 
@@ -505,17 +516,12 @@ def create_radiology_request(current_user):
     else:
         data = request.form.to_dict()
 
-    if current_user.user_type == 'patient':
+    if current_role(current_user) == 'patient':
         patient = Patient.query.filter_by(user_id=current_user.id).first()
         if not patient:
             return jsonify({'message': 'لم يتم العثور على ملف المريض'}), 404
     else:
-        patient_id = data.get('patient_id')
-        if not patient_id:
-            return jsonify({'message': 'معرّف المريض مطلوب'}), 400
-        patient = Patient.query.get(patient_id)
-        if not patient:
-            return jsonify({'message': 'المريض غير موجود'}), 404
+        return jsonify({'message': 'يجب إنشاء طلب الأشعة من حساب المريض'}), 403
 
     if not data.get('scan_type') or not data.get('body_part'):
         return jsonify({'message': 'نوع الأشعة والجزء المصوَّر مطلوبان'}), 400
@@ -632,13 +638,15 @@ def delete_radiology_request(current_user, req_id):
 @lab_radiology_bp.route('/radiology-requests', methods=['GET'])
 @token_required
 def list_radiology_requests(current_user):
-    if current_user.user_type == 'patient':
+    if current_role(current_user) == 'patient':
         patient = Patient.query.filter_by(user_id=current_user.id).first()
         if not patient:
             return jsonify([]), 200
         q = RadiologyRequest.query.filter_by(patient_id=patient.id)
-    else:
+    elif current_role(current_user) in ('admin', 'super_admin'):
         q = RadiologyRequest.query
+    else:
+        q = RadiologyRequest.query.filter_by(requesting_user_id=current_user.id)
 
     status_filter = request.args.get('status')
     if status_filter:
@@ -652,17 +660,19 @@ def list_radiology_requests(current_user):
 @token_required
 def get_radiology_request(current_user, req_id):
     rad_req = RadiologyRequest.query.get_or_404(req_id)
-    if current_user.user_type == 'patient':
+    if current_role(current_user) == 'patient':
         patient = Patient.query.filter_by(user_id=current_user.id).first()
         if not patient or rad_req.patient_id != patient.id:
             return jsonify({'message': 'غير مصرح'}), 403
+    elif current_role(current_user) not in ('admin', 'super_admin') and rad_req.requesting_user_id != current_user.id:
+        return jsonify({'message': 'غير مصرح'}), 403
     return jsonify(rad_req.to_dict()), 200
 
 
 @lab_radiology_bp.route('/radiology-requests/<int:req_id>/reject', methods=['PUT'])
 @token_required
 def reject_radiology_request(current_user, req_id):
-    if current_user.user_type not in ('admin', 'super_admin', 'radiology_center'):
+    if current_role(current_user) not in ('admin', 'super_admin', 'radiology_center'):
         return jsonify({'message': 'غير مصرح لك بالرفض'}), 403
     rad_req = RadiologyRequest.query.get_or_404(req_id)
     if rad_req.status != 'requested':
@@ -686,7 +696,9 @@ def reject_radiology_request(current_user, req_id):
 @token_required
 def upload_radiology_images(current_user, req_id):
     """رفع صور الأشعة — يقبل ملفاً واحداً أو أكثر."""
-    rad_req = RadiologyRequest.query.get_or_404(req_id)
+    rad_req = _owned_request(current_user, RadiologyRequest, req_id)
+    if not rad_req:
+        return jsonify({'message': 'غير مصرح'}), 403
     if rad_req.status == 'rejected':
         return jsonify({'message': 'لا يمكن رفع صور لطلب مرفوض'}), 400
 
@@ -716,7 +728,9 @@ def upload_radiology_images(current_user, req_id):
 @token_required
 def upload_radiology_report(current_user, req_id):
     """رفع تقرير الأشعة (نص + ملف اختياري)."""
-    rad_req = RadiologyRequest.query.get_or_404(req_id)
+    rad_req = _owned_request(current_user, RadiologyRequest, req_id)
+    if not rad_req:
+        return jsonify({'message': 'غير مصرح'}), 403
     if rad_req.status == 'rejected':
         return jsonify({'message': 'لا يمكن رفع تقرير لطلب مرفوض'}), 400
 
@@ -805,4 +819,64 @@ def share_radiology_results(current_user, req_id):
 @lab_radiology_bp.route('/uploads/<path:filepath>', methods=['GET'])
 @token_required
 def serve_upload(current_user, filepath):
+    # Upload URLs are not capabilities. Resolve the stored path back to its
+    # owning object before serving anything from disk.
+    normalized = os.path.normpath(filepath)
+    if normalized.startswith('..') or os.path.isabs(normalized):
+        return jsonify({'message': 'الملف غير موجود'}), 404
+
+    authorized = False
+    for model in (LabRequest, RadiologyRequest):
+        for item in model.query.all():
+            paths = []
+            if isinstance(item, LabRequest):
+                for field, folder in (
+                    ('request_doc_path', 'lab_request_docs'),
+                    ('result_file_path', 'lab_results'),
+                ):
+                    value = getattr(item, field, None)
+                    if value:
+                        paths.append(f'{folder}/{value}')
+            else:
+                for field, folder in (
+                    ('request_doc_path', 'radiology_request_docs'),
+                    ('report_file_path', 'radiology_reports'),
+                ):
+                    value = getattr(item, field, None)
+                    if value:
+                        paths.append(f'{folder}/{value}')
+                paths.extend(
+                    f"radiology_images/{image.get('path')}"
+                    for image in item.image_paths
+                    if isinstance(image, dict) and image.get('path')
+                )
+            if normalized in [p for p in paths if p]:
+                patient = Patient.query.get(item.patient_id)
+                authorized = bool(
+                    current_role(current_user) in ('admin', 'super_admin')
+                    or (patient and patient.user_id == current_user.id)
+                    or item.requesting_user_id == current_user.id
+                )
+                break
+        if authorized:
+            break
+
+    if not authorized:
+        from src.models.medication import PharmacyOrder
+        order = next((
+            item for item in PharmacyOrder.query.all()
+            if item.prescription_image_path
+            and normalized == f"prescription_images/{item.prescription_image_path}"
+        ), None)
+        if order:
+            patient = Patient.query.get(order.patient_id)
+            authorized = bool(
+                current_role(current_user) in ('admin', 'super_admin')
+                or (patient and patient.user_id == current_user.id)
+                or (current_role(current_user) == 'pharmacy'
+                    and order.preferred_pharmacy_id in (None, current_user.id))
+            )
+
+    if not authorized:
+        return jsonify({'message': 'غير مصرح بالوصول إلى الملف'}), 403
     return send_from_directory(UPLOAD_ROOT, filepath)

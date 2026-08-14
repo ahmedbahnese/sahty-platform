@@ -9,7 +9,7 @@ from src.models.patient import Patient
 from src.models.doctor import Doctor
 from src.models.prescription import Prescription, PrescriptionItem
 from src.models.notification import Notification
-from src.routes.auth import token_required
+from src.routes.auth import token_required, current_role
 
 prescription_bp = Blueprint('prescription', __name__)
 
@@ -51,7 +51,7 @@ def list_prescriptions(current_user):
     """
     status_filter = request.args.get('status')
 
-    role = getattr(g, 'current_role', current_user.user_type)
+    role = current_role(current_user)
     if role == 'patient':
         patient = Patient.query.filter_by(user_id=current_user.id).first()
         if not patient:
@@ -87,7 +87,7 @@ def list_prescriptions(current_user):
 @prescription_bp.route('', methods=['POST'])
 @token_required
 def create_prescription(current_user):
-    if current_user.user_type != 'doctor':
+    if current_role(current_user) != 'doctor':
         return jsonify({'message': 'فقط الأطباء يمكنهم إنشاء وصفات'}), 403
 
     doctor = Doctor.query.filter_by(user_id=current_user.id).first()
@@ -175,8 +175,8 @@ def get_prescription(current_user, rx_id):
     is_owner = (
         (patient and rx.patient_id == patient.id) or
         (doctor  and rx.doctor_id  == doctor.id)  or
-        (current_user.user_type == 'pharmacy' and rx.pharmacy_user_id == current_user.id) or
-        current_user.user_type in ('admin', 'super_admin')
+        (current_role(current_user) == 'pharmacy' and rx.pharmacy_user_id == current_user.id) or
+        current_role(current_user) in ('admin', 'super_admin')
     )
     if not is_owner:
         return jsonify({'message': 'غير مصرح'}), 403
@@ -252,11 +252,11 @@ def send_to_pharmacy(current_user, rx_id):
 def dispense_prescription(current_user, rx_id):
     rx = Prescription.query.get_or_404(rx_id)
 
-    is_pharmacy = current_user.user_type == 'pharmacy' and rx.pharmacy_user_id == current_user.id
+    is_pharmacy = current_role(current_user) == 'pharmacy' and rx.pharmacy_user_id == current_user.id
     doctor = Doctor.query.filter_by(user_id=current_user.id).first()
     is_doctor = doctor and rx.doctor_id == doctor.id
 
-    if not (is_pharmacy or is_doctor or current_user.user_type in ('admin', 'super_admin')):
+    if not (is_pharmacy or is_doctor or current_role(current_user) in ('admin', 'super_admin')):
         return jsonify({'message': 'غير مصرح'}), 403
 
     if rx.status not in ('sent_to_pharmacy', 'active'):
@@ -287,7 +287,7 @@ def dispense_prescription(current_user, rx_id):
 @prescription_bp.route('/<int:rx_id>/cancel', methods=['POST'])
 @token_required
 def cancel_prescription(current_user, rx_id):
-    if current_user.user_type != 'doctor':
+    if current_role(current_user) != 'doctor':
         return jsonify({'message': 'فقط الطبيب يمكنه إلغاء الوصفة'}), 403
 
     doctor = Doctor.query.filter_by(user_id=current_user.id).first()

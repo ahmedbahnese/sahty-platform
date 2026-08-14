@@ -24,6 +24,8 @@ if not JWT_SECRET:
     raise RuntimeError('SESSION_SECRET or JWT_SECRET must be configured before starting the API')
 SESSION_TTL = datetime.timedelta(hours=24)
 PUBLIC_ROLES = {'patient', 'doctor', *PROVIDER_ROLES.keys()}
+PROFESSIONAL_ROLES = {'doctor', *PROVIDER_ROLES.keys()}
+SYSTEM_ROLES = {'patient', 'admin', 'super_admin'}
 ROLE_LABELS = {
     'patient': 'مستخدم',
     'doctor': 'طبيب',
@@ -33,12 +35,21 @@ ROLE_LABELS = {
 
 def active_roles(user):
     roles = ['patient']
-    if user.user_type not in ('patient',) and user.user_type not in roles:
+    if user.user_type in ('admin', 'super_admin'):
         roles.append(user.user_type)
     for user_role in UserRole.query.filter_by(user_id=user.id, status='ACTIVE').all():
         if user_role.role and user_role.role.name not in roles:
             roles.append(user_role.role.name)
     return roles
+
+
+def current_role(current_user):
+    return getattr(g, 'current_role', current_user.user_type)
+
+
+def has_active_role(current_user, *roles):
+    selected = current_role(current_user)
+    return selected in roles and selected in active_roles(current_user)
 
 
 def _hash_token(token):
@@ -90,7 +101,10 @@ def token_required(f):
                 return jsonify({'message': 'جلسة غير صالحة'}), 401
             if not current_user.is_active:
                 return jsonify({'message': 'الحساب غير مفعل'}), 401
-            g.current_role = data.get('user_type') or current_user.user_type
+            selected_role = data.get('user_type') or current_user.user_type
+            if selected_role not in active_roles(current_user):
+                return jsonify({'message': 'الدور غير مفعل لهذه الجلسة'}), 403
+            g.current_role = selected_role
             current_session.last_seen_at = datetime.datetime.utcnow()
             g.current_session = current_session
         except jwt.ExpiredSignatureError:
@@ -126,7 +140,7 @@ def optional_token(f):
 def admin_required(f):
     @wraps(f)
     def decorated(current_user, *args, **kwargs):
-        if current_user.user_type not in ['admin', 'super_admin']:
+        if not has_active_role(current_user, 'admin', 'super_admin'):
             return jsonify({'message': 'غير مصرح لك بالوصول'}), 403
         return f(current_user, *args, **kwargs)
     return decorated
@@ -137,7 +151,7 @@ def role_required(*roles):
     def decorator(f):
         @wraps(f)
         def decorated(current_user, *args, **kwargs):
-            if getattr(g, 'current_role', current_user.user_type) not in roles:
+            if not has_active_role(current_user, *roles):
                 return jsonify({'message': 'غير مصرح لك بالوصول'}), 403
             return f(current_user, *args, **kwargs)
         return decorated
@@ -295,9 +309,9 @@ def register():
         return jsonify({
             **response_data
         }), 201
-    except Exception as e:
+    except Exception:
         db.session.rollback()
-        return jsonify({'message': f'خطأ في التسجيل: {str(e)}'}), 500
+        return jsonify({'message': 'تعذر إتمام التسجيل حالياً'}), 500
 
 @auth_bp.route('/login', methods=['POST'])
 def login():
@@ -369,8 +383,9 @@ def login():
                 'profile': profile_data
             }
         }), 200
-    except Exception as e:
-        return jsonify({'message': f'خطأ في تسجيل الدخول: {str(e)}'}), 500
+    except Exception:
+        db.session.rollback()
+        return jsonify({'message': 'تعذر إتمام تسجيل الدخول حالياً'}), 500
 
 @auth_bp.route('/profile', methods=['GET', 'PUT'])
 @token_required
@@ -426,8 +441,9 @@ def get_profile(current_user):
                 'profile': profile_data
             }
         }), 200
-    except Exception as e:
-        return jsonify({'message': f'خطأ في جلب الملف الشخصي: {str(e)}'}), 500
+    except Exception:
+        db.session.rollback()
+        return jsonify({'message': 'تعذر جلب الملف الشخصي حالياً'}), 500
 
 
 @auth_bp.route('/switch-role', methods=['POST'])
@@ -556,9 +572,9 @@ def logout(current_user):
         except Exception:
             db.session.rollback()
         return jsonify({'message': 'تم تسجيل الخروج بنجاح'}), 200
-    except Exception as e:
+    except Exception:
         db.session.rollback()
-        return jsonify({'message': f'خطأ في تسجيل الخروج: {str(e)}'}), 500
+        return jsonify({'message': 'تعذر تسجيل الخروج حالياً'}), 500
 
 @auth_bp.route('/doctors', methods=['GET'])
 @token_required
@@ -645,6 +661,6 @@ def change_password(current_user):
         ).update({'revoked_at': datetime.datetime.utcnow()})
         db.session.commit()
         return jsonify({'message': 'تم تغيير كلمة المرور بنجاح'}), 200
-    except Exception as e:
+    except Exception:
         db.session.rollback()
-        return jsonify({'message': f'خطأ في تغيير كلمة المرور: {str(e)}'}), 500
+        return jsonify({'message': 'تعذر تغيير كلمة المرور حالياً'}), 500

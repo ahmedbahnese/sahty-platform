@@ -1,13 +1,10 @@
 from flask import Blueprint, jsonify, request
 from src.models.user import User, db
-from src.routes.auth import token_required, role_required
+from src.routes.auth import token_required, role_required, current_role, has_active_role, PROFESSIONAL_ROLES
 from werkzeug.security import generate_password_hash
 
 user_bp = Blueprint('user', __name__)
-ASSIGNABLE_ROLES = {
-    'patient', 'doctor', 'pharmacy', 'lab', 'radiology_center',
-    'hospital', 'admin', 'super_admin',
-}
+ASSIGNABLE_ROLES = {'patient', 'admin', 'super_admin'}
 
 @user_bp.route('/users', methods=['GET'])
 @token_required
@@ -27,8 +24,8 @@ def create_user(current_user):
         return jsonify({'message': 'البريد الإلكتروني مستخدم بالفعل'}), 400
     requested_role = data.get('user_type', 'patient')
     if requested_role not in ASSIGNABLE_ROLES:
-        return jsonify({'message': 'الدور المطلوب غير صالح'}), 400
-    if requested_role == 'super_admin' and current_user.user_type != 'super_admin':
+        return jsonify({'message': 'الأدوار المهنية لا تُفعّل من هذا المسار؛ استخدم طلب الاعتماد'}), 400
+    if requested_role in ('admin', 'super_admin') and current_role(current_user) != 'super_admin':
         return jsonify({'message': 'لا يمكن للمدير العادي إنشاء مالك للنظام'}), 403
     user = User(
         username=data.get('username'),
@@ -43,7 +40,7 @@ def create_user(current_user):
 @user_bp.route('/users/<int:user_id>', methods=['GET'])
 @token_required
 def get_user(current_user, user_id):
-    if current_user.id != user_id and current_user.user_type not in ('admin', 'super_admin'):
+    if current_user.id != user_id and not has_active_role(current_user, 'admin', 'super_admin'):
         return jsonify({'message': 'غير مصرح لك بالوصول'}), 403
     user = db.session.get(User, user_id)
     if not user:
@@ -53,28 +50,27 @@ def get_user(current_user, user_id):
 @user_bp.route('/users/<int:user_id>', methods=['PUT'])
 @token_required
 def update_user(current_user, user_id):
-    if current_user.id != user_id and current_user.user_type not in ('admin', 'super_admin'):
+    if current_user.id != user_id and not has_active_role(current_user, 'admin', 'super_admin'):
         return jsonify({'message': 'غير مصرح لك بالوصول'}), 403
     user = db.session.get(User, user_id)
     if not user:
         return jsonify({'message': 'المستخدم غير موجود'}), 404
     if (
-        current_user.user_type == 'admin'
+        current_role(current_user) == 'admin'
         and user.user_type == 'super_admin'
     ):
         return jsonify({'message': 'لا يمكن للمدير العادي تعديل مالك النظام'}), 403
     data = request.get_json(silent=True) or {}
     user.username = data.get('username', user.username)
-    if current_user.user_type in ('admin', 'super_admin'):
+    if has_active_role(current_user, 'admin', 'super_admin'):
         user.email = data.get('email', user.email)
         requested_role = data.get('user_type', user.user_type)
+        if requested_role in PROFESSIONAL_ROLES:
+            return jsonify({'message': 'الأدوار المهنية لا تُفعّل بالتعديل المباشر؛ يجب اعتماد طلب الدور من الإدارة'}), 400
         if requested_role not in ASSIGNABLE_ROLES:
             return jsonify({'message': 'الدور المطلوب غير صالح'}), 400
-        if (
-            current_user.user_type != 'super_admin'
-            and requested_role == 'super_admin'
-        ):
-            return jsonify({'message': 'لا يمكن للمدير العادي تعيين مالك للنظام'}), 403
+        if requested_role in ('admin', 'super_admin') and current_role(current_user) != 'super_admin':
+            return jsonify({'message': 'لا يمكن للمدير العادي تعيين دور إداري'}), 403
         user.user_type = requested_role
     db.session.commit()
     return jsonify(user.to_dict())

@@ -99,7 +99,7 @@ class AIService:
         except Exception as e:
             return {
                 'success': False,
-                'error': str(e),
+                'error': 'تعذر تشغيل خدمة المساعد حالياً',
                 'timestamp': datetime.now().isoformat()
             }
 
@@ -115,7 +115,7 @@ class AIService:
                 'aspect_ratio': round(image.width / image.height, 2)
             }
         except Exception as e:
-            return {'error': str(e)}
+            return {'error': 'تعذر تشغيل خدمة المساعد حالياً'}
 
     def _extract_recommendations(self, analysis_text: str) -> List[str]:
         recommendations = []
@@ -202,7 +202,7 @@ class AIService:
         except Exception as e:
             return {
                 'success': False,
-                'error': str(e),
+                'error': 'تعذر تشغيل خدمة المساعد حالياً',
                 'response': 'عذراً، حدث خطأ في النظام. يرجى المحاولة مرة أخرى.',
                 'timestamp': datetime.now().isoformat()
             }
@@ -282,7 +282,7 @@ class AIService:
             }
 
         except Exception as e:
-            return {'success': False, 'error': str(e), 'timestamp': datetime.now().isoformat()}
+            return {'success': False, 'error': 'تعذر تشغيل خدمة المساعد حالياً', 'timestamp': datetime.now().isoformat()}
 
     # ──────────────────────────────────────────────
     # تحليل الصوت
@@ -316,7 +316,7 @@ class AIService:
             }
 
         except Exception as e:
-            return {'success': False, 'error': str(e), 'timestamp': datetime.now().isoformat()}
+            return {'success': False, 'error': 'تعذر تشغيل خدمة المساعد حالياً', 'timestamp': datetime.now().isoformat()}
 
     # ──────────────────────────────────────────────
     # متابعة الأدوية بالذكاء الاصطناعي
@@ -359,7 +359,7 @@ class AIService:
             }
 
         except Exception as e:
-            return {'success': False, 'error': str(e), 'timestamp': datetime.now().isoformat()}
+            return {'success': False, 'error': 'تعذر تشغيل خدمة المساعد حالياً', 'timestamp': datetime.now().isoformat()}
 
     def check_drug_interactions(self, medications: List[str]) -> Dict:
         """فحص تفاعلات الأدوية"""
@@ -390,7 +390,7 @@ class AIService:
             }
 
         except Exception as e:
-            return {'success': False, 'error': str(e), 'timestamp': datetime.now().isoformat()}
+            return {'success': False, 'error': 'تعذر تشغيل خدمة المساعد حالياً', 'timestamp': datetime.now().isoformat()}
 
     # ──────────────────────────────────────────────
     # Family Health Manager - تحليل صحة الأسرة
@@ -428,7 +428,7 @@ class AIService:
             }
 
         except Exception as e:
-            return {'success': False, 'error': str(e), 'timestamp': datetime.now().isoformat()}
+            return {'success': False, 'error': 'تعذر تشغيل خدمة المساعد حالياً', 'timestamp': datetime.now().isoformat()}
 
     def generate_health_report(self, patient_data: Dict) -> Dict:
         """إنتاج تقرير صحي شامل"""
@@ -459,7 +459,7 @@ class AIService:
             }
 
         except Exception as e:
-            return {'success': False, 'error': str(e), 'timestamp': datetime.now().isoformat()}
+            return {'success': False, 'error': 'تعذر تشغيل خدمة المساعد حالياً', 'timestamp': datetime.now().isoformat()}
 
     # ──────────────────────────────────────────────
     # تحليل المستندات الطبية (تقارير، وصفات، نتائج)
@@ -534,7 +534,7 @@ class AIService:
                 'timestamp': datetime.now().isoformat(),
             }
         except Exception as e:
-            return {'success': False, 'error': str(e), 'timestamp': datetime.now().isoformat()}
+            return {'success': False, 'error': 'تعذر تشغيل خدمة المساعد حالياً', 'timestamp': datetime.now().isoformat()}
 
     def symptom_checker_with_followup(self, symptoms: list, patient_info: dict = None,
                                        conversation_history: list = None,
@@ -590,5 +590,5 @@ class AIService:
                 'follow_up_needed': analysis['follow_up_needed'],
                 'timestamp': datetime.now().isoformat(),
             }
-        except Exception as e:
-            return {'success': False, 'error': str(e), 'timestamp': datetime.now().isoformat()}
+        except Exception:
+            return {'success': False, 'error': 'تعذر تشغيل خدمة المساعد حالياً', 'timestamp': datetime.now().isoformat()}

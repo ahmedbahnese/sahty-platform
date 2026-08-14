@@ -2,3 +2,4 @@
 - [Role and session security](role-and-session-security.md) — privilege changes need server-side role checks, and logout revocation must commit independently of audit logging.
 - [Portable dependency locks](portable-dependency-locks.md) — imported lockfiles can contain private registry URLs that must be replaced before external installs.
 - [Incremental directory imports](incremental-directory-imports.md) — seed imported datasets per category so adding a new source file later remains idempotent and complete.
+- [Security regression verification](security-regression-verification.md) — verify claimed privacy fixes with response-shape and cross-owner tests, especially after imported snapshots.

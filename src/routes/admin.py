@@ -12,7 +12,7 @@ from src.models.professional import (
     Role, UserRole, ProfessionalRoleRequest, NurseProfile,
 )
 from src.models.notification import Notification
-from src.routes.auth import token_required
+from src.routes.auth import token_required, has_active_role
 
 
 admin_bp = Blueprint('admin', __name__)
@@ -22,7 +22,7 @@ def admin_only(f):
     @wraps(f)
     @token_required
     def decorated(current_user, *args, **kwargs):
-        if current_user.user_type not in ('admin', 'super_admin'):
+        if not has_active_role(current_user, 'admin', 'super_admin'):
             return jsonify({'message': 'هذه الصفحة متاحة للمدير فقط'}), 403
         return f(current_user, *args, **kwargs)
     return decorated

@@ -9,7 +9,7 @@ from src.models.patient import Patient
 from src.models.doctor import Doctor
 from src.models.appointment import Appointment, AppointmentHistory
 from src.models.notification import Notification
-from src.routes.auth import token_required
+from src.routes.auth import token_required, current_role
 
 appointment_bp = Blueprint('appointment', __name__)
 
@@ -78,12 +78,12 @@ def list_appointments(current_user):
     status_filter = request.args.get('status')
     upcoming_only = request.args.get('upcoming') == '1'
 
-    if current_user.user_type == 'patient':
+    if current_role(current_user) == 'patient':
         patient = Patient.query.filter_by(user_id=current_user.id).first()
         if not patient:
             return jsonify({'message': 'لم يتم العثور على ملف المريض'}), 404
         query = Appointment.query.filter_by(patient_id=patient.id)
-    elif current_user.user_type == 'doctor':
+    elif current_role(current_user) == 'doctor':
         doctor = Doctor.query.filter_by(user_id=current_user.id).first()
         if not doctor:
             return jsonify({'message': 'لم يتم العثور على ملف الطبيب'}), 404
@@ -115,12 +115,12 @@ def list_appointments(current_user):
 def get_stats(current_user):
     now = datetime.utcnow()
 
-    if current_user.user_type == 'patient':
+    if current_role(current_user) == 'patient':
         patient = Patient.query.filter_by(user_id=current_user.id).first()
         if not patient:
             return jsonify({'upcoming': 0, 'completed': 0, 'cancelled': 0}), 200
         base = Appointment.query.filter_by(patient_id=patient.id)
-    elif current_user.user_type == 'doctor':
+    elif current_role(current_user) == 'doctor':
         doctor = Doctor.query.filter_by(user_id=current_user.id).first()
         if not doctor:
             return jsonify({'upcoming': 0, 'completed': 0, 'pending': 0}), 200
@@ -148,7 +148,7 @@ def get_stats(current_user):
 @appointment_bp.route('', methods=['POST'])
 @token_required
 def book_appointment(current_user):
-    if current_user.user_type != 'patient':
+    if current_role(current_user) != 'patient':
         return jsonify({'message': 'فقط المرضى يمكنهم حجز المواعيد'}), 403
 
     patient = Patient.query.filter_by(user_id=current_user.id).first()
@@ -258,7 +258,7 @@ def get_appointment(current_user, appt_id):
     is_owner = (
         (patient and appt.patient_id == patient.id) or
         (doctor  and appt.doctor_id  == doctor.id)  or
-        current_user.user_type in ('admin', 'super_admin')
+        current_role(current_user) in ('admin', 'super_admin')
     )
     if not is_owner:
         return jsonify({'message': 'غير مصرح'}), 403
@@ -278,7 +278,7 @@ def get_appointment(current_user, appt_id):
 @appointment_bp.route('/<int:appt_id>', methods=['PUT'])
 @token_required
 def reschedule_appointment(current_user, appt_id):
-    if current_user.user_type != 'patient':
+    if current_role(current_user) != 'patient':
         return jsonify({'message': 'فقط المرضى يمكنهم تعديل مواعيدهم'}), 403
 
     patient = Patient.query.filter_by(user_id=current_user.id).first()
@@ -342,7 +342,7 @@ def cancel_appointment(current_user, appt_id):
     is_patient_owner = patient and appt.patient_id == patient.id
     is_doctor_owner  = doctor  and appt.doctor_id  == doctor.id
 
-    if not (is_patient_owner or is_doctor_owner or current_user.user_type in ('admin', 'super_admin')):
+    if not (is_patient_owner or is_doctor_owner or current_role(current_user) in ('admin', 'super_admin')):
         return jsonify({'message': 'غير مصرح'}), 403
 
     if appt.status in ('completed', 'cancelled'):
@@ -374,7 +374,7 @@ def cancel_appointment(current_user, appt_id):
 @appointment_bp.route('/<int:appt_id>/confirm', methods=['POST'])
 @token_required
 def confirm_appointment(current_user, appt_id):
-    if current_user.user_type != 'doctor':
+    if current_role(current_user) != 'doctor':
         return jsonify({'message': 'فقط الأطباء يمكنهم تأكيد المواعيد'}), 403
 
     doctor = Doctor.query.filter_by(user_id=current_user.id).first()
@@ -411,7 +411,7 @@ def confirm_appointment(current_user, appt_id):
 @appointment_bp.route('/<int:appt_id>/complete', methods=['POST'])
 @token_required
 def complete_appointment(current_user, appt_id):
-    if current_user.user_type != 'doctor':
+    if current_role(current_user) != 'doctor':
         return jsonify({'message': 'فقط الأطباء يمكنهم إتمام المواعيد'}), 403
 
     doctor = Doctor.query.filter_by(user_id=current_user.id).first()

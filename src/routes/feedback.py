@@ -85,9 +85,9 @@ def submit_feedback():
         db.session.add(fb)
         db.session.commit()
         return jsonify({'message': 'تم إرسال رسالتك بنجاح، سنتواصل معك قريباً', 'id': fb.id}), 201
-    except Exception as e:
+    except Exception:
         db.session.rollback()
-        return jsonify({'message': f'خطأ في الإرسال: {str(e)}'}), 500
+        return jsonify({'message': 'تعذر إرسال الرسالة حالياً'}), 500
 
 
 @feedback_bp.route('/api/feedback', methods=['GET'])

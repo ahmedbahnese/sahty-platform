@@ -9,7 +9,7 @@ from src.models.user import db, User
 from src.models.patient import Patient
 from src.models.blood_bank import BloodDonor, BloodRequest, BloodRequestResponse, BloodDonation, BloodInventory
 from src.models.notification import Notification
-from src.routes.auth import token_required
+from src.routes.auth import token_required, current_role, has_active_role
 
 blood_bank_bp = Blueprint('blood_bank', __name__, url_prefix='/api/blood-bank')
 
@@ -78,7 +78,6 @@ def list_donors():
     # نُخفي المعلومات الشخصية ونُظهر فقط ما يلزم للتواصل
     result = []
     for d in donors:
-        patient = Patient.query.get(d.patient_id)
         result.append({
             'id':           d.id,
             'blood_type':   d.blood_type,
@@ -88,7 +87,6 @@ def list_donors():
             'available_for_emergency': d.available_for_emergency,
             'last_donation_date':  d.last_donation_date.isoformat() if d.last_donation_date else None,
             'next_eligible_date':  d.next_eligible_date.isoformat() if d.next_eligible_date else None,
-            'donor_name':   f"{patient.first_name} {patient.last_name[0]}." if patient else 'متبرع',
         })
 
     return jsonify({'donors': result, 'total': len(result)}), 200
@@ -353,7 +351,7 @@ def close_request(current_user, request_id):
 
     patient = Patient.query.filter_by(user_id=current_user.id).first()
     is_owner = patient and blood_request.patient_id == patient.id
-    is_admin = current_user.user_type in ('admin', 'super_admin')
+    is_admin = has_active_role(current_user, 'admin', 'super_admin')
 
     if not (is_owner or is_admin):
         return jsonify({'success': False, 'error': 'غير مصرح'}), 403
@@ -425,13 +423,11 @@ def compatible_donors():
     donors = query.limit(50).all()
     result = []
     for d in donors:
-        patient = Patient.query.get(d.patient_id)
         result.append({
             'id':         d.id,
             'blood_type': d.blood_type,
             'city':       d.city,
             'district':   d.district,
-            'donor_name': f"{patient.first_name} {patient.last_name[0]}." if patient else 'متبرع',
         })
 
     return jsonify({'donors': result, 'total': len(result), 'compatible_types': compatible}), 200
