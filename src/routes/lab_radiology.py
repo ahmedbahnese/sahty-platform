@@ -21,9 +21,11 @@
 """
 import os
 import json
+import posixpath
 import uuid
 from datetime import datetime, date
 from flask import Blueprint, request, jsonify, send_from_directory, current_app
+from sqlalchemy import or_
 from werkzeug.utils import secure_filename
 
 from src.models.user    import db, User
@@ -31,6 +33,7 @@ from src.models.patient import Patient
 from src.models.notification import Notification
 from src.models.lab_radiology import LabRequest, RadiologyRequest
 from src.models.medical_record import LabTest, Radiology
+from src.models.medication import PharmacyOrder
 from src.models.egypt_healthcare import HealthcareDirectoryRecord
 from src.routes.auth import token_required
 
@@ -63,6 +66,101 @@ def _save_uploaded_file(file_storage, subdir):
     folder    = _ensure_upload_dir(subdir)
     file_storage.save(os.path.join(folder, unique))
     return unique, f"/api/uploads/{subdir}/{unique}"
+
+
+def _normalize_upload_reference(path):
+    """Normalize stored and requested paths to ``<subdir>/<filename>``."""
+    normalized = posixpath.normpath(str(path or '').replace('\\', '/')).lstrip('/')
+    for prefix in ('api/uploads/', 'uploads/'):
+        if normalized.startswith(prefix):
+            normalized = normalized[len(prefix):]
+    return normalized
+
+
+def _upload_path_matches(stored_path, subdir, requested_path):
+    """Match both legacy filename-only values and newer relative paths."""
+    stored = _normalize_upload_reference(stored_path)
+    requested = _normalize_upload_reference(requested_path)
+    if not stored or not requested:
+        return False
+    return (
+        requested == stored
+        or requested == f'{subdir}/{stored}'
+        or stored == f'{subdir}/{requested}'
+    )
+
+
+def _can_access_patient_record(current_user, patient_id, requesting_user_id=None, uploader_ids=()):
+    """Authorize a medical file through its owning patient or explicit actor."""
+    if current_user.user_type in ('admin', 'super_admin'):
+        return True
+    if current_user.id == requesting_user_id or current_user.id in set(uploader_ids):
+        return True
+    return Patient.query.filter_by(
+        id=patient_id,
+        user_id=current_user.id,
+    ).first() is not None
+
+
+def _find_upload_record(filepath):
+    """Return the record metadata that owns a stored upload path."""
+    requested = _normalize_upload_reference(filepath)
+
+    lab_rows = LabRequest.query.filter(or_(
+        LabRequest.request_doc_path.isnot(None),
+        LabRequest.result_file_path.isnot(None),
+    )).all()
+    for item in lab_rows:
+        if _upload_path_matches(item.request_doc_path, 'lab_request_docs', requested):
+            return item.patient_id, item.requesting_user_id, (item.result_uploaded_by,)
+        if _upload_path_matches(item.result_file_path, 'lab_results', requested):
+            return item.patient_id, item.requesting_user_id, (item.result_uploaded_by,)
+
+    radiology_rows = RadiologyRequest.query.filter(or_(
+        RadiologyRequest.request_doc_path.isnot(None),
+        RadiologyRequest.image_paths_json.isnot(None),
+        RadiologyRequest.report_file_path.isnot(None),
+    )).all()
+    for item in radiology_rows:
+        if _upload_path_matches(item.request_doc_path, 'radiology_request_docs', requested):
+            return item.patient_id, item.requesting_user_id, (
+                item.images_uploaded_by,
+                item.report_uploaded_by,
+            )
+        if any(
+            _upload_path_matches(entry.get('path'), 'radiology_images', requested)
+            for entry in item.image_paths
+            if isinstance(entry, dict)
+        ):
+            return item.patient_id, item.requesting_user_id, (
+                item.images_uploaded_by,
+                item.report_uploaded_by,
+            )
+        if _upload_path_matches(item.report_file_path, 'radiology_reports', requested):
+            return item.patient_id, item.requesting_user_id, (
+                item.images_uploaded_by,
+                item.report_uploaded_by,
+            )
+
+    pharmacy_rows = PharmacyOrder.query.filter(
+        PharmacyOrder.prescription_image_path.isnot(None),
+    ).all()
+    for item in pharmacy_rows:
+        if _upload_path_matches(item.prescription_image_path, 'prescription_images', requested):
+            return item.patient_id, None, ()
+
+    return None
+
+
+def _authorize_request_file_access(current_user, item, uploader_ids=()):
+    if _can_access_patient_record(
+        current_user,
+        item.patient_id,
+        getattr(item, 'requesting_user_id', None),
+        uploader_ids,
+    ):
+        return None
+    return jsonify({'message': 'غير مصرح'}), 403
 
 
 def _notify(user_id, title, message, ref_type, ref_id):
@@ -407,6 +505,13 @@ def reject_lab_request(current_user, req_id):
 def upload_lab_results(current_user, req_id):
     """رفع نتائج التحليل — نص + ملف اختياري."""
     lab_req = LabRequest.query.get_or_404(req_id)
+    denial = _authorize_request_file_access(
+        current_user,
+        lab_req,
+        (lab_req.result_uploaded_by,),
+    )
+    if denial:
+        return denial
     if lab_req.status == 'rejected':
         return jsonify({'message': 'لا يمكن رفع نتائج لطلب مرفوض'}), 400
 
@@ -687,6 +792,13 @@ def reject_radiology_request(current_user, req_id):
 def upload_radiology_images(current_user, req_id):
     """رفع صور الأشعة — يقبل ملفاً واحداً أو أكثر."""
     rad_req = RadiologyRequest.query.get_or_404(req_id)
+    denial = _authorize_request_file_access(
+        current_user,
+        rad_req,
+        (rad_req.images_uploaded_by, rad_req.report_uploaded_by),
+    )
+    if denial:
+        return denial
     if rad_req.status == 'rejected':
         return jsonify({'message': 'لا يمكن رفع صور لطلب مرفوض'}), 400
 
@@ -717,6 +829,13 @@ def upload_radiology_images(current_user, req_id):
 def upload_radiology_report(current_user, req_id):
     """رفع تقرير الأشعة (نص + ملف اختياري)."""
     rad_req = RadiologyRequest.query.get_or_404(req_id)
+    denial = _authorize_request_file_access(
+        current_user,
+        rad_req,
+        (rad_req.images_uploaded_by, rad_req.report_uploaded_by),
+    )
+    if denial:
+        return denial
     if rad_req.status == 'rejected':
         return jsonify({'message': 'لا يمكن رفع تقرير لطلب مرفوض'}), 400
 
@@ -749,6 +868,13 @@ def upload_radiology_report(current_user, req_id):
 def share_radiology_results(current_user, req_id):
     """مشاركة نتائج الأشعة مع الطبيب والمريض + حفظ في السجل الطبي."""
     rad_req = RadiologyRequest.query.get_or_404(req_id)
+    denial = _authorize_request_file_access(
+        current_user,
+        rad_req,
+        (rad_req.images_uploaded_by, rad_req.report_uploaded_by),
+    )
+    if denial:
+        return denial
     if rad_req.status != 'report_uploaded':
         return jsonify({'message': 'لا يوجد تقرير لمشاركته'}), 400
 
@@ -805,4 +931,21 @@ def share_radiology_results(current_user, req_id):
 @lab_radiology_bp.route('/uploads/<path:filepath>', methods=['GET'])
 @token_required
 def serve_upload(current_user, filepath):
+    raw_path = filepath.replace('\\', '/')
+    normalized_path = posixpath.normpath(raw_path)
+    if (
+        raw_path.startswith('/')
+        or normalized_path == '..'
+        or normalized_path.startswith('../')
+    ):
+        return jsonify({'message': 'غير مصرح'}), 403
+
+    owner = _find_upload_record(normalized_path)
+    if not owner or not _can_access_patient_record(
+        current_user,
+        owner[0],
+        owner[1],
+        owner[2],
+    ):
+        return jsonify({'message': 'غير مصرح'}), 403
     return send_from_directory(UPLOAD_ROOT, filepath)
