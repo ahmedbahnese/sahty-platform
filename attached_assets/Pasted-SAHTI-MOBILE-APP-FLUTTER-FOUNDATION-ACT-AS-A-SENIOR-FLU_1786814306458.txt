@@ -1,0 +1,488 @@
+SAHTI MOBILE APP – FLUTTER FOUNDATION
+
+ACT AS A SENIOR FLUTTER ARCHITECT AND MOBILE ENGINEER.
+
+We already have an existing Sahti healthcare web platform with an existing backend/API and database.
+
+Your task is to prepare the foundation for a SINGLE cross-platform Sahti mobile application for:
+
+- Android
+- iOS
+
+Use Flutter with a clean, scalable architecture.
+
+==================================================
+CRITICAL RULES
+==================================================
+
+DO NOT:
+
+- Modify the existing web frontend.
+- Redesign the existing web application.
+- Delete or replace existing backend functionality.
+- Rebuild the existing backend.
+- Create separate Android and iOS codebases.
+- Create fake/mock API implementations.
+- Hard-code medical data.
+- Duplicate business logic unnecessarily.
+- Implement new healthcare features at this stage.
+
+The mobile application must consume the EXISTING backend APIs.
+
+The existing web application must continue working exactly as it does.
+
+==================================================
+1. FIRST: INSPECT THE EXISTING PROJECT
+==================================================
+
+Before writing the mobile application, inspect the existing repository.
+
+Identify:
+
+- Backend framework
+- API base URL/configuration
+- Authentication mechanism
+- Authentication endpoints
+- User model
+- Roles
+- Permissions
+- Active-role system
+- Session/token mechanism
+- Existing API endpoints
+- Medical record APIs
+- Appointment APIs
+- Doctor APIs
+- Family APIs
+- Medication APIs
+- Prescription APIs
+- Laboratory APIs
+- Radiology APIs
+- Pharmacy APIs
+- Blood bank APIs
+- Emergency APIs
+- Notification APIs
+- File upload/download APIs
+- Location-related APIs
+
+Do NOT assume an API exists just because a frontend page exists.
+
+Create:
+
+MOBILE_API_INVENTORY.md
+
+Document:
+
+Endpoint | Method | Authentication | Role | Request | Response | Mobile Usage | Status
+
+Classify every required endpoint as:
+
+- READY
+- EXISTS BUT NEEDS VERIFICATION
+- INCOMPLETE
+- MISSING
+- BROKEN
+
+Do not implement missing APIs yet.
+
+==================================================
+2. CREATE FLUTTER PROJECT
+==================================================
+
+Create a dedicated mobile application directory:
+
+/mobile
+
+Use Flutter.
+
+Target:
+
+Android
+iOS
+
+Use a scalable architecture suitable for a production healthcare application.
+
+Recommended structure:
+
+lib/
+  core/
+    config/
+    network/
+    storage/
+    errors/
+    security/
+    theme/
+    routing/
+  features/
+    authentication/
+    patient/
+    doctors/
+    appointments/
+    medical_records/
+    medications/
+    prescriptions/
+    family/
+    emergency/
+    laboratories/
+    radiology/
+    pharmacy/
+    blood_bank/
+    notifications/
+    profile/
+  shared/
+    widgets/
+    models/
+    services/
+
+Do not create unnecessary complexity.
+
+==================================================
+3. BACKEND INTEGRATION
+==================================================
+
+Create a centralized API client.
+
+The API client must handle:
+
+- Base URL
+- HTTPS
+- Authentication
+- Authorization headers
+- Request timeout
+- Error handling
+- JSON parsing
+- Token/session persistence
+- Logout
+- Unauthorized responses
+- Network errors
+
+Do NOT hard-code production secrets.
+
+Use environment/configuration values for:
+
+API_BASE_URL
+
+==================================================
+4. AUTHENTICATION
+==================================================
+
+Connect the mobile application to the EXISTING authentication system.
+
+Implement only what already exists in the backend.
+
+Support the existing login methods where available:
+
+- username
+- phone
+- email
+- password
+
+Do not create a new authentication system.
+
+Implement:
+
+Login
+Logout
+Session persistence
+Session restoration
+Unauthorized-session handling
+
+The user should remain logged in after closing/reopening the application if the existing authentication architecture supports persistent sessions.
+
+==================================================
+5. ROLE SYSTEM
+==================================================
+
+The mobile application must respect the existing server-side roles.
+
+The mobile app must NEVER decide that a user is:
+
+- Admin
+- Doctor
+- Nurse
+- Super Admin
+
+based only on local data.
+
+The backend remains the authority.
+
+The initial mobile experience should open the user's normal patient/user experience.
+
+If the backend confirms that the user has an approved professional role, the app may expose the corresponding role/dashboard.
+
+Support the existing active-role mechanism if it already exists.
+
+Do NOT invent a new role system.
+
+==================================================
+6. MOBILE NAVIGATION
+==================================================
+
+Create a professional mobile navigation structure appropriate for a healthcare application.
+
+Initial patient navigation should support the existing implemented functionality, such as:
+
+Home
+Appointments
+Medical Record
+Medications
+Family
+Emergency
+Notifications
+Profile
+
+Only expose screens when the corresponding backend functionality exists.
+
+Do not create fake screens simply to make the application appear complete.
+
+==================================================
+7. UI FOUNDATION
+==================================================
+
+Create a professional Sahti mobile design system.
+
+The mobile interface should feel like one product with the existing Sahti platform.
+
+Use:
+
+- Consistent typography
+- Consistent spacing
+- Reusable components
+- Accessible touch targets
+- Responsive layouts
+- Loading states
+- Empty states
+- Error states
+- Success feedback
+- Confirmation dialogs
+
+Healthcare information must be visually clear and easy to understand.
+
+Do not copy the web layout directly.
+
+Design specifically for mobile interaction.
+
+==================================================
+8. SECURITY
+==================================================
+
+Treat the mobile application as an untrusted client.
+
+Never rely on Flutter UI restrictions for authorization.
+
+Never store:
+
+- passwords
+- API secrets
+- private encryption keys
+
+in plain text.
+
+Do not expose sensitive medical data in logs.
+
+Do not log:
+
+- passwords
+- authentication tokens
+- medical records
+- private patient information
+
+Use secure local storage appropriate for authentication/session data.
+
+==================================================
+9. FILES
+==================================================
+
+If the existing backend supports medical file upload/download:
+
+Create the mobile networking layer for:
+
+- image upload
+- PDF upload
+- file download
+- authenticated access
+
+Do not bypass backend authorization.
+
+Do not implement a separate storage system.
+
+==================================================
+10. LOCATION
+==================================================
+
+Prepare the architecture for existing location-based functionality.
+
+Do NOT implement new location features.
+
+Only create reusable location services if required by an existing backend workflow.
+
+Handle:
+
+- permission denied
+- permission unavailable
+- location unavailable
+
+without crashing the application.
+
+==================================================
+11. NOTIFICATIONS
+==================================================
+
+Inspect the existing notification system.
+
+Do not create a new notification backend.
+
+Prepare the Flutter architecture to consume existing notifications.
+
+If push notifications are not currently implemented in the backend, document this as:
+
+NOT CURRENTLY AVAILABLE
+
+Do not fake push notifications.
+
+==================================================
+12. OFFLINE / NETWORK HANDLING
+==================================================
+
+Healthcare applications must handle poor connectivity gracefully.
+
+Implement basic:
+
+- network status handling
+- loading states
+- retry
+- timeout
+- offline messaging
+
+Do NOT create a full offline medical database at this stage.
+
+Do not cache sensitive medical data unnecessarily.
+
+==================================================
+13. TESTING
+==================================================
+
+Create the Flutter testing foundation.
+
+At minimum prepare:
+
+- authentication tests
+- API client tests
+- model parsing tests
+- navigation tests
+- authorization/role display tests
+
+Do not claim tests pass unless they are actually executed.
+
+==================================================
+14. WEB PROJECT SAFETY
+==================================================
+
+Before committing:
+
+Verify that:
+
+/mobile
+
+is isolated from the existing web application.
+
+Confirm:
+
+- Existing web files were not deleted.
+- Existing backend files were not unnecessarily modified.
+- Existing database was not modified.
+- Existing API behavior was not changed.
+
+==================================================
+15. DOCUMENTATION
+==================================================
+
+Create:
+
+MOBILE_SETUP.md
+
+Include:
+
+- Flutter version
+- Dart version
+- Android requirements
+- iOS requirements
+- How to install dependencies
+- How to run Android
+- How to run iOS
+- How to configure API_BASE_URL
+- How authentication works
+- How the mobile app connects to the backend
+
+Create:
+
+MOBILE_STATUS.md
+
+Include:
+
+A. Mobile project created
+B. Backend APIs discovered
+C. APIs ready for mobile
+D. APIs incomplete
+E. APIs missing
+F. Screens implemented
+G. Screens intentionally not implemented
+H. Tests executed
+I. Remaining mobile blockers
+
+==================================================
+16. GIT
+==================================================
+
+Before committing:
+
+Check git status.
+
+Do NOT overwrite unrelated work from other Replit accounts.
+
+Do NOT force push.
+
+Do NOT reset the repository.
+
+Commit only the mobile foundation and documentation.
+
+Use:
+
+"Initialize Sahti Flutter mobile application"
+
+Then push normally to the connected GitHub repository.
+
+If GitHub rejects authentication or a merge conflict occurs:
+
+STOP.
+
+Do not force push.
+
+Report the exact Git problem.
+
+==================================================
+FINAL REQUIREMENT
+==================================================
+
+The final result must be:
+
+Existing Web
+      +
+Existing Backend
+      +
+Existing Database
+      +
+/mobile Flutter application
+
+The mobile application must be a REAL client of the existing backend.
+
+No mock medical data.
+
+No fake API responses.
+
+No fake authentication.
+
+No fake dashboards.
+
+No new product features.
+
+Build the foundation first and verify it before expanding the mobile application.
