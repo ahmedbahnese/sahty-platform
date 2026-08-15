@@ -39,7 +39,9 @@ flask --app main db migrate -m "describe schema change"
 flask --app main db upgrade
 ```
 
-يجب تشغيل أمر الترقية كخطوة نشر منفصلة قبل بدء Gunicorn أو `python main.py`.
+يطبق `python main.py` الترقية تلقائيًا قبل زرع البيانات المرجعية وبدء Flask.
+يمكن لبيئات Gunicorn تنفيذ `flask --app main db upgrade` كخطوة نشر منفصلة قبل
+بدء الخادم، وسيبقى تطبيق الترقية عند بدء التطبيق آمنًا لأنه idempotent.
 
 يخدم Flask ملفات `dist` عند التشغيل الإنتاجي، ويشغل واجهة التطبيق وAPI على نفس المنفذ.
 

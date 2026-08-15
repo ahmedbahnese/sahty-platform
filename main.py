@@ -8,7 +8,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from flask import Flask, send_from_directory, jsonify, request as flask_request
 from flask import current_app
 from flask_cors import CORS
-from flask_migrate import Migrate
+from flask_migrate import Migrate, upgrade
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from src.models.user import db, User
@@ -417,6 +417,10 @@ def serve(path):
 
 if __name__ == '__main__':
     with app.app_context():
+        # Apply the schema before reference-data seeding. Flask-Migrate imports
+        # the already-created app; keeping this inside the executable entry
+        # point avoids querying tables during module import.
+        upgrade()
         initialize_application_data()
     port = int(os.environ.get('PORT', 5001))
     debug_mode = os.environ.get('FLASK_ENV', 'production') == 'development'
