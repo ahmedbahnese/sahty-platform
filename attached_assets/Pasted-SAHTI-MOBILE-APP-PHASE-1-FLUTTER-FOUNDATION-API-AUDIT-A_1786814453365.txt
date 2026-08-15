@@ -1,0 +1,430 @@
+SAHTI MOBILE APP – PHASE 1: FLUTTER FOUNDATION & API AUDIT
+
+Act as a Senior Flutter Architect and Mobile Backend Integration Engineer.
+
+Create the foundation of the Sahti mobile application for BOTH:
+
+- Android
+- iOS
+
+The existing Sahti Web + Backend + Database must remain untouched and functional.
+
+IMPORTANT:
+Do NOT build all application screens yet.
+Do NOT add new product features.
+Do NOT redesign the web application.
+Do NOT create mock APIs.
+Do NOT create fake medical data.
+Do NOT modify existing business logic unless absolutely required for mobile compatibility.
+
+==================================================
+1. INSPECT THE EXISTING PROJECT FIRST
+==================================================
+
+Before writing Flutter code, inspect the existing repository and identify:
+
+- Backend framework
+- API structure
+- Authentication
+- Users
+- Roles
+- Permissions
+- Active roles
+- Patient APIs
+- Doctor APIs
+- Nurse APIs
+- Hospital APIs
+- Pharmacy APIs
+- Laboratory APIs
+- Radiology APIs
+- Blood Bank APIs
+- Family APIs
+- Emergency APIs
+- Medical Records
+- Appointments
+- Medications
+- Prescriptions
+- Vaccinations
+- Notifications
+- File Uploads
+- Location services
+- AI services
+
+Do not assume a feature exists because a frontend page exists.
+
+Create:
+
+MOBILE_API_INVENTORY.md
+
+Classify every API:
+
+READY
+EXISTS BUT NEEDS VERIFICATION
+PARTIAL
+BROKEN
+MISSING
+
+==================================================
+2. CREATE THE FLUTTER FOUNDATION
+==================================================
+
+Create:
+
+/mobile
+
+Use Flutter with one shared codebase for:
+
+Android
+iOS
+
+Use a clean scalable architecture.
+
+Suggested structure:
+
+mobile/
+  lib/
+    core/
+      config/
+      network/
+      storage/
+      security/
+      routing/
+      theme/
+      errors/
+
+    features/
+      authentication/
+      patient/
+      doctors/
+      nurses/
+      hospitals/
+      pharmacies/
+      laboratories/
+      radiology/
+      blood_bank/
+      appointments/
+      medical_records/
+      medications/
+      prescriptions/
+      vaccinations/
+      family/
+      emergency/
+      notifications/
+      profile/
+
+    shared/
+      widgets/
+      models/
+      services/
+
+Do not implement every feature yet.
+
+Only create the architecture and foundation needed to build them safely.
+
+==================================================
+3. IMPORTANT USER ROLES
+==================================================
+
+The mobile application will eventually support:
+
+PATIENT / NORMAL USER
+DOCTOR
+NURSE
+HOSPITAL
+PHARMACY
+LABORATORY
+RADIOLOGY CENTER
+BLOOD BANK
+ADMIN
+
+The application must NOT create fake permissions.
+
+The backend remains the authority for authentication and authorization.
+
+A user should be able to use the normal patient experience.
+
+If the backend confirms an approved professional/provider role, the application can later expose that role's dashboard.
+
+Do NOT implement a new role system.
+
+==================================================
+4. SERVICE PROVIDER APPLICATION AREAS
+==================================================
+
+The mobile architecture MUST support dedicated interfaces for:
+
+A. Hospitals
+B. Pharmacies
+C. Laboratories
+D. Radiology Centers
+E. Blood Banks
+F. Doctors
+G. Nurses
+
+These are NOT simply patient pages.
+
+Each provider type must eventually have its own dashboard and workflows based on its actual backend permissions.
+
+For this phase:
+
+DO NOT build the full dashboards.
+
+Only create the feature/module architecture and document the required APIs for each provider.
+
+==================================================
+5. PATIENT MOBILE FOUNDATION
+==================================================
+
+Prepare the patient application architecture for:
+
+Home
+Appointments
+Medical Record
+Medications
+Prescriptions
+Family
+Emergency
+Notifications
+Doctors
+Hospitals
+Pharmacies
+Laboratories
+Radiology
+Blood Bank
+Profile
+
+Do not create fake functionality.
+
+Only connect screens to APIs that actually exist and are verified.
+
+==================================================
+6. SERVICE DIRECTORY ARCHITECTURE
+==================================================
+
+Prepare the mobile architecture for a unified healthcare directory:
+
+Healthcare Directory
+    |
+    +-- Hospitals
+    +-- Pharmacies
+    +-- Laboratories
+    +-- Radiology Centers
+    +-- Blood Banks
+
+The future search architecture must support the existing project requirements such as:
+
+- Governorate
+- Location
+- Nearest
+- Open now
+- Emergency 24/7 where applicable
+- Specialty for hospitals
+- Service type
+
+Do NOT add new backend functionality in this phase.
+
+Document which of these capabilities already exist in the backend.
+
+==================================================
+7. API CLIENT
+==================================================
+
+Create a centralized API client supporting:
+
+- Base URL configuration
+- HTTPS
+- Authentication
+- Authorization headers
+- JSON
+- File uploads
+- File downloads
+- Timeouts
+- Network errors
+- Safe error handling
+- Session persistence
+
+Do not hard-code secrets.
+
+Use configuration/environment values.
+
+==================================================
+8. AUTHENTICATION FOUNDATION
+==================================================
+
+Connect to the EXISTING authentication system.
+
+Support the authentication methods that actually exist.
+
+Implement:
+
+Login
+Logout
+Session restoration
+Session expiration handling
+
+Do not create a new authentication backend.
+
+==================================================
+9. SECURITY
+==================================================
+
+The mobile application is an untrusted client.
+
+Never rely on Flutter UI for authorization.
+
+Never store passwords in plain text.
+
+Do not log:
+
+- passwords
+- tokens
+- medical information
+- private patient data
+
+Use secure local storage for authentication/session information where appropriate.
+
+==================================================
+10. DESIGN SYSTEM FOUNDATION
+==================================================
+
+Create the foundation of a professional Sahty mobile design system.
+
+It must be suitable for:
+
+Patient
+Doctor
+Nurse
+Hospital
+Pharmacy
+Laboratory
+Radiology
+Blood Bank
+
+Use reusable components.
+
+Include:
+
+- typography
+- spacing
+- cards
+- buttons
+- forms
+- navigation
+- loading states
+- empty states
+- error states
+- confirmation dialogs
+
+Do NOT build the final visual design yet.
+
+==================================================
+11. TESTING
+==================================================
+
+Verify that:
+
+- Flutter project builds
+- Android build configuration is valid
+- iOS project configuration is valid
+- API client compiles
+- Authentication integration compiles
+- Existing web project still works
+- Existing backend is not broken
+
+Do not claim a test passed unless it was actually executed.
+
+==================================================
+12. DOCUMENTATION
+==================================================
+
+Create:
+
+MOBILE_SETUP.md
+
+Include:
+
+- Flutter version
+- Dart version
+- Android setup
+- iOS setup
+- API configuration
+- How to run the application
+
+Create:
+
+MOBILE_ROLES_AND_DASHBOARDS.md
+
+For each role:
+
+Patient
+Doctor
+Nurse
+Hospital
+Pharmacy
+Laboratory
+Radiology
+Blood Bank
+Admin
+
+Document:
+
+- Required dashboard
+- Required permissions
+- Required API endpoints
+- Current API status
+
+Do NOT invent APIs.
+
+==================================================
+13. GIT SAFETY
+==================================================
+
+Do NOT:
+
+- force push
+- reset the repository
+- overwrite other people's changes
+- delete existing project files
+
+Keep the mobile application isolated under:
+
+/mobile
+
+Before committing verify:
+
+git status
+git diff
+git branch
+git remote
+
+Commit:
+
+"Initialize Sahti Flutter mobile foundation"
+
+If there is a merge conflict or GitHub authentication problem:
+
+STOP and report it.
+
+==================================================
+FINAL RESULT
+==================================================
+
+At the end report:
+
+1. Flutter project created
+2. Android configuration status
+3. iOS configuration status
+4. API inventory status
+5. Authentication status
+6. Role architecture status
+7. Hospital module status
+8. Pharmacy module status
+9. Laboratory module status
+10. Radiology module status
+11. Blood Bank module status
+12. Doctor module status
+13. Nurse module status
+14. Tests performed
+15. Remaining blockers
+
+Do not start building the complete mobile application yet.
