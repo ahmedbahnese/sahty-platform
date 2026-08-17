@@ -94,7 +94,9 @@ def create_prescription(current_user):
     if not doctor:
         return jsonify({'message': 'لم يتم العثور على ملف الطبيب'}), 404
 
-    data = request.get_json() or {}
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        return jsonify({'message': 'بيانات الوصفة يجب أن تكون JSON صحيحة'}), 400
     if not data.get('patient_id'):
         return jsonify({'message': 'patient_id مطلوب'}), 400
     if not data.get('items') or not isinstance(data['items'], list) or len(data['items']) == 0:
@@ -117,8 +119,8 @@ def create_prescription(current_user):
     if data.get('valid_until'):
         try:
             valid_until = datetime.strptime(data['valid_until'], '%Y-%m-%d').date()
-        except ValueError:
-            pass
+        except (TypeError, ValueError):
+            return jsonify({'message': 'تاريخ صلاحية الوصفة غير صالح'}), 400
     if not valid_until:
         valid_until = (datetime.utcnow() + timedelta(days=30)).date()
 
@@ -135,6 +137,9 @@ def create_prescription(current_user):
     db.session.flush()
 
     for item_data in data['items']:
+        if not isinstance(item_data, dict):
+            db.session.rollback()
+            return jsonify({'message': 'بيانات الدواء داخل الوصفة غير صالحة'}), 400
         if not item_data.get('drug_name') or not item_data.get('dosage') or not item_data.get('frequency'):
             return jsonify({'message': 'كل دواء يجب أن يحتوي على: drug_name, dosage, frequency'}), 400
         db.session.add(PrescriptionItem(
@@ -205,7 +210,11 @@ def send_to_pharmacy(current_user, rx_id):
     if rx.status not in ('active',):
         return jsonify({'message': 'يمكن إرسال الوصفات النشطة فقط'}), 400
 
-    data = request.get_json() or {}
+    data = request.get_json(silent=True)
+    if data is None:
+        data = {}
+    if not isinstance(data, dict):
+        return jsonify({'message': 'بيانات الصيدلية يجب أن تكون JSON صحيحة'}), 400
     pharmacy_name    = data.get('pharmacy_name', 'الصيدلية')
     pharmacy_user_id = data.get('pharmacy_user_id')
 
@@ -262,7 +271,11 @@ def dispense_prescription(current_user, rx_id):
     if rx.status not in ('sent_to_pharmacy', 'active'):
         return jsonify({'message': 'لا يمكن تأكيد صرف هذه الوصفة'}), 400
 
-    data = request.get_json() or {}
+    data = request.get_json(silent=True)
+    if data is None:
+        data = {}
+    if not isinstance(data, dict):
+        return jsonify({'message': 'بيانات الصرف يجب أن تكون JSON صحيحة'}), 400
     rx.status       = 'dispensed'
     rx.dispensed_at = datetime.utcnow()
     rx.dispensed_by = data.get('dispensed_by', 'الصيدلية')
