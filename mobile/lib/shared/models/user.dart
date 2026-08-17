@@ -6,6 +6,7 @@ class User {
     this.username,
     this.isActive = true,
     this.activeRoles = const [],
+    this.profile = const {},
   });
 
   factory User.fromJson(Map<String, dynamic> json) {
@@ -19,6 +20,9 @@ class User {
       activeRoles: roles is List
           ? roles.whereType<String>().toList(growable: false)
           : const [],
+      profile: json['profile'] is Map
+          ? Map<String, dynamic>.from(json['profile'] as Map)
+          : const {},
     );
   }
 
@@ -28,6 +32,7 @@ class User {
   final String userType;
   final bool isActive;
   final List<String> activeRoles;
+  final Map<String, dynamic> profile;
 
   bool hasRole(String role) => activeRoles.contains(role);
 
@@ -38,6 +43,7 @@ class User {
     'user_type': userType,
     'is_active': isActive,
     'active_roles': activeRoles,
+    'profile': profile,
   };
 
   static int? _asInt(Object? value) {

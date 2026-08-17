@@ -13,6 +13,10 @@ This document records only verified facts about the Sahty Flutter foundation. A 
 
 ## Current mobile foundation
 
+The Flutter client now includes a real API-backed first workflow beyond authentication: the authenticated session screen reads the profile payload returned by `/api/auth/profile`, and a Doctors screen calls `/api/doctors` through the shared `ApiClient` with search and specialty filters. The new code is wired through `AppRouter` and uses the existing secure session token flow.
+
+The current environment still has no Flutter or Dart executable. Therefore `scripts/replit-mobile-check.sh` returns `Flutter: NOT AVAILABLE`, and neither `flutter analyze` nor Android/iOS builds can be verified here. The mobile changes must be analyzed and built in Replit after enabling Flutter, then tested on Android and iOS toolchains separately.
+
 The project under `mobile/` contains a real API client, bearer-token handling, secure token storage, login, logout, profile/session restoration, role switching, Arabic locale support, routing, theme, and a session home screen. It does not contain fake medical API responses.
 
 The Android application ID is `com.sahty.sahty_mobile`. The Android manifest currently contains the launcher activity but no runtime permissions for camera, location, notifications, or files/photos. The release build type uses the debug signing configuration and must not be used for production distribution.

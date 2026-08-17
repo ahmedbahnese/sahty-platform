@@ -24,13 +24,14 @@ Future<void> main() async {
   apiClient.onUnauthorized = authController.expireSession;
   await authController.restoreSession();
 
-  runApp(SahtyApp(authController: authController));
+  runApp(SahtyApp(authController: authController, apiClient: apiClient));
 }
 
 class SahtyApp extends StatelessWidget {
-  const SahtyApp({required this.authController, super.key});
+  const SahtyApp({required this.authController, required this.apiClient, super.key});
 
   final AuthController authController;
+  final ApiClient apiClient;
 
   @override
   Widget build(BuildContext context) {
@@ -43,7 +44,7 @@ class SahtyApp extends StatelessWidget {
           theme: AppTheme.light(),
           locale: const Locale('ar'),
           supportedLocales: const [Locale('ar'), Locale('en')],
-          home: AppRouter(authController: authController),
+          home: AppRouter(authController: authController, apiClient: apiClient),
         );
       },
     );
