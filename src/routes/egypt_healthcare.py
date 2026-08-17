@@ -20,6 +20,7 @@ def list_facilities():
     ownership = request.args.get("ownership", "").strip()
     emergency = request.args.get("emergency") == "1"
     open_now = request.args.get("open_now") == "1"
+    home_services = request.args.get("home_services") == "1"
     nearest = request.args.get("nearest") == "1"
     specialty = request.args.get("specialty", "").strip()
     user_lat = request.args.get("lat", type=float)
@@ -49,6 +50,8 @@ def list_facilities():
         flat_query = flat_query.filter(HealthcareDirectoryRecord.city.ilike(f"%{city}%"))
     if specialty:
         flat_query = flat_query.filter(HealthcareDirectoryRecord.specialty.ilike(f"%{specialty}%"))
+    if home_services:
+        flat_query = flat_query.filter(HealthcareDirectoryRecord.home_services.is_(True))
     if emergency:
         flat_query = flat_query.filter(HealthcareDirectoryRecord.emergency_24_7.is_(True))
     imported_directory_available = HealthcareDirectoryRecord.query.first() is not None
