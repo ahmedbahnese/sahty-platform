@@ -20,11 +20,13 @@ Register a new user.
   "password": "Secure123!",
   "date_of_birth": "1990-01-01",
   "gender": "male",
-  "user_type": "patient|doctor|admin",
+  "user_type": "patient|doctor|nurse|hospital|pharmacy|laboratory|radiology|blood_bank",
   "national_id": "12345678901234",
   "phone": "01012345678"        // optional
 }
 ```
+`user_type` is `patient` for the account's base access. Professional roles can be requested during registration or later through `POST /api/auth/apply-role`; they become usable only after server-side approval. `admin` and `super_admin` are never public registration roles.
+
 **Response 201**
 ```json
 { "message": "تم التسجيل بنجاح", "token": "<JWT>", "user": { ... } }
@@ -52,8 +54,27 @@ Revoke the current session server-side.
 
 ---
 
-### GET /api/auth/me `[Auth]`
-Returns the current user's profile.
+### GET /api/auth/profile `[Auth]`
+Returns the current user's profile and server-validated `active_roles`.
+
+### POST /api/auth/switch-role `[Auth]`
+Switches to a role already active for the account. The server rejects roles that are not assigned and approved.
+
+```json
+{ "role": "patient" }
+```
+
+### POST /api/auth/apply-role `[Auth]`
+Creates a pending request for `doctor` or `nurse` without removing patient access. The requested role is inactive until approved by an administrator.
+
+### GET /healthz
+Lightweight liveness check. Returns HTTP 200 when the process is responding.
+
+### GET /readyz
+Readiness check. Returns HTTP 200 only when the application can reach its configured database.
+
+### GET /api/health
+API and database health check used by deployment health monitors.
 
 ---
 
