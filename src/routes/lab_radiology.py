@@ -24,7 +24,7 @@ import json
 import posixpath
 import uuid
 from datetime import datetime, date
-from flask import Blueprint, request, jsonify, send_from_directory, current_app
+from flask import Blueprint, request, jsonify, send_from_directory, current_app, g
 from sqlalchemy import or_
 from werkzeug.utils import secure_filename
 
@@ -150,6 +150,28 @@ def _find_upload_record(filepath):
             return item.patient_id, None, ()
 
     return None
+
+
+SERVICE_REQUEST_ROLES = {
+    'admin', 'super_admin', 'doctor', 'nurse', 'hospital',
+    'laboratory', 'lab', 'radiology', 'radiology_center',
+}
+
+
+def _can_access_request(current_user, item):
+    if _can_access_patient_record(
+        current_user,
+        item.patient_id,
+        getattr(item, 'requesting_user_id', None),
+        (
+            getattr(item, 'approved_by_user_id', None),
+            getattr(item, 'result_uploaded_by', None),
+            getattr(item, 'images_uploaded_by', None),
+            getattr(item, 'report_uploaded_by', None),
+        ),
+    ):
+        return True
+    return getattr(g, 'current_role', current_user.user_type) in SERVICE_REQUEST_ROLES
 
 
 def _authorize_request_file_access(current_user, item, uploader_ids=()):
@@ -426,8 +448,10 @@ def list_lab_requests(current_user):
         if not patient:
             return jsonify([]), 200
         requests_q = LabRequest.query.filter_by(patient_id=patient.id)
-    else:
+    elif getattr(g, 'current_role', current_user.user_type) in SERVICE_REQUEST_ROLES:
         requests_q = LabRequest.query
+    else:
+        requests_q = LabRequest.query.filter_by(requesting_user_id=current_user.id)
 
     status_filter = request.args.get('status')
     if status_filter:
@@ -441,10 +465,8 @@ def list_lab_requests(current_user):
 @token_required
 def get_lab_request(current_user, req_id):
     lab_req = LabRequest.query.get_or_404(req_id)
-    if current_user.user_type == 'patient':
-        patient = Patient.query.filter_by(user_id=current_user.id).first()
-        if not patient or lab_req.patient_id != patient.id:
-            return jsonify({'message': 'غير مصرح'}), 403
+    if not _can_access_request(current_user, lab_req):
+        return jsonify({'message': 'غير مصرح'}), 403
     return jsonify(lab_req.to_dict()), 200
 
 
@@ -742,8 +764,10 @@ def list_radiology_requests(current_user):
         if not patient:
             return jsonify([]), 200
         q = RadiologyRequest.query.filter_by(patient_id=patient.id)
-    else:
+    elif getattr(g, 'current_role', current_user.user_type) in SERVICE_REQUEST_ROLES:
         q = RadiologyRequest.query
+    else:
+        q = RadiologyRequest.query.filter_by(requesting_user_id=current_user.id)
 
     status_filter = request.args.get('status')
     if status_filter:
@@ -757,10 +781,8 @@ def list_radiology_requests(current_user):
 @token_required
 def get_radiology_request(current_user, req_id):
     rad_req = RadiologyRequest.query.get_or_404(req_id)
-    if current_user.user_type == 'patient':
-        patient = Patient.query.filter_by(user_id=current_user.id).first()
-        if not patient or rad_req.patient_id != patient.id:
-            return jsonify({'message': 'غير مصرح'}), 403
+    if not _can_access_request(current_user, rad_req):
+        return jsonify({'message': 'غير مصرح'}), 403
     return jsonify(rad_req.to_dict()), 200
 
 

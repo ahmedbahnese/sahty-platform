@@ -6,7 +6,7 @@ import os
 import uuid
 
 import jwt
-from src.models.lab_radiology import RadiologyRequest
+from src.models.lab_radiology import LabRequest, RadiologyRequest
 from src.models.patient import Patient
 from src.models.user import User, db
 
@@ -172,6 +172,57 @@ def test_patient_file_access_is_scoped_to_the_owning_patient(client):
         for path in paths:
             if os.path.exists(path):
                 os.remove(path)
+
+
+def test_patient_cannot_read_another_patient_lab_request(client):
+    email_a = f"lab-owner-a-{uuid.uuid4().hex}@test.com"
+    email_b = f"lab-owner-b-{uuid.uuid4().hex}@test.com"
+    response_a = client.post(
+        "/api/auth/register",
+        json={
+            "first_name": "Lab",
+            "last_name": "Owner A",
+            "email": email_a,
+            "password": "Secure123!",
+            "date_of_birth": "1990-01-01",
+            "gender": "other",
+            "user_type": "patient",
+            "national_id": f"7{uuid.uuid4().int % 10**13:013d}",
+        },
+    )
+    response_b = client.post(
+        "/api/auth/register",
+        json={
+            "first_name": "Lab",
+            "last_name": "Owner B",
+            "email": email_b,
+            "password": "Secure123!",
+            "date_of_birth": "1990-01-01",
+            "gender": "other",
+            "user_type": "patient",
+            "national_id": f"8{uuid.uuid4().int % 10**13:013d}",
+        },
+    )
+    token_a = response_a.get_json()["token"]
+    user_a = User.query.filter_by(email=email_a).one()
+    user_b = User.query.filter_by(email=email_b).one()
+    patient_b = Patient.query.filter_by(user_id=user_b.id).one()
+    request_b = LabRequest(
+        patient_id=patient_b.id,
+        requesting_user_id=user_b.id,
+        test_name="CBC",
+        tests_json='[{"name":"CBC"}]',
+        status="requested",
+    )
+    db.session.add(request_b)
+    db.session.commit()
+
+    listing = client.get('/api/lab-requests', headers=_auth_header(token_a))
+    detail = client.get(f'/api/lab-requests/{request_b.id}', headers=_auth_header(token_a))
+
+    assert listing.status_code == 200
+    assert request_b.id not in {item['id'] for item in listing.get_json()}
+    assert detail.status_code == 403
 
 
 def test_patient_token_cannot_activate_unassigned_professional_role(client):
