@@ -12,3 +12,44 @@ body {
   direction: rtl;
   text-align: right;
 }
+
+
+:root {
+  --sehaty-motion-fast: 140ms;
+  --sehaty-motion-standard: 220ms;
+  --sehaty-focus-ring: 0 0 0 3px color-mix(in srgb, #2563eb 28%, transparent);
+}
+
+:where(a, button, input, select, textarea):focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+  box-shadow: var(--sehaty-focus-ring);
+}
+
+@keyframes sehaty-fade-up {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  main {
+    animation: sehaty-fade-up var(--sehaty-motion-standard) ease-out both;
+  }
+
+  :where(a, button) {
+    transition: transform var(--sehaty-motion-fast) ease, box-shadow var(--sehaty-motion-fast) ease;
+  }
+
+  :where(a, button):not(:disabled):hover {
+    transform: translateY(-1px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}
