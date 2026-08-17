@@ -18,6 +18,17 @@ The repository contains a Flutter foundation, not a verified mobile release. The
 | Arabic/RTL/theme | PARTIAL | Arabic locale and theme are present; visual verification was not possible without Flutter. |
 | Offline/network errors | PARTIAL | API client maps timeout, socket, non-JSON, and unauthorized responses; end-to-end mobile verification is pending. |
 
+## Replit development status
+
+| Check | Status | Verified result |
+|---|---|---|
+| Replit Flutter configuration | PARTIAL | `replit.nix` requests `pkgs.flutter`, but the current sandbox does not expose `flutter` or `dart`; the exact package version must be verified in Replit. |
+| Replit mobile check script | WORKING | `scripts/replit-mobile-check.sh` is executable and fails with an explicit blocker when Flutter is unavailable. |
+| Replit Flask runner | WORKING | `scripts/replit-api-run.sh` builds the web app, runs migrations, binds Gunicorn to `0.0.0.0:$PORT`, and was verified against `/api/health` with a temporary SQLite database. |
+| Public API configuration | PARTIAL | `API_BASE_URL` remains compile-time configurable; a public HTTPS Replit domain must be supplied at run/build time. |
+
+The Replit runner test returned the backend health payload with `database: ok` and `status: ok`. The test used a non-production secret and temporary SQLite database; no secret was committed.
+
 ## Required workflow status
 
 | Workflow | Status | Current finding |
