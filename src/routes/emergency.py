@@ -112,7 +112,9 @@ def get_emergency_qr(current_user):
 @token_required
 def trigger_sos(current_user):
     """تفعيل SOS — يحفظ التنبيه ويُشعر جهات الاتصال الأسرية."""
-    data    = request.get_json(silent=True) or {}
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        return jsonify({'message': 'بيانات SOS يجب أن تكون JSON صحيحة'}), 400
     patient = Patient.query.filter_by(user_id=current_user.id).first()
 
     alert = EmergencyAlert(
@@ -173,7 +175,9 @@ def trigger_sos(current_user):
 @token_required
 def request_ambulance(current_user):
     """تسجيل طلب إسعاف."""
-    data    = request.get_json(silent=True) or {}
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        return jsonify({'message': 'بيانات طلب الإسعاف يجب أن تكون JSON صحيحة'}), 400
     patient = Patient.query.filter_by(user_id=current_user.id).first()
 
     if not data.get('location_text') and not (data.get('latitude') and data.get('longitude')):
@@ -236,7 +240,9 @@ def update_alert(current_user, alert_id):
     if alert.status == 'resolved':
         return jsonify({'message': 'لا يمكن تعديل تنبيه مغلق'}), 400
 
-    data = request.get_json(silent=True) or {}
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        return jsonify({'message': 'بيانات التنبيه يجب أن تكون JSON صحيحة'}), 400
     for field in (
         'emergency_type', 'severity', 'description', 'location_text',
         'caller_name', 'caller_phone',
@@ -271,8 +277,10 @@ def list_family_contacts(current_user):
 @emergency_bp.route('/emergency/family-contacts', methods=['POST'])
 @token_required
 def add_family_contact(current_user):
-    data = request.get_json(silent=True) or {}
-    if not data.get('name') or not data.get('phone'):
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        return jsonify({'message': 'بيانات جهة الاتصال يجب أن تكون JSON صحيحة'}), 400
+    if not isinstance(data.get('name'), str) or not isinstance(data.get('phone'), str) or not data.get('name').strip() or not data.get('phone').strip():
         return jsonify({'message': 'الاسم والهاتف مطلوبان'}), 400
 
     # حد أقصى 5 جهات
