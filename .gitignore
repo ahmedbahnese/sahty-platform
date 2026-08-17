@@ -24,6 +24,9 @@ dist/
 # Generated uploads
 static/uploads/
 
+# Downloaded third-party raw datasets; keep processed, attributed extracts under data/processed/
+data/raw/
+
 # Operating system files
 .DS_Store
 Thumbs.db
