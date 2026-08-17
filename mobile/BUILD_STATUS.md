@@ -1,35 +1,45 @@
 # Mobile build status
 
-This document records the verified mobile build state for the Sahty Flutter foundation.
+This document records only verified facts about the Sahty Flutter foundation. A platform is not marked working without a successful build or test on its native toolchain.
 
-| Target | Verified status | Reason |
+| Target | Status | Verified fact |
 |---|---|---|
-| Flutter analysis/tests | Not run on this machine | The `flutter` and `dart` executables are not installed in the current Linux environment. |
-| Android APK/AAB | Not built here | The project has an Android directory, but no Gradle wrapper or Android SDK tools are available in this environment. A build must be verified on a machine with Flutter, Android SDK, and the configured JDK. |
-| iOS | Not built here | iOS builds require macOS, Xcode, CocoaPods, and signing/provisioning configuration. `xcodebuild` is unavailable in this environment. |
+| Flutter/Dart toolchain | NOT VERIFIED | `flutter` and `dart` are unavailable in the current Linux sandbox. The repository declares Flutter 3.32.0 and Dart SDK `^3.8.0`. |
+| Flutter analyze/test | NOT VERIFIED | Cannot run until Flutter is installed. Existing Dart tests cover the API client, secure session manager, and user model only. |
+| Android debug build | NOT VERIFIED | Android project files exist, but Android SDK, Flutter CLI, and a Gradle wrapper are unavailable here. |
+| Android release build | NOT VERIFIED | Release Gradle configuration currently uses the debug signing configuration. A private release keystore and signing properties are required. |
+| iOS build | NOT VERIFIED | iOS project files exist, but this Linux environment has no macOS, Xcode, CocoaPods, or `xcodebuild`. |
+| Web/backend integration | PARTIAL | The real Flask authentication endpoints are referenced by the mobile foundation; feature workflows are not implemented and verified in Flutter. |
 
-The Flutter foundation is present under `mobile/`, with Arabic locale support, secure session storage, an API client, authentication restoration, routing, and separate Android/iOS platform directories. This is a foundation only; the table above intentionally does not claim release readiness without successful platform builds.
+## Current mobile foundation
 
-## Required verification commands
+The project under `mobile/` contains a real API client, bearer-token handling, secure token storage, login, logout, profile/session restoration, role switching, Arabic locale support, routing, theme, and a session home screen. It does not contain fake medical API responses.
 
-Run these from `mobile/` on a machine with Flutter installed:
+The Android application ID is `com.sahty.sahty_mobile`. The Android manifest currently contains the launcher activity but no runtime permissions for camera, location, notifications, or files/photos. The release build type uses the debug signing configuration and must not be used for production distribution.
+
+The iOS bundle identifier is `com.sahty.sahtyMobile`. The project has generated Xcode files and a basic `Info.plist`, but it does not yet declare camera/photo/location/notification usage descriptions or prove signing and provisioning. These must be completed and tested on macOS.
+
+## Required commands on a Flutter workstation
 
 ```bash
+cd mobile
+flutter --version
+dart --version
+flutter doctor -v
 flutter pub get
 flutter analyze
 flutter test
-flutter build apk --release
-flutter build appbundle --release
+flutter build apk --debug --dart-define=API_BASE_URL=https://your-api.example.com/api
+flutter build appbundle --release --dart-define=API_BASE_URL=https://your-api.example.com/api
 ```
 
-For iOS, run on macOS after installing Xcode and CocoaPods:
+For iOS on macOS:
 
 ```bash
+cd mobile
 flutter pub get
 cd ios && pod install && cd ..
 flutter analyze
 flutter test
-flutter build ios --release
+flutter build ios --release --dart-define=API_BASE_URL=https://your-api.example.com/api
 ```
-
-Before release, configure the API base URL, Android signing, iOS bundle identifier, Apple team, provisioning profile, and production secrets through the platform's secure build configuration.

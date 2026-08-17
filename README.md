@@ -60,3 +60,9 @@ FLASK_ENV=production gunicorn --bind 0.0.0.0:5001 wsgi:application
 
 لا تعتمد عملية التشغيل على أي منصة أو خدمة استضافة بعينها.
 
+## تطبيق Flutter المحمول
+
+يوجد أساس التطبيق المحمول داخل `mobile/` ويستخدم API Flask الحالي، ولا ينشئ Backend منفصلًا أو بيانات وهمية. راجع [MOBILE.md](MOBILE.md) لأوامر Flutter ومتطلبات Android وiOS، وراجع [MOBILE_RELEASE_STATUS.md](MOBILE_RELEASE_STATUS.md) لمعرفة ما تم التحقق منه فعليًا وما يزال يحتاج إلى Flutter/Android SDK أو macOS/Xcode.
+
+حالة mobile الحالية هي أساس مصادقة وجلسة جزئي، وليست إصدارًا Android أو iOS مثبتًا ومبنيًا. لا تعتبر المنصات جاهزة للإنتاج قبل نجاح `flutter analyze` و`flutter test` وبناء native فعلي على أدواتها الأصلية.
+
