@@ -87,7 +87,7 @@ Search / list approved doctors.
 ### GET /api/doctors/{id}
 Doctor profile + availability slots.
 
-### GET /api/doctors/{id}/slots `[Auth]`
+### GET /api/doctors/{id}/available-slots `[Auth]`
 Available appointment slots for a given `?date=YYYY-MM-DD`.
 
 ### PUT /api/doctors/profile `[Auth, Doctor]`
@@ -109,9 +109,8 @@ Set availability slots.
 ```json
 {
   "doctor_id": 1,
-  "appointment_date": "2026-08-01",
-  "appointment_time": "10:00",
-  "type": "in_person|video",
+  "appointment_date": "2026-08-01T10:00:00",
+  "appointment_type": "in_person|telemedicine",
   "reason": "فحص دوري"
 }
 ```
@@ -121,9 +120,9 @@ List user's appointments. Query: `status`, `page`, `per_page`.
 
 ### GET /api/appointments/{id} `[Auth]`
 
-### PUT /api/appointments/{id}/confirm `[Auth, Doctor]`
-### PUT /api/appointments/{id}/complete `[Auth, Doctor]`
-### PUT /api/appointments/{id}/cancel `[Auth]`
+### POST /api/appointments/{id}/confirm `[Auth, Doctor]`
+### POST /api/appointments/{id}/complete `[Auth, Doctor]`
+### POST /api/appointments/{id}/cancel `[Auth]`
 
 ---
 
@@ -402,11 +401,11 @@ Auth required. Files include lab results, radiology images, and prescription doc
 
 ## Error Format
 
-All error responses follow:
+Every API error uses HTTP status plus a JSON body. Legacy route errors may contain only `message`; platform-level HTTP errors and unexpected exceptions use the extended shape:
 ```json
-{ "message": "وصف الخطأ بالعربية" }
+{ "error": "Not Found", "message": "وصف الخطأ بالعربية", "status": 404 }
 ```
-HTTP status: `400` validation, `401` unauthenticated, `403` forbidden, `404` not found, `500` server error.
+HTTP status: `400` validation, `401` unauthenticated, `403` forbidden, `404` not found, `409` conflict such as an occupied appointment slot, and `500` server error. Clients must branch on HTTP status and must not rely only on the Arabic message text.
 
 ---
 
