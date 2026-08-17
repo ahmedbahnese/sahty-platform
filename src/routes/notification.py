@@ -13,8 +13,8 @@ notification_bp = Blueprint('notification', __name__, url_prefix='/api/notificat
 @token_required
 def list_notifications(current_user):
     """جلب إشعارات المستخدم الحالي"""
-    page      = request.args.get('page', 1, type=int)
-    per_page  = min(request.args.get('per_page', 20, type=int), 50)
+    page      = max(request.args.get('page', 1, type=int) or 1, 1)
+    per_page  = min(max(request.args.get('per_page', 20, type=int) or 20, 1), 50)
     unread_only = request.args.get('unread') == '1'
 
     query = Notification.query.filter_by(user_id=current_user.id)
@@ -47,8 +47,15 @@ def unread_count(current_user):
 @token_required
 def mark_read(current_user):
     """تعيين إشعارات كمقروءة. body: { ids: [1,2,3] } أو {} لتعيين الكل"""
-    data = request.get_json() or {}
-    ids  = data.get('ids')
+    data = request.get_json(silent=True)
+    if data is None:
+        data = {}
+    if not isinstance(data, dict):
+        return jsonify({'success': False, 'error': 'بيانات الإشعارات يجب أن تكون JSON صحيحة'}), 400
+    ids = data.get('ids')
+    if ids is not None:
+        if not isinstance(ids, list) or not all(isinstance(item, int) and item > 0 for item in ids):
+            return jsonify({'success': False, 'error': 'قائمة معرفات الإشعارات غير صالحة'}), 400
 
     query = Notification.query.filter_by(user_id=current_user.id, is_read=False)
     if ids:
