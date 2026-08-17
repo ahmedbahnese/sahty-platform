@@ -1,0 +1,6 @@
+# Copy to key.properties locally or inject equivalent values in CI secrets.
+# Never commit key.properties or the keystore file.
+storePassword=CHANGE_ME
+keyPassword=CHANGE_ME
+keyAlias=sahty_release
+storeFile=/absolute/path/to/sahty-upload-key.jks
