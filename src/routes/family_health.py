@@ -36,8 +36,10 @@ def get_groups(current_user):
 @token_required
 def create_group(current_user):
     """إنشاء مجموعة أسرة جديدة"""
-    data = request.get_json()
-    if not data or not data.get('name'):
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        return jsonify({'success': False, 'error': 'بيانات المجموعة يجب أن تكون JSON صحيحة'}), 400
+    if not data.get('name') or not isinstance(data.get('name'), str):
         return jsonify({'success': False, 'error': 'اسم المجموعة مطلوب'}), 400
 
     group = FamilyGroup(
@@ -67,7 +69,9 @@ def update_group(current_user, group_id):
     group = FamilyGroup.query.filter_by(id=group_id, owner_user_id=current_user.id).first()
     if not group:
         return jsonify({'success': False, 'error': 'المجموعة غير موجودة'}), 404
-    data = request.get_json()
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        return jsonify({'success': False, 'error': 'بيانات المجموعة يجب أن تكون JSON صحيحة'}), 400
     if data.get('name'):
         group.name = data['name']
     if 'description' in data:
@@ -108,7 +112,9 @@ def add_member(current_user, group_id):
     if not group:
         return jsonify({'success': False, 'error': 'المجموعة غير موجودة'}), 404
 
-    data = request.get_json()
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        return jsonify({'success': False, 'error': 'بيانات العضو يجب أن تكون JSON صحيحة'}), 400
     required = ['first_name', 'last_name', 'relationship']
     for field in required:
         if not data.get(field):
@@ -118,8 +124,8 @@ def add_member(current_user, group_id):
     if data.get('date_of_birth'):
         try:
             dob = date.fromisoformat(data['date_of_birth'])
-        except ValueError:
-            pass
+        except (TypeError, ValueError):
+            return jsonify({'success': False, 'error': 'تاريخ الميلاد غير صالح'}), 400
 
     member = FamilyMember(
         group_id=group_id,
