@@ -128,6 +128,7 @@ class HealthcareDirectoryRecord(db.Model):
     __tablename__ = "healthcare_directory_records"
 
     id = db.Column(db.Integer, primary_key=True)
+    external_id = db.Column(db.String(120), index=True)
     name_ar = db.Column(db.String(250), nullable=False)
     name_en = db.Column(db.String(250), nullable=False)
     facility_type = db.Column(db.String(80), nullable=False, index=True)
@@ -182,6 +183,7 @@ class HealthcareDirectoryRecord(db.Model):
             distance_km = round(radius * 2 * atan2(sqrt(a), sqrt(1 - a)), 1)
         return {
             "id": self.id,
+            "external_id": self.external_id,
             "name_ar": self.name_ar,
             "name_en": self.name_en,
             "facility_type": self.facility_type,

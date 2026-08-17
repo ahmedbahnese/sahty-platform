@@ -13,3 +13,9 @@ This is a real public geospatial source for facilities, but it is not an officia
 Source page: https://data.humdata.org/dataset/cod-ab-egy
 
 The HDX page exposes Egypt administrative boundary downloads including `egy_admin_boundaries.geojson.zip` and `egy_admin_boundaries.shp.zip`, and states the dataset covers administrative levels including ADM1 governorates. This source can support spatial assignment of facility coordinates to Cairo, Alexandria, and Beheira, subject to checking the boundary names and coordinate reference system before import.
+
+## Verified extract result
+
+Using the downloaded HDX point GeoJSON and HDX ADM1 boundaries, spatial matching assigned 589 named, unique source records to the target governorates: Cairo 368, Alexandria 203, Beheira 18. The raw Egypt points dataset contained 1,576 features total, 1,219 named features, and 18 spatially unmatched points.
+
+The processed CSV currently contains these normalized facility types: pharmacy 263, hospital 141, clinic 87, doctor 51, health_center 10, laboratory 9, healthcare_facility 5, and dentist 23. All 589 rows have unique source external IDs in the prepared extract. This is a verified public facility extract, not a complete official licensing registry and not evidence that 1,200 records exist for each category.
