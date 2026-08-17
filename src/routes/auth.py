@@ -11,6 +11,7 @@ from src.models.patient import Patient
 from src.models.doctor import Doctor
 from src.models.admin import Admin, AuditLog
 from src.models.provider import PROVIDER_ROLES, ProviderRegistration
+from src.models.notification import Notification
 from src.models.professional import (
     Role, UserRole, ProfessionalRoleRequest, NurseProfile,
 )
