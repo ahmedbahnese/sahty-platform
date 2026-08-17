@@ -215,10 +215,17 @@ if (
 
 app.config['SQLALCHEMY_DATABASE_URI']        = database_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['SQLALCHEMY_ENGINE_OPTIONS']      = {
+engine_options = {
     'pool_pre_ping': True,   # detect stale connections
     'pool_recycle':  300,    # recycle connections every 5 minutes
 }
+if database_url.startswith(('postgresql://', 'postgresql+psycopg2://')):
+    engine_options.update({
+        'pool_size': int(os.environ.get('DB_POOL_SIZE', '10')),
+        'max_overflow': int(os.environ.get('DB_MAX_OVERFLOW', '20')),
+        'pool_timeout': int(os.environ.get('DB_POOL_TIMEOUT', '30')),
+    })
+app.config['SQLALCHEMY_ENGINE_OPTIONS'] = engine_options
 
 db.init_app(app)
 migrate = Migrate(app, db)  # Flask-Migrate — run `flask db init/migrate/upgrade`
