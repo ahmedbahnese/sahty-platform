@@ -172,3 +172,21 @@ def test_patient_file_access_is_scoped_to_the_owning_patient(client):
         for path in paths:
             if os.path.exists(path):
                 os.remove(path)
+
+
+def test_patient_token_cannot_activate_unassigned_professional_role(client):
+    token = _register_and_login(client)
+
+    response = client.get('/api/auth/profile', headers=_auth_header(token))
+
+    assert response.status_code == 200
+    profile = response.get_json()['user']
+    assert profile['user_type'] == 'patient'
+    assert 'doctor' not in profile['active_roles']
+
+    switch = client.post(
+        '/api/auth/switch-role',
+        json={'role': 'doctor'},
+        headers=_auth_header(token),
+    )
+    assert switch.status_code == 403

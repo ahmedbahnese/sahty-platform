@@ -91,7 +91,12 @@ def token_required(f):
                 return jsonify({'message': 'جلسة غير صالحة'}), 401
             if not current_user.is_active:
                 return jsonify({'message': 'الحساب غير مفعل'}), 401
-            g.current_role = data.get('user_type') or current_user.user_type
+            requested_role = data.get('user_type') or current_user.user_type
+            # Never trust the role claim by itself. The role must still be
+            # active in the server-side role assignments for this user.
+            if requested_role not in active_roles(current_user):
+                return jsonify({'message': 'الدور غير معتمد لحسابك'}), 403
+            g.current_role = requested_role
             current_session.last_seen_at = datetime.datetime.utcnow()
             g.current_session = current_session
         except jwt.ExpiredSignatureError:
@@ -116,7 +121,14 @@ def optional_token(f):
                 session = UserSession.query.filter_by(
                     token_hash=_hash_token(token), user_id=data['user_id']
                 ).first()
-                if user and session and session.is_valid and user.is_active:
+                requested_role = data.get('user_type') or (user.user_type if user else None)
+                if (
+                    user
+                    and session
+                    and session.is_valid
+                    and user.is_active
+                    and requested_role in active_roles(user)
+                ):
                     current_user = user
             except Exception:
                 pass
