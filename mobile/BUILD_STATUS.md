@@ -4,7 +4,7 @@ This document records only verified facts about the Sahty Flutter foundation. A 
 
 | Target | Status | Verified fact |
 |---|---|---|
-| Flutter/Dart toolchain | NOT VERIFIED | `flutter` and `dart` are unavailable in the current Linux sandbox. The repository declares Flutter 3.32.0 and Dart SDK `^3.8.0`. |
+| Flutter/Dart toolchain | NOT VERIFIED | Replit mobile check executed on 2026-08-18 and reported `Flutter: NOT AVAILABLE`; `flutter` and `dart` are unavailable in the current Linux sandbox. The repository declares Flutter 3.32.0 and Dart SDK `^3.8.0`. |
 | Flutter analyze/test | NOT VERIFIED | Cannot run until Flutter is installed. Existing Dart tests cover the API client, secure session manager, and user model only. |
 | Android debug build | NOT VERIFIED | Android project files exist, but Android SDK, Flutter CLI, and a Gradle wrapper are unavailable here. |
 | Android release build | NOT VERIFIED | Release Gradle configuration currently uses the debug signing configuration. A private release keystore and signing properties are required. |
