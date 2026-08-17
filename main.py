@@ -114,6 +114,10 @@ if not app.config['SECRET_KEY']:
     raise RuntimeError('SESSION_SECRET must be configured before starting the API')
 app.config['JWT_SECRET'] = os.environ.get('JWT_SECRET', app.config['SECRET_KEY'])
 
+# ── Environment guards ─────────────────────────────────────────────────────────
+environment_name = os.environ.get('FLASK_ENV', 'production').lower()
+production_like = environment_name in ('staging', 'production')
+
 # ── Security headers ──────────────────────────────────────────────────────────
 @app.after_request
 def add_security_headers(response):
@@ -122,8 +126,8 @@ def add_security_headers(response):
     response.headers['X-XSS-Protection']         = '1; mode=block'
     response.headers['Referrer-Policy']           = 'strict-origin-when-cross-origin'
     response.headers['Permissions-Policy']        = 'camera=(), microphone=(), geolocation=(self)'
-    # Only set HSTS in production (avoids breaking local http dev)
-    if os.environ.get('FLASK_ENV') == 'production':
+    # Set HSTS in staging/production; local development may use plain HTTP.
+    if production_like:
         response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
     return response
 
@@ -141,7 +145,7 @@ if configured_cors_origins:
 else:
     cors_origins = (
         ['http://localhost:5173', 'http://127.0.0.1:5173']
-        if os.environ.get('FLASK_ENV') != 'production'
+        if not production_like
         else []
     )
 for public_domain_env in ('RENDER_EXTERNAL_URL', 'REPLIT_DEV_DOMAIN'):
@@ -156,7 +160,7 @@ CORS(app, origins=cors_origins, supports_credentials=True)
 
 # ── Rate Limiting ─────────────────────────────────────────────────────────────
 rate_limit_storage = os.environ.get('RATELIMIT_STORAGE_URI', 'memory://')
-if os.environ.get('FLASK_ENV') == 'production' and rate_limit_storage == 'memory://':
+if production_like and rate_limit_storage == 'memory://':
     raise RuntimeError(
         'RATELIMIT_STORAGE_URI must point to a shared production store (for example Redis)'
     )
@@ -212,11 +216,11 @@ if database_url.startswith('postgres://'):
     database_url = database_url.replace('postgres://', 'postgresql://', 1)
 
 if (
-    os.environ.get('FLASK_ENV') == 'production'
+    production_like
     and not database_url.startswith(('postgresql://', 'postgresql+psycopg2://'))
 ):
     raise RuntimeError(
-        'DATABASE_URL must point to a managed PostgreSQL database in production'
+        'DATABASE_URL must point to a managed PostgreSQL database in staging/production'
     )
 
 app.config['SQLALCHEMY_DATABASE_URI']        = database_url
