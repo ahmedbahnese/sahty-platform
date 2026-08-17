@@ -1,7 +1,7 @@
 """Read-only API for the imported, verified Egypt healthcare directory."""
 
 from flask import Blueprint, jsonify, request
-from sqlalchemy import or_
+from sqlalchemy import func, or_
 
 from src.models.user import db
 from src.models.egypt_healthcare import EgyptFacility, HealthcareDirectoryRecord
@@ -30,14 +30,18 @@ def list_facilities():
 
     flat_query = HealthcareDirectoryRecord.query
     type_map = {
-        "hospital": "Hospital", "pharmacy": "Pharmacy",
-        "laboratory": "Laboratory", "lab": "Laboratory",
-        "radiology": "Radiology Center", "radiology_center": "Radiology Center",
-        "blood bank": "Blood Bank", "blood_bank": "Blood Bank",
+        "hospital": "hospital", "pharmacy": "pharmacy",
+        "laboratory": "laboratory", "lab": "laboratory",
+        "radiology": "radiology_center", "radiology_center": "radiology_center",
+        "blood bank": "blood_bank", "blood_bank": "blood_bank",
+        "clinic": "clinic", "doctor": "doctor", "dentist": "dentist",
+        "health center": "health_center", "health_center": "health_center",
     }
-    requested_type = type_map.get(facility_type.lower(), facility_type)
+    requested_type = type_map.get(facility_type.lower(), facility_type.lower())
     if requested_type:
-        flat_query = flat_query.filter(HealthcareDirectoryRecord.facility_type == requested_type)
+        flat_query = flat_query.filter(
+            func.lower(HealthcareDirectoryRecord.facility_type) == requested_type
+        )
     if search:
         flat_query = flat_query.filter(or_(
             HealthcareDirectoryRecord.name_ar.ilike(f"%{search}%"),
