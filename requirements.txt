@@ -1,4 +1,4 @@
-# Core
+# Production web server and Flask API
 Flask==3.0.3
 Flask-Cors==4.0.1
 Flask-SQLAlchemy==3.1.1
@@ -7,7 +7,7 @@ Flask-Limiter==4.1.1
 Werkzeug==3.0.3
 gunicorn==22.0.0
 
-# Auth & Security
+# Authentication and security
 PyJWT==2.8.0
 bcrypt
 cryptography
@@ -16,21 +16,19 @@ cryptography
 SQLAlchemy==2.0.36
 psycopg2-binary==2.9.9
 
-# AI & ML
+# AI and data processing
 openai
 scikit-learn==1.5.1
 numpy==1.26.4
 pandas==2.2.2
 matplotlib==3.9.2
 
-# Reports
+# Reports and storage integrations
 reportlab==4.2.2
-
-# Storage
 boto3
 dropbox
 
-# Utilities
+# Application utilities
 requests==2.32.3
 pyotp
 qrcode
@@ -40,66 +38,6 @@ pyttsx3
 speechrecognition
 sift-stack-py
 
-# Testing
+# Test tooling
 pytest
 pytest-flask
-bcrypt
-boto3
-cryptography
-dropbox
-flask
-flask-cors
-flask-limiter
-flask-migrate
-flask-sqlalchemy
-gtts
-gunicorn
-matplotlib
-numpy
-openai
-pandas
-psycopg2-binary
-pyjwt
-pyotp
-pytest
-pytest-flask
-pyttsx3
-qrcode
-reportlab
-requests
-schedule
-scikit-learn
-sift-stack-py
-speechrecognition
-sqlalchemy
-werkzeug
-bcrypt
-boto3
-cryptography
-dropbox
-flask
-flask-cors
-flask-limiter
-flask-migrate
-flask-sqlalchemy
-gtts
-gunicorn
-matplotlib
-numpy
-openai
-pandas
-psycopg2-binary
-pyjwt
-pyotp
-pytest
-pytest-flask
-pyttsx3
-qrcode
-reportlab
-requests
-schedule
-scikit-learn
-sift-stack-py
-speechrecognition
-sqlalchemy
-werkzeug

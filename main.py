@@ -1,6 +1,9 @@
+import logging
 import os
 import sys
 import datetime
+
+from werkzeug.exceptions import HTTPException
 
 # Add project root to path so 'src.*' imports resolve correctly
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -72,6 +75,37 @@ from src.database.import_healthcare_csv import import_directory_if_needed
 from werkzeug.security import generate_password_hash
 
 app = Flask(__name__, static_folder=os.path.join(os.path.dirname(os.path.abspath(__file__)), 'dist'))
+
+# ── Production logging ────────────────────────────────────────────────────────
+log_level = os.environ.get('LOG_LEVEL', 'INFO').upper()
+logging.basicConfig(
+    level=getattr(logging, log_level, logging.INFO),
+    format='%(asctime)s %(levelname)s %(name)s %(message)s',
+)
+app.logger.setLevel(getattr(logging, log_level, logging.INFO))
+
+# ── API error handling ────────────────────────────────────────────────────────
+@app.errorhandler(HTTPException)
+def handle_http_error(error):
+    if flask_request.path.startswith('/api'):
+        return jsonify({
+            'error': error.name,
+            'message': error.description,
+            'status': error.code,
+        }), error.code
+    return error
+
+
+@app.errorhandler(Exception)
+def handle_unexpected_error(error):
+    app.logger.exception('Unhandled application exception')
+    if flask_request.path.startswith('/api') or flask_request.accept_mimetypes.best == 'application/json':
+        return jsonify({
+            'error': 'Internal Server Error',
+            'message': 'حدث خطأ داخلي غير متوقع',
+            'status': 500,
+        }), 500
+    return 'Internal Server Error', 500
 
 # ── Security ──────────────────────────────────────────────────────────────────
 app.config['SECRET_KEY'] = os.environ.get('SESSION_SECRET')
@@ -391,6 +425,12 @@ def demo_report():
 @app.route('/', defaults={'path': ''})
 @app.route('/<path:path>')
 def serve(path):
+    if path.startswith('api/'):
+        return jsonify({
+            'error': 'Not Found',
+            'message': 'المسار غير موجود',
+            'status': 404,
+        }), 404
     static_folder_path = app.static_folder
     if static_folder_path is None:
         return jsonify({'message': 'Static folder not configured'}), 404
