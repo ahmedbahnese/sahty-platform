@@ -74,7 +74,16 @@ const LINK_COLORS = {
   amber:  'bg-amber-500',
 }
 
-function ProviderDashboard({ user }) {
+function ProviderDashboard({ user, token }) {
+  const [stats, setStats] = useState(null)
+  useEffect(() => {
+    let cancelled = false
+    fetch('/api/appointments/stats', { headers: { Authorization: `Bearer ${token}` } })
+      .then(response => response.ok ? response.json() : null)
+      .then(data => { if (!cancelled) setStats(data) })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [token])
   const typeLabel = {
     doctor: 'الطبيب', pharmacy: 'الصيدلية',
     lab: 'المعمل', radiology_center: 'مركز الأشعة', hospital: 'المستشفى', nurse: 'التمريض',
@@ -106,9 +115,9 @@ function ProviderDashboard({ user }) {
       )}
 
       <div className="grid gap-5 md:grid-cols-3">
-        <StatCard label="الطلبات الجديدة" value="0" icon={Clock3} tone="amber" />
-        <StatCard label="الخدمات النشطة" value="0" icon={Activity} tone="green" />
-        <StatCard label="التقييم العام" value="—" icon={Heart} tone="purple" />
+        <StatCard label="المواعيد المعلقة" value={stats?.pending ?? '—'} icon={Clock3} tone="amber" />
+        <StatCard label="المواعيد القادمة" value={stats?.upcoming ?? '—'} icon={Activity} tone="green" />
+        <StatCard label="المواعيد المكتملة" value={stats?.completed ?? '—'} icon={Heart} tone="purple" />
       </div>
 
       <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
@@ -125,6 +134,27 @@ function ProviderDashboard({ user }) {
 }
 
 function PatientDashboard() {
+  const { token } = useAuth()
+  const [stats, setStats] = useState(null)
+  useEffect(() => {
+    let cancelled = false
+    const headers = { Authorization: `Bearer ${token}` }
+    Promise.all([
+      fetch('/api/appointments/stats', { headers }).then(response => response.ok ? response.json() : null),
+      fetch('/api/medications', { headers }).then(response => response.ok ? response.json() : []),
+      fetch('/api/vaccinations', { headers }).then(response => response.ok ? response.json() : []),
+    ]).then(([appointments, medications, vaccinations]) => {
+      if (cancelled) return
+      const medicationList = Array.isArray(medications) ? medications : (medications?.medications || [])
+      const vaccinationList = Array.isArray(vaccinations) ? vaccinations : (vaccinations?.vaccinations || [])
+      setStats({
+        upcoming: appointments?.upcoming ?? 0,
+        activeMedications: medicationList.filter(item => item.is_active !== false).length,
+        vaccinations: vaccinationList.length,
+      })
+    }).catch(() => {})
+    return () => { cancelled = true }
+  }, [token])
   const quickLinks = [
     { label: 'الملف الطبي الإلكتروني', desc: 'الأمراض، العمليات، التحاليل، الأشعة والمزيد', icon: ClipboardList, color: 'blue', to: '/medical-record' },
     { label: 'التقرير الطبي الشامل', desc: 'تقرير طبي شامل قابل للطباعة', icon: FileText, color: 'teal', to: '/clinical-summary' },
@@ -135,9 +165,9 @@ function PatientDashboard() {
   return (
     <div className="space-y-6">
       <div className="grid gap-5 md:grid-cols-3">
-        <StatCard label="المواعيد القادمة" value="0" icon={Clock3} />
-        <StatCard label="الأدوية النشطة" value="0" icon={Pill} tone="green" />
-        <StatCard label="التطعيمات" value="0" icon={Syringe} tone="purple" />
+        <StatCard label="المواعيد القادمة" value={stats?.upcoming ?? '—'} icon={Clock3} />
+        <StatCard label="الأدوية النشطة" value={stats?.activeMedications ?? '—'} icon={Pill} tone="green" />
+        <StatCard label="التطعيمات" value={stats?.vaccinations ?? '—'} icon={Syringe} tone="purple" />
       </div>
       <div className="grid gap-4 md:grid-cols-3">
         {quickLinks.map(l => (
@@ -255,7 +285,7 @@ export default function DashboardPage() {
           <div><p className="text-sm font-semibold text-blue-600">{roleLabel}</p><h1 className="mt-1 text-3xl font-bold text-gray-900">مرحباً، {name}</h1><p className="mt-1 text-gray-500">{roleDescriptions[role] || 'إدارة المنصة والصلاحيات'}</p></div>
           {isAdmin && <div className="flex items-center gap-2 rounded-xl bg-blue-50 px-4 py-3 text-sm text-blue-800"><ShieldCheck className="h-5 w-5" /> صلاحيات الإدارة مفعلة</div>}
         </div>
-        {isAdmin ? <AdminDashboard token={token} /> : role === 'patient' ? <PatientDashboard /> : <ProviderDashboard user={user} />}
+        {isAdmin ? <AdminDashboard token={token} /> : role === 'patient' ? <PatientDashboard /> : <ProviderDashboard user={user} token={token} />}
       </div>
     </div>
   )
