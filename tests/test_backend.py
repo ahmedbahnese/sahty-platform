@@ -334,6 +334,32 @@ def test_book_appointment_missing_fields(client):
     assert res.status_code in (400, 422, 401)
 
 
+def test_book_appointment_rejects_non_object_json(client):
+    token, _ = register_and_login(client, _unique_email('apt3'))
+    res = client.post('/api/appointments', data='[]', content_type='application/json', headers=auth_headers(token))
+    assert res.status_code == 400
+
+
+def test_book_appointment_rejects_invalid_doctor_id(client):
+    token, _ = register_and_login(client, _unique_email('apt4'))
+    res = client.post('/api/appointments', json={
+        'doctor_id': 'not-a-number',
+        'appointment_date': '2099-01-01T10:00:00',
+        'appointment_type': 'in_person',
+    }, headers=auth_headers(token))
+    assert res.status_code == 400
+
+
+def test_book_appointment_rejects_unknown_type(client):
+    token, _ = register_and_login(client, _unique_email('apt5'))
+    res = client.post('/api/appointments', json={
+        'doctor_id': 1,
+        'appointment_date': '2099-01-01T10:00:00',
+        'appointment_type': 'unknown',
+    }, headers=auth_headers(token))
+    assert res.status_code == 400
+
+
 # ─────────────────────────────────────────────
 # Medication Tests
 # ─────────────────────────────────────────────

@@ -155,19 +155,27 @@ def book_appointment(current_user):
     if not patient:
         return jsonify({'message': 'لم يتم العثور على ملف المريض'}), 404
 
-    data = request.get_json() or {}
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        return jsonify({'message': 'بيانات الحجز يجب أن تكون JSON صحيحة'}), 400
     required = ['doctor_id', 'appointment_date', 'appointment_type']
     missing = [f for f in required if not data.get(f)]
     if missing:
         return jsonify({'message': f'الحقول المطلوبة: {", ".join(missing)}'}), 400
 
-    doctor = Doctor.query.get(data['doctor_id'])
+    try:
+        doctor_id = int(data['doctor_id'])
+    except (TypeError, ValueError):
+        return jsonify({'message': 'معرف الطبيب غير صالح'}), 400
+    if data['appointment_type'] not in ('in_person', 'telemedicine'):
+        return jsonify({'message': 'نوع الموعد غير مدعوم'}), 400
+    doctor = Doctor.query.get(doctor_id)
     if not doctor or not doctor.is_active:
         return jsonify({'message': 'الطبيب غير موجود أو غير نشط'}), 404
 
     try:
         appt_date = datetime.fromisoformat(data['appointment_date'])
-    except ValueError:
+    except (TypeError, ValueError):
         return jsonify({'message': 'صيغة التاريخ غير صحيحة (ISO 8601)'}), 400
 
     if appt_date < datetime.utcnow():
