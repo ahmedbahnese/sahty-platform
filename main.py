@@ -109,11 +109,14 @@ else:
         if os.environ.get('FLASK_ENV') != 'production'
         else []
     )
-render_external_url = os.environ.get('RENDER_EXTERNAL_URL')
-if render_external_url:
-    render_external_url = render_external_url.strip().rstrip('/')
-    if render_external_url not in cors_origins:
-        cors_origins.append(render_external_url)
+for public_domain_env in ('RENDER_EXTERNAL_URL', 'REPLIT_DEV_DOMAIN'):
+    public_domain = os.environ.get(public_domain_env)
+    if public_domain:
+        public_domain = public_domain.strip().rstrip('/')
+        if not public_domain.startswith(('http://', 'https://')):
+            public_domain = f'https://{public_domain}'
+        if public_domain not in cors_origins:
+            cors_origins.append(public_domain)
 CORS(app, origins=cors_origins, supports_credentials=True)
 
 # ── Rate Limiting ─────────────────────────────────────────────────────────────
