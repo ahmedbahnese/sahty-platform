@@ -1,4 +1,4 @@
-from flask import Blueprint, request, jsonify, g
+from flask import Blueprint, request, jsonify, g, current_app
 from werkzeug.security import check_password_hash, generate_password_hash
 from functools import wraps
 import jwt
@@ -315,9 +315,10 @@ def register():
         return jsonify({
             **response_data
         }), 201
-    except Exception as e:
+    except Exception:
         db.session.rollback()
-        return jsonify({'message': f'خطأ في التسجيل: {str(e)}'}), 500
+        current_app.logger.exception('Registration failed')
+        return jsonify({'message': 'تعذر إتمام التسجيل'}), 500
 
 @auth_bp.route('/login', methods=['POST'])
 def login():
@@ -392,8 +393,9 @@ def login():
                 'profile': profile_data
             }
         }), 200
-    except Exception as e:
-        return jsonify({'message': f'خطأ في تسجيل الدخول: {str(e)}'}), 500
+    except Exception:
+        current_app.logger.exception('Login failed')
+        return jsonify({'message': 'تعذر إتمام تسجيل الدخول'}), 500
 
 @auth_bp.route('/profile', methods=['GET', 'PUT'])
 @token_required
@@ -656,9 +658,11 @@ def list_patients(current_user):
 @token_required
 def change_password(current_user):
     try:
-        data = request.get_json()
-        if not data.get('current_password') or not data.get('new_password'):
+        data = request.get_json(silent=True)
+        if not isinstance(data, dict) or not isinstance(data.get('current_password'), str) or not isinstance(data.get('new_password'), str):
             return jsonify({'message': 'كلمة المرور الحالية والجديدة مطلوبتان'}), 400
+        if len(data['new_password']) < 8:
+            return jsonify({'message': 'كلمة المرور الجديدة يجب أن تكون 8 أحرف على الأقل'}), 400
         if not check_password_hash(current_user.password_hash, data['current_password']):
             return jsonify({'message': 'كلمة المرور الحالية غير صحيحة'}), 400
         current_user.password_hash = generate_password_hash(data['new_password'])
@@ -668,6 +672,7 @@ def change_password(current_user):
         ).update({'revoked_at': datetime.datetime.utcnow()})
         db.session.commit()
         return jsonify({'message': 'تم تغيير كلمة المرور بنجاح'}), 200
-    except Exception as e:
+    except Exception:
         db.session.rollback()
-        return jsonify({'message': f'خطأ في تغيير كلمة المرور: {str(e)}'}), 500
+        current_app.logger.exception('Password change failed')
+        return jsonify({'message': 'تعذر تغيير كلمة المرور'}), 500

@@ -75,6 +75,7 @@ from src.database.import_healthcare_csv import import_directory_if_needed
 from werkzeug.security import generate_password_hash
 
 app = Flask(__name__, static_folder=os.path.join(os.path.dirname(os.path.abspath(__file__)), 'dist'))
+app.config['MAX_CONTENT_LENGTH'] = int(os.environ.get('MAX_UPLOAD_BYTES', str(25 * 1024 * 1024)))
 
 # ── Production logging ────────────────────────────────────────────────────────
 log_level = os.environ.get('LOG_LEVEL', 'INFO').upper()
@@ -154,11 +155,16 @@ for public_domain_env in ('RENDER_EXTERNAL_URL', 'REPLIT_DEV_DOMAIN'):
 CORS(app, origins=cors_origins, supports_credentials=True)
 
 # ── Rate Limiting ─────────────────────────────────────────────────────────────
+rate_limit_storage = os.environ.get('RATELIMIT_STORAGE_URI', 'memory://')
+if os.environ.get('FLASK_ENV') == 'production' and rate_limit_storage == 'memory://':
+    raise RuntimeError(
+        'RATELIMIT_STORAGE_URI must point to a shared production store (for example Redis)'
+    )
 limiter = Limiter(
     key_func=get_remote_address,
     app=app,
     default_limits=['200 per hour', '30 per minute'],
-    storage_uri='memory://',
+    storage_uri=rate_limit_storage,
 )
 
 # The test suite deliberately reuses one in-memory app for many scenarios.
