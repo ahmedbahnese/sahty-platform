@@ -16,6 +16,8 @@ const roleDescriptions = {
   radiology_center: 'إدارة الأشعة والتقارير',
   hospital: 'إدارة أقسام المستشفى والخدمات',
   nurse: 'إدارة طلبات الزيارات والرعاية التمريضية',
+  admin: 'مراجعة المستخدمين والجهات الطبية وإعدادات المنصة',
+  super_admin: 'الإدارة العليا والأمان والتدقيق',
 }
 
 function StatCard({ label, value, icon: Icon, tone = 'blue' }) {
@@ -75,7 +77,7 @@ const LINK_COLORS = {
 function ProviderDashboard({ user }) {
   const typeLabel = {
     doctor: 'الطبيب', pharmacy: 'الصيدلية',
-    lab: 'المعمل', radiology_center: 'مركز الأشعة', hospital: 'المستشفى',
+    lab: 'المعمل', radiology_center: 'مركز الأشعة', hospital: 'المستشفى', nurse: 'التمريض',
   }[user.user_type] || 'مزود الخدمة'
 
   const quickLinks = PROVIDER_QUICK_LINKS[user.user_type] || []
