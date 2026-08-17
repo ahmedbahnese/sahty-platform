@@ -1,0 +1,70 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      FLASK_ENV: production
+      PORT: 8000
+      SESSION_SECRET: ${SESSION_SECRET:?set SESSION_SECRET}
+      DATABASE_URL: postgresql://sahty:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@postgres:5432/sahty
+      RATELIMIT_STORAGE_URI: redis://redis:6379/0
+      CORS_ORIGINS: ${CORS_ORIGINS:?set CORS_ORIGINS}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      MAX_UPLOAD_BYTES: ${MAX_UPLOAD_BYTES:-26214400}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: >-
+      sh -c "flask --app main db upgrade &&
+      gunicorn --bind 0.0.0.0:8000 --workers ${WEB_CONCURRENCY:-2}
+      --access-logfile - --error-logfile - wsgi:application"
+    volumes:
+      - sehaty_uploads:/app/static/uploads
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/healthz', timeout=3)"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: sahty
+      POSTGRES_USER: sahty
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+    volumes:
+      - sehaty_postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sahty -d sahty"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - sehaty_redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  reverse-proxy:
+    image: nginx:1.27-alpine
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "${HTTP_PORT:-8080}:80"
+    volumes:
+      - ./deploy/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+
+volumes:
+  sehaty_postgres:
+  sehaty_redis:
+  sehaty_uploads:
