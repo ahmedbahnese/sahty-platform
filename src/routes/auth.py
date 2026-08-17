@@ -159,12 +159,19 @@ def role_required(*roles):
 @auth_bp.route('/register', methods=['POST'])
 def register():
     try:
-        data = request.get_json(silent=True) or {}
+        data = request.get_json(silent=True)
+        if not isinstance(data, dict):
+            return jsonify({'message': 'بيانات الطلب يجب أن تكون JSON صحيحة'}), 400
         required_fields = ['email', 'password', 'user_type', 'first_name', 'last_name']
         for field in required_fields:
             if field not in data:
                 return jsonify({'message': f'حقل {field} مطلوب'}), 400
-        user_type = data['user_type']
+        if not all(isinstance(data.get(field), str) for field in ('email', 'password', 'user_type', 'first_name', 'last_name')):
+            return jsonify({'message': 'حقول التسجيل النصية غير صالحة'}), 400
+        user_type = data['user_type'].strip().lower()
+        email = data['email'].strip().lower()
+        if not email or '@' not in email:
+            return jsonify({'message': 'البريد الإلكتروني غير صالح'}), 400
         if user_type not in PUBLIC_ROLES:
             return jsonify({'message': 'نوع الحساب المطلوب غير متاح للتسجيل العام'}), 400
         if len(data['password']) < 8:
@@ -173,10 +180,10 @@ def register():
             for field in ('legal_name', 'license_number', 'address', 'city'):
                 if user_type != 'nurse' and not data.get(field):
                     return jsonify({'message': f'حقل {field} مطلوب للحساب المهني'}), 400
-        if User.query.filter_by(email=data['email']).first():
+        if User.query.filter_by(email=email).first():
             return jsonify({'message': 'البريد الإلكتروني مستخدم بالفعل'}), 400
         # Auto-generate a unique username — never fail the user over a collision
-        base = (data.get('username') or data['email'].split('@')[0]).strip() or 'user'
+        base = (data.get('username') or email.split('@')[0]).strip() or 'user'
         username = base
         counter = 1
         while User.query.filter_by(username=username).first():
@@ -185,7 +192,7 @@ def register():
         hashed_password = generate_password_hash(data['password'])
         new_user = User(
             username=username,
-            email=data['email'],
+            email=email,
             password_hash=hashed_password,
             # Every person gets a patient account. Professional roles are
             # stored separately and become active only after approval.
@@ -198,7 +205,7 @@ def register():
             user_id=new_user.id,
             first_name=data['first_name'],
             last_name=data['last_name'],
-            email=data['email'],
+            email=email,
             phone=data.get('phone', ''),
             date_of_birth=datetime.datetime.strptime(data['date_of_birth'], '%Y-%m-%d').date() if data.get('date_of_birth') else datetime.date.today(),
             gender=data.get('gender', ''),
@@ -210,7 +217,7 @@ def register():
                 user_id=new_user.id,
                 first_name=data['first_name'],
                 last_name=data['last_name'],
-                email=data['email'],
+                email=email,
                 phone=data.get('phone', ''),
                 license_number=data.get('license_number', f'LIC-{new_user.id}'),
                 specialization=data.get('specialization', '')
@@ -315,12 +322,15 @@ def register():
 @auth_bp.route('/login', methods=['POST'])
 def login():
     try:
-        data = request.get_json()
+        data = request.get_json(silent=True)
+        if not isinstance(data, dict):
+            return jsonify({'message': 'بيانات الطلب يجب أن تكون JSON صحيحة'}), 400
         identifier = data.get('identifier') or data.get('email')
-        if not identifier or not data.get('password'):
+        password = data.get('password')
+        if not isinstance(identifier, str) or not identifier.strip() or not isinstance(password, str) or not password:
             return jsonify({'message': 'اسم المستخدم أو الهاتف أو البريد الإلكتروني وكلمة المرور مطلوبة'}), 400
         user = User.query.filter(
-            (func.lower(User.email) == identifier.lower()) |
+            (func.lower(User.email) == identifier.strip().lower()) |
             (User.username == identifier)
         ).first()
         if not user:
@@ -328,7 +338,7 @@ def login():
             doctor = Doctor.query.filter_by(phone=identifier).first()
             related = patient or doctor
             user = User.query.get(related.user_id) if related else None
-        if not user or not check_password_hash(user.password_hash, data['password']):
+        if not user or not check_password_hash(user.password_hash, password):
             return jsonify({'message': 'بيانات الدخول غير صحيحة'}), 401
         if not user.is_active:
             if user.user_type in PUBLIC_ROLES - {'patient'}:

@@ -68,6 +68,28 @@ class TestAuth:
         res = client.post('/api/auth/register', json={'email': 'incomplete@test.com'})
         assert res.status_code == 400
 
+    def test_register_rejects_non_object_json(self, client):
+        res = client.post('/api/auth/register', data='[]', content_type='application/json')
+        assert res.status_code == 400
+
+    def test_register_rejects_non_string_credentials(self, client):
+        res = client.post('/api/auth/register', json={
+            'first_name': 'Bad', 'last_name': 'Input',
+            'email': 'bad-input@test.com', 'password': 12345678,
+            'user_type': 'patient',
+        })
+        assert res.status_code == 400
+
+    def test_login_rejects_non_object_json(self, client):
+        res = client.post('/api/auth/login', data='[]', content_type='application/json')
+        assert res.status_code == 400
+
+    def test_login_rejects_non_string_credentials(self, client):
+        res = client.post('/api/auth/login', json={
+            'email': {'value': 'bad'}, 'password': 'anything',
+        })
+        assert res.status_code == 400
+
     def test_login_success(self, client):
         client.post('/api/auth/register', json={
             'first_name': 'Login', 'last_name': 'Test',
