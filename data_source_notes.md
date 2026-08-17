@@ -19,3 +19,11 @@ The HDX page exposes Egypt administrative boundary downloads including `egy_admi
 Using the downloaded HDX point GeoJSON and HDX ADM1 boundaries, spatial matching assigned 589 named, unique source records to the target governorates: Cairo 368, Alexandria 203, Beheira 18. The raw Egypt points dataset contained 1,576 features total, 1,219 named features, and 18 spatially unmatched points.
 
 The processed CSV currently contains these normalized facility types: pharmacy 263, hospital 141, clinic 87, doctor 51, health_center 10, laboratory 9, healthcare_facility 5, and dentist 23. All 589 rows have unique source external IDs in the prepared extract. This is a verified public facility extract, not a complete official licensing registry and not evidence that 1,200 records exist for each category.
+
+## Official-source integration findings
+
+The official Egypt Healthcare Authority page states that EHA is a public healthcare services provider established under Law No. 2 of 2018 and describes a tiered network of family medicine units, centers, hospitals, diagnostic and laboratory services, with accreditation and registration processes. URL: https://eha.gov.eg/en/about-eha/
+
+The official Ministry of Health and Population website is active and publishes health-sector announcements and institutional information, but the public page reviewed did not expose a downloadable nationwide directory for physicians and all facility categories. URL: https://www.mohp.gov.eg/
+
+These institutions should be approached for an official data-sharing or API/export request rather than scraped aggressively. Public pages may be used for source verification, while licensed registries should be imported only under explicit permission and with field-level privacy minimization.
