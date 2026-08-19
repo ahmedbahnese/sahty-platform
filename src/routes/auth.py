@@ -397,6 +397,33 @@ def login():
         current_app.logger.exception('Login failed')
         return jsonify({'message': 'تعذر إتمام تسجيل الدخول'}), 500
 
+@auth_bp.route('/change-password', methods=['POST'])
+@token_required
+def change_password(current_user):
+    """Change the authenticated user's password and revoke older sessions."""
+    data = request.get_json(silent=True) or {}
+    current_password = data.get('current_password')
+    new_password = data.get('new_password')
+    if not isinstance(current_password, str) or not isinstance(new_password, str):
+        return jsonify({'message': 'كلمة المرور الحالية والجديدة مطلوبتان'}), 400
+    if len(new_password) < 8:
+        return jsonify({'message': 'كلمة المرور الجديدة يجب أن تكون 8 أحرف على الأقل'}), 400
+    if not check_password_hash(current_user.password_hash, current_password):
+        return jsonify({'message': 'كلمة المرور الحالية غير صحيحة'}), 401
+    if check_password_hash(current_user.password_hash, new_password):
+        return jsonify({'message': 'كلمة المرور الجديدة يجب أن تختلف عن الحالية'}), 400
+
+    current_user.password_hash = generate_password_hash(new_password)
+    now = datetime.datetime.utcnow()
+    current_session = getattr(g, 'current_session', None)
+    UserSession.query.filter(
+        UserSession.user_id == current_user.id,
+        UserSession.revoked_at.is_(None),
+        UserSession.id != (current_session.id if current_session else -1),
+    ).update({'revoked_at': now}, synchronize_session=False)
+    db.session.commit()
+    return jsonify({'message': 'تم تغيير كلمة المرور وإلغاء الجلسات القديمة بنجاح'}), 200
+
 @auth_bp.route('/profile', methods=['GET', 'PUT'])
 @token_required
 def get_profile(current_user):
