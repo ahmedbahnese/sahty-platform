@@ -71,4 +71,23 @@ test.describe('Sehaty responsive shell', () => {
     await expect(page).toHaveURL(/\/register$/)
     await expect(page.getByRole('heading', { name: /إنشاء حساب|حساب جديد/ })).toBeVisible()
   })
+
+  test('applies dark mode to the full page and keeps CTA controls visible', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 })
+    await openHome(page)
+
+    await page.getByRole('button', { name: 'تفعيل الوضع الداكن' }).click()
+    await expect(page.locator('html')).toHaveClass(/dark/)
+    await expect.poll(() => page.evaluate(() => getComputedStyle(document.body).backgroundColor)).not.toBe('rgb(244, 248, 252)')
+
+    const primaryCta = page.getByRole('link', { name: 'ابدأ مجاناً الآن' }).first()
+    await expect(primaryCta).toBeVisible()
+    await expect(primaryCta.locator('button')).toBeVisible()
+    const ctaBox = await primaryCta.boundingBox()
+    expect(ctaBox).not.toBeNull()
+    expect(ctaBox.width).toBeGreaterThan(100)
+
+    await page.getByRole('button', { name: 'تفعيل الوضع الفاتح' }).click()
+    await expect(page.locator('html')).not.toHaveClass(/dark/)
+  })
 })
