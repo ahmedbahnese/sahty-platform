@@ -524,7 +524,7 @@ function BloodBanksTab() {
   }
 
   const filteredBanks = banks
-    .filter(b => !bankGov || b.city === bankGov)
+    .filter(b => !bankGov || b.governorate === bankGov)
     .map(b => ({
       ...b,
       distance: userCoords && b.latitude ? haversine(userCoords.lat, userCoords.lng, b.latitude, b.longitude) : null
