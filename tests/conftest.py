@@ -8,6 +8,8 @@ import random
 # Override database URL before importing app so SQLAlchemy never connects to prod
 os.environ['DATABASE_URL'] = 'sqlite:///:memory:'
 os.environ.setdefault('SESSION_SECRET', 'test-secret-key-for-testing-only')
+# Tests use the in-memory limiter and must not be treated as a production boot.
+os.environ.setdefault('FLASK_ENV', 'development')
 
 import pytest
 from main import app as flask_app
