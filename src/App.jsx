@@ -90,9 +90,9 @@ function AppContent() {
   if (splash) return <SplashScreen onDone={() => setSplash(false)} />
 
   return (
-    <div className={`min-h-screen bg-gray-50 ${isAuthenticated ? 'lg:pl-72' : ''}`}>
+    <div className={`min-h-screen min-w-0 bg-slate-50 ${isAuthenticated ? 'lg:pl-72' : ''}`}>
       <Navbar />
-      <main className="flex-1">
+      <main className="min-w-0 pb-20 lg:pb-0">
         <Routes>
           {/* ── العامة ── */}
           <Route path="/" element={<HomePage />} />

@@ -28,7 +28,7 @@ function StatCard({ label, value, icon: Icon, tone = 'blue' }) {
     purple: 'bg-purple-50 text-purple-600',
   }
   return (
-    <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+    <div className="sehaty-interactive rounded-2xl border border-slate-100 bg-white p-4 shadow-sm sm:p-5">
       <div className="flex items-center gap-4">
         <div className={`rounded-xl p-3 ${tones[tone]}`}><Icon className="h-6 w-6" /></div>
         <div><p className="text-sm text-gray-500">{label}</p><p className="mt-1 text-2xl font-bold text-gray-900">{value}</p></div>
@@ -279,10 +279,10 @@ export default function DashboardPage() {
   const role = user?.user_type
   const name = user?.profile?.first_name || user?.profile?.legal_name || user?.email
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
+    <div className="min-h-screen bg-transparent py-5 sm:py-8">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="mb-8 flex flex-col justify-between gap-4 md:flex-row md:items-center">
-          <div><p className="text-sm font-semibold text-blue-600">{roleLabel}</p><h1 className="mt-1 text-3xl font-bold text-gray-900">مرحباً، {name}</h1><p className="mt-1 text-gray-500">{roleDescriptions[role] || 'إدارة المنصة والصلاحيات'}</p></div>
+        <div className="mb-6 flex flex-col justify-between gap-4 sm:mb-8 md:flex-row md:items-center">
+          <div><p className="text-sm font-semibold text-blue-600">{roleLabel}</p><h1 className="mt-1 text-2xl font-bold text-gray-900 sm:text-3xl">مرحباً، {name}</h1><p className="mt-1 text-gray-500">{roleDescriptions[role] || 'إدارة المنصة والصلاحيات'}</p></div>
           {isAdmin && <div className="flex items-center gap-2 rounded-xl bg-blue-50 px-4 py-3 text-sm text-blue-800"><ShieldCheck className="h-5 w-5" /> صلاحيات الإدارة مفعلة</div>}
         </div>
         {isAdmin ? <AdminDashboard token={token} /> : role === 'patient' ? <PatientDashboard /> : <ProviderDashboard user={user} token={token} />}

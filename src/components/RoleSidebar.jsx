@@ -200,6 +200,32 @@ function SidebarContent({ collapsed, onClose, mobile = false }) {
   )
 }
 
+function MobileBottomNavigation() {
+  const { user } = useAuth()
+  const location = useLocation()
+  const role = user?.user_type || 'patient'
+  const links = (NAVIGATION[role] || NAVIGATION.patient).slice(0, 5)
+  const isActive = path => location.pathname === path || (path === '/admin' && location.pathname.startsWith('/admin/'))
+
+  return (
+    <nav className="fixed inset-x-0 bottom-0 z-50 border-t border-slate-200 bg-white/95 px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 shadow-[0_-8px_24px_rgba(15,36,68,0.08)] backdrop-blur lg:hidden" aria-label="التنقل السريع">
+      <div className="mx-auto grid max-w-xl grid-cols-5 gap-1">
+        {links.map(([key, path, label, Icon]) => (
+          <Link
+            key={key}
+            to={path}
+            className={`flex min-w-0 flex-col items-center gap-1 rounded-xl px-1 py-1.5 text-[10px] font-bold transition active:scale-95 ${isActive(path) ? 'bg-blue-50 text-blue-700' : 'text-slate-400 hover:bg-slate-50 hover:text-blue-600'}`}
+            aria-current={isActive(path) ? 'page' : undefined}
+          >
+            <Icon className={`h-5 w-5 ${isActive(path) ? 'text-blue-600' : 'text-slate-400'}`} />
+            <span className="max-w-full truncate">{label}</span>
+          </Link>
+        ))}
+      </div>
+    </nav>
+  )
+}
+
 export default function RoleSidebar({ open, onClose }) {
   const [collapsed, setCollapsed] = useState(false)
 
@@ -216,6 +242,7 @@ export default function RoleSidebar({ open, onClose }) {
           </aside>
         </div>
       )}
+      <MobileBottomNavigation />
     </>
   )
 }

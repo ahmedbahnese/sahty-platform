@@ -265,8 +265,11 @@ export default function Navbar() {
 
           {/* Mobile toggle */}
           <button
+            type="button"
             className="md:hidden p-2 rounded-xl text-gray-600 hover:bg-gray-100 transition-colors"
             onClick={() => setIsOpen(!isOpen)}
+            aria-label={isOpen ? 'إغلاق القائمة' : 'فتح القائمة'}
+            aria-expanded={isOpen}
           >
             {isOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </button>
