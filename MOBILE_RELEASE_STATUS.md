@@ -6,11 +6,11 @@
 
 ## Executive status
 
-The repository contains a Flutter foundation, not a verified mobile release. The current environment is Linux without Flutter, Dart, Android SDK, Xcode, CocoaPods, or `xcodebuild`. No Android or iOS build is claimed.
+The repository contains a Flutter foundation, not a verified mobile release. The current environment provides Flutter/Dart 3.32.0/3.8.0, but it has no Android SDK or connected Android device, and Linux cannot provide Xcode, CocoaPods, or `xcodebuild`. No Android or iOS release build is claimed.
 
 | Area | Status | Evidence / limitation |
 |---|---|---|
-| Flutter toolchain | NOT VERIFIED | `flutter` and `dart` are unavailable in this environment. Required versions are Flutter 3.32.0 and Dart SDK `^3.8.0`. |
+| Flutter toolchain | WORKING | Flutter 3.32.0 and Dart 3.8.0 are available; `flutter analyze` and the 4 mobile tests pass. |
 | Android | NOT VERIFIED | Native project exists; no Android SDK/Flutter CLI/Gradle build was available. |
 | iOS | NOT VERIFIED | Native project exists; iOS requires macOS/Xcode/CocoaPods/signing and was not built. |
 | Real API integration | PARTIAL | Authentication endpoints are wired in the foundation; feature workflows are not present in Flutter. |
@@ -22,7 +22,7 @@ The repository contains a Flutter foundation, not a verified mobile release. The
 
 | Check | Status | Verified result |
 |---|---|---|
-| Replit Flutter configuration | PARTIAL | `replit.nix` requests `pkgs.flutter`, but the current sandbox does not expose `flutter` or `dart`; the exact package version must be verified in Replit. |
+| Replit Flutter configuration | WORKING | `replit.nix` exposes Flutter 3.32.0/Dart 3.8.0; dependency resolution, analysis, and tests pass. |
 | Replit mobile check script | WORKING | `scripts/replit-mobile-check.sh` is executable and fails with an explicit blocker when Flutter is unavailable. |
 | Replit Flask runner | WORKING | `scripts/replit-api-run.sh` builds the web app, runs migrations, binds Gunicorn to `0.0.0.0:$PORT`, and was verified against `/api/health` with a temporary SQLite database. |
 | Public API configuration | PARTIAL | `API_BASE_URL` remains compile-time configurable; a public HTTPS Replit domain must be supplied at run/build time. |
@@ -80,12 +80,12 @@ iOS uses bundle identifier `com.sahty.sahtyMobile`. The checked-in `Info.plist` 
 
 | Check | Status |
 |---|---|
-| Flutter `--version` | NOT VERIFIED — executable unavailable |
-| Dart `--version` | NOT VERIFIED — executable unavailable |
-| `flutter doctor -v` | NOT VERIFIED — executable unavailable |
-| `flutter pub get` | NOT VERIFIED |
-| `flutter analyze` | NOT VERIFIED |
-| `flutter test` | NOT VERIFIED |
+| Flutter `--version` | WORKING — Flutter 3.32.0 |
+| Dart `--version` | WORKING — Dart 3.8.0 |
+| `flutter doctor -v` | PARTIAL — Android SDK/device and Chrome are unavailable in this Linux environment |
+| `flutter pub get` | WORKING |
+| `flutter analyze` | WORKING — no issues |
+| `flutter test` | WORKING — 4 tests passed |
 | Existing mobile test files | PARTIAL — API client, session manager, and user model tests exist but were not run |
 | `flutter build apk --debug` | NOT VERIFIED |
 | `flutter build appbundle --release` | NOT VERIFIED |
@@ -99,4 +99,4 @@ The mobile documentation changes are intended to be committed as one logical mob
 
 ## Remaining blockers
 
-The release track is blocked by the missing Flutter/Dart toolchain in the current environment, missing Android SDK/build tools, missing macOS/Xcode/CocoaPods for iOS, Android release signing, iOS signing/provisioning, native permission declarations, and the absence of the feature-level Flutter/API workflows listed above.
+The release track is blocked by the missing Android SDK/device, missing macOS/Xcode/CocoaPods for iOS, Android release signing, iOS signing/provisioning, native permission declarations, and the absence of the feature-level Flutter/API workflows listed above. Flutter foundation checks are now reproducible in Replit.
