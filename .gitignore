@@ -33,3 +33,7 @@ Thumbs.db
 
 # Workspace-specific configuration
 .replit
+
+# Playwright UI test artifacts
+playwright-report/
+test-results/

@@ -89,7 +89,7 @@ export default function Navbar() {
           </Link>
 
           {/* Desktop public navigation. Authenticated users use the role-aware sidebar. */}
-          <div className={`${isAuthenticated ? 'hidden' : 'hidden md:flex'} items-center gap-1`}>
+          <div className={`${isAuthenticated ? 'hidden' : 'hidden lg:flex'} items-center gap-1`}>
             {navLinks.map((link) => {
               const Icon = link.icon
               return (
@@ -131,7 +131,7 @@ export default function Navbar() {
           </div>
 
           {/* Desktop User */}
-          <div className="hidden md:flex items-center gap-2">
+          <div className="hidden lg:flex items-center gap-2">
             <button type="button" onClick={() => setDarkMode(value => !value)}
               aria-label={darkMode ? 'تفعيل الوضع الفاتح' : 'تفعيل الوضع الداكن'}
               title={darkMode ? 'الوضع الفاتح' : 'الوضع الداكن'}
@@ -266,7 +266,7 @@ export default function Navbar() {
           {/* Mobile toggle */}
           <button
             type="button"
-            className="md:hidden p-2 rounded-xl text-gray-600 hover:bg-gray-100 transition-colors"
+            className="lg:hidden p-2 rounded-xl text-gray-600 hover:bg-gray-100 transition-colors"
             onClick={() => setIsOpen(!isOpen)}
             aria-label={isOpen ? 'إغلاق القائمة' : 'فتح القائمة'}
             aria-expanded={isOpen}
@@ -280,7 +280,7 @@ export default function Navbar() {
 
        {/* Public mobile navigation remains available when no account is active. */}
        {!isAuthenticated && isOpen && (
-         <div className="border-t border-gray-100 bg-white px-4 pb-4 pt-3 md:hidden">
+         <div className="border-t border-gray-100 bg-white px-4 pb-4 pt-3 lg:hidden">
            <div className="space-y-1">
              {navLinks.map(link => {
                const Icon = link.icon
