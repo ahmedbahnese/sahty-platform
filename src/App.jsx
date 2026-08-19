@@ -37,6 +37,7 @@ import AccountSettingsPage from './pages/AccountSettingsPage'
 import NursingDashboardPage from './pages/NursingDashboardPage'
 import FloatingAIChat from './components/FloatingAIChat'
 import SplashScreen from './components/SplashScreen'
+import { NotificationProvider } from './contexts/NotificationContext'
 import './App.css'
 
 const ADMIN_ROLES = ['admin', 'super_admin']
@@ -202,9 +203,11 @@ function AppContent() {
 export default function App() {
   return (
     <Router>
-      <AuthProvider>
-        <AppContent />
-      </AuthProvider>
+      <NotificationProvider>
+        <AuthProvider>
+          <AppContent />
+        </AuthProvider>
+      </NotificationProvider>
     </Router>
   )
 }

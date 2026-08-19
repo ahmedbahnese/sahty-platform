@@ -11,6 +11,7 @@ import {
   BadgeCheck,
   ChevronRight, ChevronLeft,
 } from 'lucide-react'
+import { useNotifications } from '../contexts/NotificationContext'
 
 const ROLES = [
   {
@@ -468,6 +469,7 @@ export default function RegisterPage() {
   const [success] = useState('')
 
   const { register } = useAuth()
+  const notifications = useNotifications()
   const navigate = useNavigate()
 
   const handleChange = (e) => {
@@ -484,11 +486,15 @@ export default function RegisterPage() {
     e.preventDefault()
     setError('')
     if (formData.password.length < 8) {
-      setError('كلمة المرور يجب أن تكون 8 أحرف على الأقل')
+      const message = 'كلمة المرور يجب أن تكون 8 أحرف على الأقل'
+      setError(message)
+      notifications.error(message, 'تعذر إنشاء الحساب')
       return
     }
     if (formData.password !== formData.confirmPassword) {
-      setError('كلمات المرور غير متطابقة')
+      const message = 'كلمات المرور غير متطابقة'
+      setError(message)
+      notifications.error(message, 'تعذر إنشاء الحساب')
       return
     }
 
@@ -538,10 +544,18 @@ export default function RegisterPage() {
     setLoading(false)
 
     if (!result.success) {
-      setError(result.message)
+      const message = result.message || 'راجع البيانات المطلوبة وحاول مرة أخرى.'
+      setError(message)
+      notifications.error(message, 'تعذر إنشاء الحساب')
       return
     }
 
+    notifications.success(
+      PROFESSIONAL_TYPES.has(selectedRole)
+        ? 'تم إرسال طلبك للمراجعة، وسيظهر الحساب بعد اعتماد الإدارة الطبية.'
+        : 'تم إنشاء حسابك بنجاح. جارٍ فتح لوحة التحكم.',
+      PROFESSIONAL_TYPES.has(selectedRole) ? 'تم إرسال طلب الاعتماد' : 'تم إنشاء الحساب',
+    )
     if (PROFESSIONAL_TYPES.has(selectedRole)) {
       navigate('/pending')
     } else {

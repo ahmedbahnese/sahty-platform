@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Heart, Eye, EyeOff, UserRound, Lock } from 'lucide-react'
+import { useNotifications } from '../contexts/NotificationContext'
 
 export default function LoginPage() {
   const [formData, setFormData] = useState({
@@ -17,6 +18,7 @@ export default function LoginPage() {
   const [error, setError] = useState('')
   
   const { login } = useAuth()
+  const notifications = useNotifications()
   const navigate = useNavigate()
 
   const handleChange = (e) => {
@@ -36,6 +38,7 @@ export default function LoginPage() {
       const result = await login(formData.identifier, formData.password)
 
       if (result.success) {
+        notifications.success('تم تسجيل الدخول بنجاح. جارٍ فتح لوحة التحكم.', 'تم تسجيل الدخول')
         const type = result.user?.user_type
         if (type === 'admin' || type === 'super_admin') {
           navigate('/admin')
@@ -47,9 +50,11 @@ export default function LoginPage() {
         navigate('/pending', { state: { status: result.provider_status || 'pending' } })
       } else {
         setError(result.message)
+        notifications.error(result.message || 'تحقق من بيانات الدخول وحاول مرة أخرى.', 'لم يتم تسجيل الدخول')
       }
     } catch {
       setError('حدث خطأ غير متوقع')
+      notifications.error('تعذر الاتصال بالخادم. تحقق من الاتصال وحاول مرة أخرى.', 'لم يتم تسجيل الدخول')
     } finally {
       setLoading(false)
     }

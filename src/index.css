@@ -54,6 +54,11 @@ body {
   }
 }
 
+@keyframes notification-progress {
+  from { transform: scaleX(1); }
+  to { transform: scaleX(0); }
+}
+
 /* Responsive medical product foundation */
 html {
   min-width: 320px;

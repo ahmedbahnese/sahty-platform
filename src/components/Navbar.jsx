@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
+import { useNotifications } from '../contexts/NotificationContext'
 import NotificationBell from './NotificationBell'
 import RoleSidebar from './RoleSidebar'
 import { 
@@ -35,6 +36,7 @@ export default function Navbar() {
   const [shortcutsOpen, setShortcutsOpen] = useState(false)
   const [darkMode, setDarkMode] = useState(() => localStorage.getItem('sahty-theme') === 'dark')
   const { user, logout, switchRole, applyRole, isAuthenticated, isAdmin, roleLabel } = useAuth()
+  const notifications = useNotifications()
   const [roleFormOpen, setRoleFormOpen] = useState(false)
   const [roleForm, setRoleForm] = useState({ role: 'doctor', full_name: '', license_number: '', qualification: '', specialization: '' })
   const [roleMessage, setRoleMessage] = useState(null)
@@ -47,6 +49,7 @@ export default function Navbar() {
 
   const handleLogout = async () => {
     await logout()
+    notifications.success('تم إنهاء الجلسة وحذف بيانات الدخول من هذا الجهاز.', 'تم تسجيل الخروج')
     setUserMenuOpen(false)
   }
 
@@ -54,6 +57,11 @@ export default function Navbar() {
     event.preventDefault()
     const result = await applyRole(roleForm.role, roleForm)
     setRoleMessage({ type: result.success ? 'success' : 'error', text: result.message })
+    if (result.success) {
+      notifications.success(result.message || 'تم إرسال الطلب للمراجعة.', 'تم إرسال الطلب')
+    } else {
+      notifications.error(result.message || 'تعذر إرسال الطلب. راجع البيانات وحاول مرة أخرى.', 'لم يتم إرسال الطلب')
+    }
     if (result.success) setRoleFormOpen(false)
   }
 
@@ -176,7 +184,15 @@ export default function Navbar() {
                               {user.active_roles.map(role => (
                                 <button
                                   key={role}
-                                  onClick={async () => { await switchRole(role); setUserMenuOpen(false) }}
+                                  onClick={async () => {
+                                    const result = await switchRole(role)
+                                    if (result.success) {
+                                      notifications.success('تم تبديل الدور وتحديث الصلاحيات.', 'تم تبديل الدور')
+                                      setUserMenuOpen(false)
+                                    } else {
+                                      notifications.error(result.message || 'تعذر تبديل الدور.', 'لم يتم تبديل الدور')
+                                    }
+                                  }}
                                   className={`rounded-lg px-2 py-1 text-xs ${user.user_type === role ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-blue-50'}`}
                                 >
                                   {{ patient: 'مستخدم', doctor: 'طبيب', nurse: 'ممرض', pharmacy: 'صيدلية', lab: 'معمل', radiology_center: 'أشعة', hospital: 'مستشفى' }[role] || role}
