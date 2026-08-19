@@ -247,6 +247,7 @@ def initialize_application_data():
     This function only inserts idempotent application data and is called by
     the executable entry point after the migration command has completed.
     """
+    from sqlalchemy import func as sa_func
 
     # ── Imported Egypt healthcare directory ──────────────────────────────────
     # Seed by natural names so startup is safe on every restart and deployment.
@@ -320,7 +321,6 @@ def initialize_application_data():
     bootstrap_email    = os.environ.get('ADMIN_EMAIL', 'admin@sehaty.com')
     bootstrap_password = os.environ.get('ADMIN_PASSWORD')
     if bootstrap_password:
-        from sqlalchemy import func as sa_func
         bootstrap_user = User.query.filter(
             sa_func.lower(User.email) == bootstrap_email.lower()
         ).first()
@@ -354,7 +354,9 @@ def initialize_application_data():
             ))
             db.session.commit()
         else:
-            bootstrap_user.password_hash = generate_password_hash(bootstrap_password)
+            # Do not reset the password on every restart.  The bootstrap
+            # secret is only for the first creation; later changes are made
+            # through /api/auth/change-password and must persist.
             bootstrap_user.user_type = 'super_admin'
             bootstrap_user.is_active = True
             if not Admin.query.filter_by(user_id=bootstrap_user.id).first():
@@ -377,6 +379,129 @@ def initialize_application_data():
                     is_super_admin=True,
                 ))
             db.session.commit()
+
+    # ── Permanent professional accounts ───────────────────────────────────────
+    # These accounts are optional and are created only when their passwords
+    # are supplied as Replit Secrets.  Existing passwords are never replaced.
+    professional_accounts = [
+        {
+            'email_env': 'DOCTOR_EMAIL',
+            'password_env': 'DOCTOR_PASSWORD',
+            'name_env': 'DOCTOR_NAME',
+            'default_email': 'doctor@sehaty.com',
+            'default_name': 'Dr.ahmed',
+            'user_type': 'doctor',
+            'license': 'SEHATY-DOCTOR-001',
+        },
+        {
+            'email_env': 'NURSE_EMAIL',
+            'password_env': 'NURSE_PASSWORD',
+            'name_env': 'NURSE_NAME',
+            'default_email': 'nurse@sehaty.com',
+            'default_name': 'Nurse',
+            'user_type': 'nurse',
+            'license': 'SEHATY-NURSE-001',
+        },
+        {
+            'email_env': 'LAB_EMAIL',
+            'password_env': 'LAB_PASSWORD',
+            'name_env': 'LAB_NAME',
+            'default_email': 'lab@sehaty.com',
+            'default_name': 'معمل صحتك',
+            'user_type': 'lab',
+            'license': 'SEHATY-LAB-001',
+        },
+        {
+            'email_env': 'RADIOLOGY_EMAIL',
+            'password_env': 'RADIOLOGY_PASSWORD',
+            'name_env': 'RADIOLOGY_NAME',
+            'default_email': 'radiology@sehaty.com',
+            'default_name': 'مركز صحتك للاشعة',
+            'user_type': 'radiology_center',
+            'license': 'SEHATY-RAD-001',
+        },
+    ]
+    for account in professional_accounts:
+        password = os.environ.get(account['password_env'])
+        if not password:
+            continue
+        email = os.environ.get(account['email_env'], account['default_email']).strip().lower()
+        display_name = os.environ.get(account['name_env'], account['default_name']).strip()
+        user = User.query.filter(sa_func.lower(User.email) == email).first()
+        if not user:
+            username_base = email.split('@')[0]
+            username = username_base
+            suffix = 1
+            while User.query.filter_by(username=username).first():
+                username = f'{username_base}{suffix}'
+                suffix += 1
+            user = User(
+                username=username,
+                email=email,
+                password_hash=generate_password_hash(password),
+                user_type=account['user_type'],
+                is_active=True,
+            )
+            db.session.add(user)
+            db.session.flush()
+        else:
+            # Preserve a password changed through the authenticated API.
+            user.user_type = account['user_type']
+            user.is_active = True
+
+        role = Role.query.filter_by(name=account['user_type']).first()
+        if not role:
+            role = Role(
+                name=account['user_type'],
+                label_ar={'doctor': 'طبيب', 'nurse': 'تمريض', 'lab': 'معمل',
+                          'radiology_center': 'مركز أشعة'}[account['user_type']],
+            )
+            db.session.add(role)
+            db.session.flush()
+        assignment = UserRole.query.filter_by(
+            user_id=user.id, role_id=role.id
+        ).first()
+        if not assignment:
+            db.session.add(UserRole(
+                user_id=user.id, role_id=role.id, status='ACTIVE',
+                activated_at=datetime.datetime.utcnow(),
+            ))
+        else:
+            assignment.status = 'ACTIVE'
+            assignment.activated_at = assignment.activated_at or datetime.datetime.utcnow()
+
+        if account['user_type'] == 'doctor':
+            doctor = Doctor.query.filter_by(user_id=user.id).first()
+            if not doctor:
+                doctor = Doctor(
+                    user_id=user.id, first_name=display_name, last_name='',
+                    phone='', email=email, license_number=account['license'],
+                    specialization='طب عام', is_verified=True, is_active=True,
+                )
+                db.session.add(doctor)
+        elif account['user_type'] == 'nurse':
+            nurse = NurseProfile.query.filter_by(user_id=user.id).first()
+            if not nurse:
+                db.session.add(NurseProfile(
+                    user_id=user.id, full_name=display_name,
+                    qualification='تمريض', license_number=account['license'],
+                    credentials={'bootstrap': True}, is_active=True,
+                ))
+            else:
+                nurse.is_active = True
+        else:
+            provider = ProviderRegistration.query.filter_by(user_id=user.id).first()
+            if not provider:
+                db.session.add(ProviderRegistration(
+                    user_id=user.id, provider_type=account['user_type'],
+                    legal_name=display_name, license_number=account['license'],
+                    phone='', address='مصر', city='القاهرة',
+                    details={'bootstrap': True}, status='approved',
+                    reviewed_at=datetime.datetime.utcnow(),
+                ))
+            else:
+                provider.status = 'approved'
+        db.session.commit()
 
 
 @app.before_request

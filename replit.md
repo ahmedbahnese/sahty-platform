@@ -12,13 +12,14 @@
 
 ## التشغيل على Replit
 
-يُشغّل workflow التطبيق بعد بناء الواجهة وترقية قاعدة البيانات:
+يستخدم workflow المشروع الأمر التالي، ويخدم Flask الواجهة المبنية وواجهة API معًا:
 
 ```bash
-npm run build && flask --app main db upgrade && PORT=5000 gunicorn --bind 0.0.0.0:5000 wsgi:application
+PORT=5000 python3 main.py
 ```
 
-يستخدم التشغيل الافتراضي SQLite. يجب أن يكون `SESSION_SECRET` مضبوطاً في Secrets؛
+قاعدة بيانات Replit PostgreSQL المُدارة متاحة تلقائيًا عبر `DATABASE_URL`، وتُطبق
+الترحيلات عند بدء التشغيل. يجب أن يكون `SESSION_SECRET` مضبوطًا في Secrets؛
 أما `OPENAI_API_KEY` وخدمات التخزين السحابي فهي اختيارية للميزات المرتبطة بها.
 
 ## ترحيلات قاعدة البيانات
