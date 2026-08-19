@@ -7,6 +7,9 @@ export default [
   {
     ignores: [
       'dist',
+      'playwright-report',
+      'playwright-performance-report',
+      'test-results',
       'node_modules',
       '.local',
       '.cache',

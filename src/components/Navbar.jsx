@@ -26,6 +26,7 @@ import {
   Users,
   ChevronDown,
   LayoutDashboard,
+  Building2,
   Sun,
   Moon
 } from 'lucide-react'
@@ -75,6 +76,56 @@ export default function Navbar() {
     { path: '/emergency', label: 'الطوارئ', icon: Phone }
   ]
 
+  const roleTopLinks = {
+    patient: [
+      { path: '/dashboard', label: 'لوحتي', icon: LayoutDashboard },
+      { path: '/appointments', label: 'المواعيد', icon: Calendar },
+      { path: '/medical-record', label: 'الملف الطبي', icon: FileText },
+    ],
+    doctor: [
+      { path: '/dashboard', label: 'لوحتي', icon: LayoutDashboard },
+      { path: '/appointments', label: 'مواعيد المرضى', icon: Calendar },
+      { path: '/prescriptions', label: 'الوصفات', icon: ClipboardList },
+    ],
+    nurse: [
+      { path: '/dashboard', label: 'لوحتي', icon: LayoutDashboard },
+      { path: '/appointments', label: 'المواعيد', icon: Calendar },
+      { path: '/nursing', label: 'خدمات التمريض', icon: Heart },
+    ],
+    pharmacy: [
+      { path: '/dashboard', label: 'لوحتي', icon: LayoutDashboard },
+      { path: '/prescriptions', label: 'الوصفات', icon: ClipboardList },
+      { path: '/medications', label: 'الأدوية', icon: Pill },
+    ],
+    lab: [
+      { path: '/dashboard', label: 'لوحتي', icon: LayoutDashboard },
+      { path: '/appointments', label: 'المواعيد', icon: Calendar },
+      { path: '/lab-requests', label: 'التحاليل', icon: FlaskConical },
+    ],
+    radiology_center: [
+      { path: '/dashboard', label: 'لوحتي', icon: LayoutDashboard },
+      { path: '/appointments', label: 'المواعيد', icon: Calendar },
+      { path: '/radiology', label: 'الأشعة', icon: Scan },
+    ],
+    hospital: [
+      { path: '/dashboard', label: 'لوحتي', icon: LayoutDashboard },
+      { path: '/appointments', label: 'المواعيد', icon: Calendar },
+      { path: '/lab-requests', label: 'التحاليل', icon: FlaskConical },
+    ],
+    admin: [
+      { path: '/admin', label: 'لوحة الإدارة', icon: LayoutDashboard },
+      { path: '/directory', label: 'الجهات الطبية', icon: Building2 },
+      { path: '/account-settings', label: 'الإعدادات', icon: Settings },
+    ],
+    super_admin: [
+      { path: '/admin', label: 'لوحة الإدارة', icon: LayoutDashboard },
+      { path: '/directory', label: 'الجهات الطبية', icon: Building2 },
+      { path: '/account-settings', label: 'الإعدادات', icon: Settings },
+    ],
+  }
+
+  const topLinks = isAuthenticated ? (roleTopLinks[user?.user_type] || roleTopLinks.patient) : navLinks
+
   const serviceShortcuts = [
     { path: '/lab-requests', label: 'التحاليل', icon: FlaskConical },
     { path: '/radiology', label: 'الأشعة', icon: Scan },
@@ -96,9 +147,9 @@ export default function Navbar() {
             <span className="text-lg font-bold" style={{ color: '#0f2444' }}>صحتي</span>
           </Link>
 
-          {/* Desktop public navigation. Authenticated users use the role-aware sidebar. */}
-          <div className={`${isAuthenticated ? 'hidden' : 'hidden lg:flex'} items-center gap-1`}>
-            {navLinks.map((link) => {
+          {/* Shared desktop top navigation. Authenticated users receive role-aware links. */}
+          <div className="hidden min-w-0 flex-1 justify-center gap-1 lg:flex">
+            {topLinks.map((link) => {
               const Icon = link.icon
               return (
                 <Link

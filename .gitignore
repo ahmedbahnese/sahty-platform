@@ -36,4 +36,5 @@ Thumbs.db
 
 # Playwright UI test artifacts
 playwright-report/
+playwright-performance-report/
 test-results/
