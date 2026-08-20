@@ -65,6 +65,9 @@ export default function LabRequestsPage() {
 
   const isAdmin   = ['admin','super_admin','laboratory','lab'].includes(user?.user_type)
   const isPatient = user?.user_type === 'patient'
+  const isDoctor = user?.user_type === 'doctor'
+  const doctorLabel = [user?.profile?.first_name, user?.profile?.last_name].filter(Boolean).join(' ') || user?.email || ''
+  const [doctorPatients, setDoctorPatients] = useState([])
 
   const headers = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }
 
@@ -83,6 +86,13 @@ export default function LabRequestsPage() {
 
   useEffect(() => { load() }, [load])
   useEffect(() => {
+    if (!isDoctor) return
+    fetch('/api/doctors/me/patients', { headers: { Authorization: `Bearer ${token}` } })
+      .then(res => res.ok ? res.json() : null)
+      .then(data => setDoctorPatients(data?.patients || []))
+      .catch(() => setDoctorPatients([]))
+  }, [isDoctor, token])
+  useEffect(() => {
     fetch('/api/facilities?type=lab&per_page=100')
       .then(res => res.ok ? res.json() : null)
       .then(data => setLabCenters(data?.facilities || []))
@@ -93,7 +103,7 @@ export default function LabRequestsPage() {
 
   // ── نموذج الطلب ─────────────────────────────────────────
   const [form, setForm] = useState({
-    urgency: 'routine', clinical_notes: '', ordering_doctor: '', patient_id: '',
+    urgency: 'routine', clinical_notes: '', ordering_doctor: doctorLabel, patient_id: '',
     lab_center_name: '', scheduled_datetime: '',
     home_collection: false,
     collection_address: '', collection_date: '', collection_time: '', collection_staff_name: '',
@@ -110,7 +120,7 @@ export default function LabRequestsPage() {
 
   const resetForm = () => {
     setSelectedTests([{ name: '', category: 'blood' }])
-    setForm({ urgency:'routine', clinical_notes:'', ordering_doctor:'', patient_id:'', lab_center_name:'', scheduled_datetime:'', home_collection:false, collection_address:'', collection_date:'', collection_time:'', collection_staff_name:'' })
+    setForm({ urgency:'routine', clinical_notes:'', ordering_doctor: doctorLabel, patient_id:'', lab_center_name:'', scheduled_datetime:'', home_collection:false, collection_address:'', collection_date:'', collection_time:'', collection_staff_name:'' })
     setPreparationNotes('')
     setRequestDoc(null)
     setEditingRequest(null)
@@ -143,6 +153,8 @@ export default function LabRequestsPage() {
     e.preventDefault()
     const validTests = selectedTests.filter(t => t.name.trim())
     if (!validTests.length) { showToast('أدخل اسم تحليل واحد على الأقل', 'error'); return }
+    if (!isPatient && !form.patient_id) { showToast('يجب تحديد المريض من قائمة مرضاك', 'error'); return }
+    if (isDoctor) form.ordering_doctor = doctorLabel
     setBusy(true)
     try {
       const fd = new FormData()
@@ -380,15 +392,14 @@ export default function LabRequestsPage() {
               {/* الطبيب الآمر */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">الطبيب الآمر</label>
-                <input className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                <input readOnly={isDoctor} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   value={form.ordering_doctor} onChange={e => setForm(f => ({...f, ordering_doctor: e.target.value}))} placeholder="اسم الطبيب" />
               </div>
 
               {!isPatient && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">معرّف المريض *</label>
-                  <input required={!isPatient} type="number" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    value={form.patient_id} onChange={e => setForm(f => ({...f, patient_id: e.target.value}))} />
+                  <label className="block text-sm font-medium text-gray-700 mb-1">المريض *</label>
+                  {isDoctor ? <select required value={form.patient_id} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" onChange={e => setForm(f => ({...f, patient_id: e.target.value}))}><option value="">-- اختر مريضًا من مرضاك --</option>{doctorPatients.map(patient => <option key={patient.id} value={patient.id}>{patient.full_name} · {patient.medical_number} · {patient.phone}</option>)}</select> : <input required type="number" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" value={form.patient_id} onChange={e => setForm(f => ({...f, patient_id: e.target.value}))} />}
                 </div>
               )}
             </div>

@@ -39,6 +39,7 @@ function StatCard({ label, value, icon: Icon, tone = 'blue' }) {
 
 const PROVIDER_QUICK_LINKS = {
   doctor: [
+    { label: 'إدارة المرضى',      desc: 'ابحث وافتح الملفات الطبية المصرح بها', icon: Users,       color: 'blue',   to: '/doctor/patients' },
     { label: 'المواعيد',          desc: 'استعرض وأدر مواعيد مرضاك',        icon: Clock3,       color: 'blue',   to: '/appointments' },
     { label: 'الوصفات الطبية',    desc: 'اكتب ووافق على الوصفات',           icon: ClipboardList, color: 'purple', to: '/prescriptions' },
     { label: 'طلبات التحاليل',    desc: 'راجع نتائج التحاليل',              icon: TestTube2,    color: 'green',  to: '/lab-requests' },

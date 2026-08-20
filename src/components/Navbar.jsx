@@ -85,6 +85,7 @@ export default function Navbar() {
     ],
     doctor: [
       { path: '/dashboard', label: 'لوحتي', icon: LayoutDashboard },
+      { path: '/doctor/patients', label: 'إدارة المرضى', icon: Users },
       { path: '/appointments', label: 'مواعيد المرضى', icon: Calendar },
       { path: '/prescriptions', label: 'الوصفات', icon: ClipboardList },
       { path: '/consultations', label: 'الاستشارات', icon: Video },

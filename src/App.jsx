@@ -36,6 +36,7 @@ import HealthcareDirectoryPage from './pages/HealthcareDirectoryPage'
 import AccountSettingsPage from './pages/AccountSettingsPage'
 import NursingDashboardPage from './pages/NursingDashboardPage'
 import ConsultationsPage from './pages/ConsultationsPage'
+import DoctorPatientsPage from './pages/DoctorPatientsPage'
 import FloatingAIChat from './components/FloatingAIChat'
 import ConnectivityBanner from './components/ConnectivityBanner'
 import SplashScreen from './components/SplashScreen'
@@ -110,6 +111,7 @@ function AppContent() {
           <Route path="/ai-assistant" element={<AIAssistantPage />} />
           <Route path="/consultations" element={<ProtectedRoute><ConsultationsPage /></ProtectedRoute>} />
           <Route path="/consultations/:id" element={<ProtectedRoute><ConsultationsPage /></ProtectedRoute>} />
+          <Route path="/doctor/patients" element={<RoleRoute roles={['doctor']}><DoctorPatientsPage /></RoleRoute>} />
           <Route path="/pharmacies" element={<PharmaciesPage />} />
           <Route path="/labs-directory" element={<LabsDirectoryPage />} />
           <Route path="/radiology-centers" element={<RadiologyCentersPage />} />
