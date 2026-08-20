@@ -112,6 +112,16 @@ export default function FloatingAIChat() {
     dragOffset.current = { x: touch.clientX - rect.left, y: touch.clientY - rect.top }
   }, [])
 
+  const handleClosedTouchStart = useCallback((e) => {
+    const touch = e.touches[0]
+    const el = closedRef.current || e.currentTarget
+    if (!el) return
+    const rect = el.getBoundingClientRect()
+    dragDist.current = 0
+    dragOffset.current = { x: touch.clientX - rect.left, y: touch.clientY - rect.top }
+    setDragging(true)
+  }, [])
+
   useEffect(() => {
     const handleTouchMove = (e) => {
       if (!dragging) return
@@ -267,7 +277,7 @@ export default function FloatingAIChat() {
         ref={closedRef}
         style={{ ...chatStyle, cursor: dragging ? 'grabbing' : 'grab' }}
         onMouseDown={handleClosedMouseDown}
-        onTouchStart={handleTouchStart}
+        onTouchStart={handleClosedTouchStart}
       >
         <button
           onClick={() => { if (dragDist.current < 8) setIsOpen(true) }}

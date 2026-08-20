@@ -4,7 +4,6 @@ import { useAuth } from '../contexts/AuthContext'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Heart, Eye, EyeOff, UserRound, Lock, Stethoscope, HeartPulse, Hospital, FlaskConical, Pill, ScanLine, Droplets } from 'lucide-react'
 import { useNotifications } from '../contexts/NotificationContext'
 
@@ -94,14 +93,7 @@ export default function LoginPage() {
             </p>
           </div>
 
-          {/* رسالة الخطأ */}
-          {error && (
-            <Alert className="mb-6 border-red-200 bg-red-50">
-              <AlertDescription className="text-red-700">
-                {error}
-              </AlertDescription>
-            </Alert>
-          )}
+          <p className="sr-only" aria-live="assertive">{error}</p>
 
           {showDemoAccounts && <section className="mb-6 rounded-2xl border border-cyan-100 bg-cyan-50/70 p-4" aria-label="حسابات التجربة">
             <div className="mb-3 flex items-center justify-between"><div><h3 className="font-bold text-cyan-950">تجربة الخدمات حسب الدور</h3><p className="mt-1 text-xs text-cyan-700">اختر دورًا لملء بيانات الدخول تلقائيًا</p></div><span className="rounded-full bg-white px-2 py-1 text-[10px] font-bold text-cyan-700">بيئة اختبار</span></div>

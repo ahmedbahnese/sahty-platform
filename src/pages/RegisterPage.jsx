@@ -4,7 +4,6 @@ import { useAuth } from '../contexts/AuthContext'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Alert, AlertDescription } from '@/components/ui/alert'
 import {
   Building2, Heart, Lock, Mail, Phone, UserRound,
   Stethoscope, FlaskConical, Radio, Hospital, Pill,
@@ -642,16 +641,7 @@ export default function RegisterPage() {
           </p>
         )}
 
-        {error && (
-          <Alert className="mb-6 border-red-200 bg-red-50">
-            <AlertDescription className="text-red-700">{error}</AlertDescription>
-          </Alert>
-        )}
-        {success && (
-          <Alert className="mb-6 border-green-200 bg-green-50">
-            <AlertDescription className="text-green-700">{success}</AlertDescription>
-          </Alert>
-        )}
+        <p className="sr-only" aria-live="assertive">{error || success}</p>
 
         <form onSubmit={handleSubmit} className="space-y-6">
           {FormComponent && <FormComponent data={formData} onChange={handleChange} />}
