@@ -54,6 +54,23 @@ export default function FloatingAIChat() {
   }, [position])
 
   useEffect(() => {
+    const clampSavedPosition = () => {
+      setPosition(current => {
+        if (current.x === null || current.y === null) return current
+        const width = isOpen ? Math.min(370, window.innerWidth - 16) : Math.min(160, window.innerWidth - 16)
+        const height = isOpen ? Math.min(isMinimized ? 82 : 540, window.innerHeight - 16) : 52
+        return {
+          x: Math.max(0, Math.min(current.x, window.innerWidth - width - 8)),
+          y: Math.max(0, Math.min(current.y, window.innerHeight - height - 8)),
+        }
+      })
+    }
+    clampSavedPosition()
+    window.addEventListener('resize', clampSavedPosition)
+    return () => window.removeEventListener('resize', clampSavedPosition)
+  }, [isOpen, isMinimized])
+
+  useEffect(() => {
     if (isOpen && !isMinimized) {
       setTimeout(() => inputRef.current?.focus(), 100)
     }
@@ -261,7 +278,7 @@ export default function FloatingAIChat() {
   const chatStyle = position.x !== null ? {
     position: 'fixed', left: `${position.x}px`, top: `${position.y}px`, bottom: 'auto', right: 'auto', zIndex: 9999
   } : {
-    position: 'fixed', bottom: '24px', left: '24px', zIndex: 9999
+    position: 'fixed', bottom: '24px', left: isOpen ? '8px' : '24px', zIndex: 9999
   }
 
   const urgencyColor = (urgency) => {
@@ -297,8 +314,8 @@ export default function FloatingAIChat() {
   return (
     <div style={chatStyle} ref={chatRef}>
       <div
-        className={`bg-white rounded-2xl shadow-2xl flex flex-col overflow-hidden border border-gray-200 transition-all duration-300 ${isMinimized ? 'h-auto' : 'h-[540px]'}`}
-        style={{ width: '370px', maxWidth: '95vw' }}
+        className={`bg-white rounded-2xl shadow-2xl flex flex-col overflow-hidden border border-gray-200 transition-all duration-300 ${isMinimized ? 'h-auto' : ''}`}
+        style={{ width: 'min(370px, calc(100vw - 16px))', maxWidth: '95vw', height: isMinimized ? 'auto' : 'min(540px, calc(100vh - 16px))' }}
       >
         {/* Header */}
         <div
