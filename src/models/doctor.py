@@ -23,6 +23,8 @@ class Doctor(db.Model):
     # معلومات العيادة/المستشفى
     clinic_name = db.Column(db.String(200))
     clinic_address = db.Column(db.Text)
+    clinic_locations = db.Column(db.JSON, default=list)
+    profile_image_url = db.Column(db.String(500))
     hospital_affiliation = db.Column(db.String(200))
     
     # معلومات الاستشارة
@@ -61,6 +63,8 @@ class Doctor(db.Model):
             'years_of_experience': self.years_of_experience,
             'clinic_name': self.clinic_name,
             'clinic_address': self.clinic_address,
+            'clinic_locations': self.clinic_locations or [],
+            'profile_image_url': self.profile_image_url,
             'hospital_affiliation': self.hospital_affiliation,
             'consultation_fee': self.consultation_fee,
             'consultation_duration': self.consultation_duration,

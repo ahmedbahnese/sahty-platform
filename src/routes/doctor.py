@@ -2,15 +2,24 @@
 مسارات API للأطباء
 يشمل: قائمة الأطباء، البحث، الملف الشخصي، الأوقات المتاحة، إدارة الملف
 """
-from flask import Blueprint, request, jsonify
+import os
+import uuid
+from flask import Blueprint, request, jsonify, send_from_directory
 from datetime import datetime, date, timedelta, time
-from sqlalchemy import or_, and_
+from werkzeug.utils import secure_filename
+from sqlalchemy import or_, and_, cast, Date
 from src.models.user import db, User
 from src.models.doctor import Doctor, DoctorAvailability
 from src.models.appointment import Appointment, AppointmentRating
+from src.models.patient import Patient, MedicalRecord, Allergy
+from src.models.medication import Medication
+from src.models.medical_record import LabTest, Radiology, Disease, Surgery, Vaccination
+from src.models.lab_radiology import LabRequest, RadiologyRequest
 from src.routes.auth import token_required
 
 doctor_bp = Blueprint('doctor', __name__, url_prefix='/api/doctors')
+PROFILE_UPLOAD_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'static', 'uploads', 'doctor_profiles'))
+ALLOWED_PROFILE_EXTENSIONS = {'jpg', 'jpeg', 'png', 'webp'}
 
 DAYS_AR = {0: 'الاثنين', 1: 'الثلاثاء', 2: 'الأربعاء',
            3: 'الخميس', 4: 'الجمعة', 5: 'السبت', 6: 'الأحد'}
@@ -247,15 +256,43 @@ def update_my_profile(current_user):
     updatable = [
         'first_name', 'last_name', 'phone',
         'specialization', 'sub_specialization', 'years_of_experience',
-        'clinic_name', 'clinic_address', 'hospital_affiliation',
+        'clinic_name', 'clinic_address', 'clinic_locations', 'profile_image_url', 'hospital_affiliation',
         'consultation_fee', 'consultation_duration', 'available_for_telemedicine',
     ]
     for field in updatable:
         if field in data:
+            if field == 'clinic_locations' and not isinstance(data[field], list):
+                return jsonify({'error': 'clinic_locations يجب أن تكون قائمة عيادات'}), 400
             setattr(doctor, field, data[field])
 
     db.session.commit()
     return jsonify({'success': True, 'doctor': doctor.to_dict()}), 200
+
+
+@doctor_bp.route('/me/profile-image', methods=['POST'])
+@token_required
+def upload_my_profile_image(current_user):
+    if current_user.user_type != 'doctor':
+        return jsonify({'error': 'غير مصرح'}), 403
+    doctor = Doctor.query.filter_by(user_id=current_user.id).first()
+    image = request.files.get('image')
+    if not doctor or not image or not image.filename:
+        return jsonify({'error': 'صورة الطبيب مطلوبة'}), 400
+    original = secure_filename(image.filename)
+    extension = original.rsplit('.', 1)[-1].lower() if '.' in original else ''
+    if extension not in ALLOWED_PROFILE_EXTENSIONS:
+        return jsonify({'error': 'الامتدادات المسموحة: jpg, jpeg, png, webp'}), 400
+    os.makedirs(PROFILE_UPLOAD_DIR, exist_ok=True)
+    filename = f'{uuid.uuid4().hex}.{extension}'
+    image.save(os.path.join(PROFILE_UPLOAD_DIR, filename))
+    doctor.profile_image_url = f'/api/doctors/profile-images/{filename}'
+    db.session.commit()
+    return jsonify({'success': True, 'profile_image_url': doctor.profile_image_url}), 200
+
+
+@doctor_bp.route('/profile-images/<path:filename>', methods=['GET'])
+def get_profile_image(filename):
+    return send_from_directory(PROFILE_UPLOAD_DIR, filename)
 
 
 @doctor_bp.route('/me/availability', methods=['POST'])
@@ -300,6 +337,117 @@ def set_availability(current_user):
     return jsonify({
         'success': True,
         'availability': [a.to_dict() for a in DoctorAvailability.query.filter_by(doctor_id=doctor.id).all()],
+    }), 200
+
+
+# ────────────────────────────────────────────
+# إدارة مرضى الطبيب والملف الطبي
+# ────────────────────────────────────────────
+
+def _doctor_patient_access(doctor, patient_id):
+    return Patient.query.join(Appointment, Appointment.patient_id == Patient.id).filter(
+        Patient.id == patient_id,
+        Appointment.doctor_id == doctor.id,
+    ).first()
+
+
+def _patient_summary(patient):
+    data = patient.to_dict()
+    data['medical_number'] = f'SEhaty-P-{patient.id:06d}'
+    data['full_name'] = f'{patient.first_name} {patient.last_name}'.strip()
+    data['last_exam_date'] = None
+    last_appointment = Appointment.query.filter_by(patient_id=patient.id).order_by(Appointment.appointment_date.desc()).first()
+    if last_appointment and last_appointment.appointment_date:
+        data['last_exam_date'] = last_appointment.appointment_date.isoformat()
+    return data
+
+
+@doctor_bp.route('/me/patients', methods=['GET'])
+@token_required
+def list_my_patients(current_user):
+    if current_user.user_type != 'doctor':
+        return jsonify({'error': 'غير مصرح — فقط الأطباء'}), 403
+    doctor = Doctor.query.filter_by(user_id=current_user.id).first()
+    if not doctor:
+        return jsonify({'error': 'لم يتم العثور على ملف الطبيب'}), 404
+
+    search = request.args.get('search', '').strip()
+    exam_date = request.args.get('exam_date', '').strip()
+    query = Patient.query.join(Appointment, Appointment.patient_id == Patient.id).filter(
+        Appointment.doctor_id == doctor.id
+    )
+    if search:
+        medical_number = search.removeprefix('SEhaty-P-').lstrip('0') or '0'
+        filters = [
+            (Patient.first_name.ilike(f'%{search}%')),
+            (Patient.last_name.ilike(f'%{search}%')),
+            (Patient.phone.ilike(f'%{search}%')),
+            (Patient.national_id.ilike(f'%{search}%')),
+        ]
+        if medical_number.isdigit():
+            filters.append(Patient.id == int(medical_number))
+        query = query.filter(or_(*filters))
+    if exam_date:
+        try:
+            parsed_date = date.fromisoformat(exam_date)
+            query = query.filter(cast(Appointment.appointment_date, Date) == parsed_date)
+        except ValueError:
+            return jsonify({'error': 'صيغة تاريخ الفحص يجب أن تكون YYYY-MM-DD'}), 400
+
+    patients = query.distinct().order_by(Patient.first_name, Patient.last_name).limit(100).all()
+    return jsonify({'patients': [_patient_summary(patient) for patient in patients]}), 200
+
+
+@doctor_bp.route('/me/patients/<int:patient_id>/medical-records', methods=['POST'])
+@token_required
+def create_patient_medical_record(current_user, patient_id):
+    if current_user.user_type != 'doctor':
+        return jsonify({'error': 'غير مصرح — فقط الأطباء'}), 403
+    doctor = Doctor.query.filter_by(user_id=current_user.id).first()
+    patient = _doctor_patient_access(doctor, patient_id) if doctor else None
+    if not patient:
+        return jsonify({'error': 'لا يملك الطبيب صلاحية هذا الملف'}), 403
+    data = request.get_json(silent=True) or {}
+    if not any(data.get(field) for field in ('diagnosis', 'treatment', 'notes')):
+        return jsonify({'error': 'يجب إدخال التشخيص أو العلاج أو الملاحظات'}), 400
+    record = MedicalRecord(
+        patient_id=patient.id,
+        doctor_id=doctor.id,
+        visit_date=datetime.utcnow(),
+        diagnosis=data.get('diagnosis'),
+        symptoms=data.get('symptoms'),
+        treatment=data.get('treatment'),
+        notes=data.get('notes'),
+        vital_signs=data.get('vital_signs'),
+        lab_results=data.get('lab_results'),
+    )
+    db.session.add(record)
+    db.session.commit()
+    return jsonify({'success': True, 'record': record.to_dict()}), 201
+
+
+@doctor_bp.route('/me/patients/<int:patient_id>/medical-record', methods=['GET'])
+@token_required
+def get_my_patient_record(current_user, patient_id):
+    if current_user.user_type != 'doctor':
+        return jsonify({'error': 'غير مصرح — فقط الأطباء'}), 403
+    doctor = Doctor.query.filter_by(user_id=current_user.id).first()
+    patient = _doctor_patient_access(doctor, patient_id) if doctor else None
+    if not patient:
+        return jsonify({'error': 'لا يملك الطبيب صلاحية هذا الملف'}), 403
+
+    return jsonify({
+        'patient': _patient_summary(patient),
+        'medical_records': [r.to_dict() for r in MedicalRecord.query.filter_by(patient_id=patient.id).order_by(MedicalRecord.visit_date.desc()).limit(50).all()],
+        'allergies': [a.to_dict() for a in Allergy.query.filter_by(patient_id=patient.id).all()],
+        'medications': [m.to_dict() for m in Medication.query.filter_by(patient_id=patient.id).order_by(Medication.start_date.desc()).limit(50).all()],
+        'lab_tests': [item.to_dict() for item in LabTest.query.filter_by(patient_id=patient.id).order_by(LabTest.test_date.desc()).limit(50).all()],
+        'radiology': [item.to_dict() for item in Radiology.query.filter_by(patient_id=patient.id).order_by(Radiology.scan_date.desc()).limit(50).all()],
+        'lab_requests': [item.to_dict() for item in LabRequest.query.filter_by(patient_id=patient.id).order_by(LabRequest.created_at.desc()).limit(50).all()],
+        'radiology_requests': [item.to_dict() for item in RadiologyRequest.query.filter_by(patient_id=patient.id).order_by(RadiologyRequest.created_at.desc()).limit(50).all()],
+        'diseases': [item.to_dict() for item in Disease.query.filter_by(patient_id=patient.id).all()],
+        'surgeries': [item.to_dict() for item in Surgery.query.filter_by(patient_id=patient.id).all()],
+        'vaccinations': [item.to_dict() for item in Vaccination.query.filter_by(patient_id=patient.id).all()],
     }), 200
 
 

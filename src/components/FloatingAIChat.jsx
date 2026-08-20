@@ -43,6 +43,17 @@ export default function FloatingAIChat() {
   }, [messages])
 
   useEffect(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('sehaty_ai_position') || 'null')
+      if (saved && Number.isFinite(saved.x) && Number.isFinite(saved.y)) setPosition(saved)
+    } catch { /* ignore invalid local position */ }
+  }, [])
+
+  useEffect(() => {
+    if (position.x !== null && position.y !== null) localStorage.setItem('sehaty_ai_position', JSON.stringify(position))
+  }, [position])
+
+  useEffect(() => {
     if (isOpen && !isMinimized) {
       setTimeout(() => inputRef.current?.focus(), 100)
     }
@@ -106,6 +117,8 @@ export default function FloatingAIChat() {
       if (!dragging) return
       const touch = e.touches[0]
       const dragElement = chatRef.current || closedRef.current
+      const rect = dragElement?.getBoundingClientRect()
+      dragDist.current += Math.abs(touch.clientX - ((rect?.left || 0) + dragOffset.current.x)) + Math.abs(touch.clientY - ((rect?.top || 0) + dragOffset.current.y))
       const width = dragElement?.offsetWidth || 160
       const height = dragElement?.offsetHeight || 52
       const maxX = Math.max(0, window.innerWidth - width)
