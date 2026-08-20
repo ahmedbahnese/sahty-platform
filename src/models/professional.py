@@ -91,6 +91,11 @@ class NursingServiceRequest(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     patient_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
     nurse_id = db.Column(db.Integer, db.ForeignKey("users.id"))
+    requested_by_user_id = db.Column(db.Integer, db.ForeignKey("users.id"))
+    doctor_id = db.Column(db.Integer, db.ForeignKey("users.id"))
+    requester_role = db.Column(db.String(30), nullable=False, default="patient")
+    provider_role = db.Column(db.String(30), nullable=False, default="nurse")
+    request_type = db.Column(db.String(30), nullable=False, default="home_visit")
     service_type = db.Column(db.String(80), nullable=False)
     description = db.Column(db.Text)
     address = db.Column(db.Text, nullable=False)
@@ -106,6 +111,11 @@ class NursingServiceRequest(db.Model):
             "id": self.id,
             "patient_id": self.patient_id,
             "nurse_id": self.nurse_id,
+            "requested_by_user_id": self.requested_by_user_id,
+            "doctor_id": self.doctor_id,
+            "requester_role": self.requester_role,
+            "provider_role": self.provider_role,
+            "request_type": self.request_type,
             "service_type": self.service_type,
             "description": self.description,
             "address": self.address,

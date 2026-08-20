@@ -5,13 +5,37 @@
 from flask import Blueprint, request, jsonify
 from datetime import datetime, date, timedelta
 from sqlalchemy import or_
+from werkzeug.utils import secure_filename
+import os
+import uuid
 from src.models.user import db, User
 from src.models.patient import Patient
 from src.models.blood_bank import BloodDonor, BloodRequest, BloodRequestResponse, BloodDonation, BloodInventory
 from src.models.notification import Notification
-from src.routes.auth import token_required
+from src.routes.auth import token_required, role_required
 
 blood_bank_bp = Blueprint('blood_bank', __name__, url_prefix='/api/blood-bank')
+
+UPLOAD_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'static', 'uploads', 'blood_requests'))
+ALLOWED_DOCUMENT_EXTENSIONS = {'pdf', 'jpg', 'jpeg', 'png', 'webp'}
+MAX_DOCUMENT_BYTES = 25 * 1024 * 1024
+
+
+def _save_transfusion_document(file_storage):
+    original = secure_filename(file_storage.filename or '')
+    if not original or '.' not in original:
+        return None, 'اسم المستند غير صالح'
+    extension = original.rsplit('.', 1)[1].lower()
+    if extension not in ALLOWED_DOCUMENT_EXTENSIONS:
+        return None, 'مستند طلب النقل يجب أن يكون PDF أو صورة'
+    content = file_storage.read()
+    if len(content) > MAX_DOCUMENT_BYTES:
+        return None, 'حجم المستند يتجاوز 25 ميجابايت'
+    os.makedirs(UPLOAD_ROOT, exist_ok=True)
+    stored = f'{uuid.uuid4().hex}.{extension}'
+    file_storage.save(os.path.join(UPLOAD_ROOT, stored))
+    return (f'blood_requests/{stored}', original), None
+
 
 COMPATIBLE_DONORS = {
     'A+':  ['A+', 'A-', 'O+', 'O-'],
@@ -220,7 +244,7 @@ def list_requests():
 @token_required
 def create_request(current_user):
     """إنشاء طلب دم جديد"""
-    data = request.get_json() or {}
+    data = request.form.to_dict() if request.form else (request.get_json(silent=True) or {})
     required = ['blood_type', 'units_needed', 'urgency_level', 'patient_name',
                 'hospital_name', 'contact_phone', 'needed_by_date']
     missing = [f for f in required if not data.get(f)]
@@ -233,10 +257,23 @@ def create_request(current_user):
         return jsonify({'success': False, 'error': 'صيغة التاريخ غير صحيحة (ISO 8601)'}), 400
 
     patient = Patient.query.filter_by(user_id=current_user.id).first()
+    component_type = data.get('component_type', 'whole_blood')
+    allowed_components = {'whole_blood', 'plasma', 'platelets', 'cryoprecipitate', 'other'}
+    if component_type not in allowed_components:
+        return jsonify({'success': False, 'error': 'نوع مكوّن الدم غير صالح'}), 400
+    document_path = document_name = None
+    if request.files.get('transfusion_request'):
+        saved, upload_error = _save_transfusion_document(request.files['transfusion_request'])
+        if upload_error:
+            return jsonify({'success': False, 'error': upload_error}), 400
+        document_path, document_name = saved
+
     blood_request = BloodRequest(
         patient_id=patient.id if patient else None,
         blood_type=data['blood_type'],
         units_needed=int(data['units_needed']),
+        component_type=component_type,
+        is_irradiated=str(data.get('is_irradiated', 'false')).lower() in ('1', 'true', 'yes'),
         urgency_level=data['urgency_level'],
         patient_name=data['patient_name'],
         patient_age=data.get('patient_age'),
@@ -250,6 +287,9 @@ def create_request(current_user):
         needed_by_date=needed_by,
         description=data.get('description'),
         special_requirements=data.get('special_requirements'),
+        transfusion_request_file_path=document_path,
+        transfusion_request_file_name=document_name,
+        document_status='verified' if document_path else 'document_required',
         status='active',
     )
     db.session.add(blood_request)
@@ -279,7 +319,49 @@ def create_request(current_user):
             ))
 
     db.session.commit()
-    return jsonify({'success': True, 'message': 'تم إنشاء الطلب', 'request': blood_request.to_dict()}), 201
+    message = 'تم إنشاء الطلب وإرساله للمراجعة' if document_path else 'تم حفظ الطلب، ويجب إرفاق طلب نقل دم مختوم قبل إرساله إلى مراكز بنك الدم'
+    return jsonify({'success': True, 'message': message, 'request': blood_request.to_dict()}), 201
+
+
+@blood_bank_bp.route('/requests/<int:request_id>/document', methods=['POST'])
+@token_required
+def upload_transfusion_document(current_user, request_id):
+    blood_request = BloodRequest.query.get_or_404(request_id)
+    if blood_request.patient_id:
+        patient = Patient.query.get(blood_request.patient_id)
+        if not patient or patient.user_id != current_user.id:
+            return jsonify({'success': False, 'error': 'غير مصرح'}), 403
+    file_storage = request.files.get('transfusion_request')
+    if not file_storage:
+        return jsonify({'success': False, 'error': 'مستند طلب النقل المختوم مطلوب'}), 400
+    saved, upload_error = _save_transfusion_document(file_storage)
+    if upload_error:
+        return jsonify({'success': False, 'error': upload_error}), 400
+    blood_request.transfusion_request_file_path, blood_request.transfusion_request_file_name = saved
+    blood_request.document_status = 'verified'
+    db.session.commit()
+    return jsonify({'success': True, 'request': blood_request.to_dict()}), 200
+
+
+@blood_bank_bp.route('/requests/<int:request_id>/forward', methods=['POST'])
+@token_required
+@role_required('blood_bank', 'hospital', 'admin', 'super_admin')
+def forward_to_centers(current_user, request_id):
+    blood_request = BloodRequest.query.get_or_404(request_id)
+    if not blood_request.transfusion_request_file_path or blood_request.document_status not in ('verified', 'forwarded'):
+        return jsonify({'success': False, 'error': 'لا يمكن الإرسال قبل إرفاق طلب نقل دم مختوم ومراجع'}), 400
+    blood_request.document_status = 'forwarded'
+    blood_request.forwarded_to_centers_at = datetime.utcnow()
+    blood_request.forwarded_by_user_id = current_user.id
+    for center in User.query.filter_by(user_type='blood_bank', is_active=True).limit(100).all():
+        db.session.add(Notification(
+            user_id=center.id,
+            title='طلب مكوّن دم جديد',
+            message=f'طلب {blood_request.component_type} لفصيلة {blood_request.blood_type} يحتاج مراجعة مركز بنك الدم.',
+            type='blood_bank', reference_id=blood_request.id, reference_type='blood_request',
+        ))
+    db.session.commit()
+    return jsonify({'success': True, 'message': 'تم إرسال الطلب إلى مراكز بنك الدم', 'request': blood_request.to_dict()}), 200
 
 
 @blood_bank_bp.route('/requests/<int:request_id>', methods=['GET'])

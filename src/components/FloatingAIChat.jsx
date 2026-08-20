@@ -105,9 +105,15 @@ export default function FloatingAIChat() {
     const handleTouchMove = (e) => {
       if (!dragging) return
       const touch = e.touches[0]
+      const dragElement = chatRef.current || closedRef.current
+      const width = dragElement?.offsetWidth || 160
+      const height = dragElement?.offsetHeight || 52
+      const maxX = Math.max(0, window.innerWidth - width)
+      const maxY = Math.max(0, window.innerHeight - height)
+      e.preventDefault()
       setPosition({
-        x: Math.max(0, Math.min(touch.clientX - dragOffset.current.x, window.innerWidth - (chatRef.current?.offsetWidth || 340))),
-        y: Math.max(0, Math.min(touch.clientY - dragOffset.current.y, window.innerHeight - (chatRef.current?.offsetHeight || 540)))
+        x: Math.max(0, Math.min(touch.clientX - dragOffset.current.x, maxX)),
+        y: Math.max(0, Math.min(touch.clientY - dragOffset.current.y, maxY))
       })
     }
     const handleTouchEnd = () => setDragging(false)

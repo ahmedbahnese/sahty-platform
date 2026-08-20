@@ -40,12 +40,14 @@ function getBloodTypeColor(bt) {
   return m[bt] || 'bg-gray-100 text-gray-800'
 }
 
-const API = (path, opts = {}) =>
-  fetch(path, {
-    headers: { 'Content-Type': 'application/json', ...opts.headers,
-      ...(localStorage.getItem('token') ? { Authorization: `Bearer ${localStorage.getItem('token')}` } : {}) },
-    ...opts,
-  })
+const API = (path, opts = {}) => {
+  const headers = {
+    ...opts.headers,
+    ...(localStorage.getItem('token') ? { Authorization: `Bearer ${localStorage.getItem('token')}` } : {}),
+  }
+  if (!(opts.body instanceof FormData)) headers['Content-Type'] = 'application/json'
+  return fetch(path, { ...opts, headers })
+}
 
 /* ──────────────────────────────────────────────── */
 export default function BloodBankPage() {
@@ -76,7 +78,7 @@ export default function BloodBankPage() {
 
   /* new request form */
   const [reqForm, setReqForm] = useState({
-    patient_name: '', blood_type: '', units_needed: 1,
+    patient_name: '', blood_type: '', units_needed: 1, component_type: 'whole_blood', is_irradiated: false,
     hospital_name: '', city: '', urgency_level: 'urgent',
     contact_phone: '', description: '', needed_by_date: '',
   })
@@ -124,19 +126,16 @@ export default function BloodBankPage() {
     setReqSubmitting(true)
     setReqSubmitMsg(null)
     try {
-      const res = await API('/api/blood-bank/requests', {
-        method: 'POST',
-        body: JSON.stringify({
-          ...reqForm,
-          needed_by_date: reqForm.needed_by_date + 'T00:00:00',
-        }),
-      })
+      const formData = new FormData()
+      Object.entries({ ...reqForm, needed_by_date: reqForm.needed_by_date + 'T00:00:00', is_irradiated: String(reqForm.is_irradiated) }).forEach(([key, value]) => formData.append(key, value ?? ''))
+      if (reqFile) formData.append('transfusion_request', reqFile)
+      const res = await API('/api/blood-bank/requests', { method: 'POST', body: formData })
       const data = await res.json()
       if (res.ok) {
         setReqSubmitMsg({ type: 'success', text: 'تم إنشاء الطلب بنجاح' })
         setRequests(prev => [data.request, ...prev])
         setShowAddRequest(false)
-        setReqForm({ patient_name:'', blood_type:'', units_needed:1, hospital_name:'', city:'', urgency_level:'urgent', contact_phone:'', description:'', needed_by_date:'' })
+        setReqForm({ patient_name:'', blood_type:'', units_needed:1, component_type:'whole_blood', is_irradiated:false, hospital_name:'', city:'', urgency_level:'urgent', contact_phone:'', description:'', needed_by_date:'' })
         setReqFile(null)
       } else {
         setReqSubmitMsg({ type: 'error', text: data.error || data.message || 'حدث خطأ' })
@@ -184,6 +183,8 @@ export default function BloodBankPage() {
 
   const tabs = [
     { key:'banks',    label:'بنوك الدم' },
+    { key:'requests', label:'طلبات الدم' },
+    { key:'donate',   label:'التبرع بالدم' },
   ]
 
   return (
@@ -266,6 +267,10 @@ export default function BloodBankPage() {
                             </select>
                           </div>
                           <div>
+                            <Label>نوع المكوّن *</Label>
+                            <select required value={reqForm.component_type} onChange={e=>setReqForm(f=>({...f,component_type:e.target.value}))} className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-red-500 focus:outline-none"><option value="whole_blood">دم كامل</option><option value="plasma">بلازما</option><option value="platelets">صفائح</option><option value="cryoprecipitate">راسب بردي</option><option value="other">مكوّن آخر</option></select>
+                          </div>
+                          <div>
                             <Label>عدد الوحدات *</Label>
                             <Input required type="number" min="1" max="20" value={reqForm.units_needed} onChange={e=>setReqForm(f=>({...f,units_needed:+e.target.value}))} />
                           </div>
@@ -298,6 +303,7 @@ export default function BloodBankPage() {
                             <Label>رقم التواصل *</Label>
                             <Input required type="tel" value={reqForm.contact_phone} onChange={e=>setReqForm(f=>({...f,contact_phone:e.target.value}))} placeholder="01xxxxxxxxx" />
                           </div>
+                          <label className="col-span-2 flex items-center gap-2 text-sm font-medium text-gray-700"><input type="checkbox" checked={reqForm.is_irradiated} onChange={e=>setReqForm(f=>({...f,is_irradiated:e.target.checked}))} /> مطلوب مكوّن دم مشع</label>
                           <div className="col-span-2">
                             <Label>وصف الحالة</Label>
                             <textarea rows={2} value={reqForm.description} onChange={e=>setReqForm(f=>({...f,description:e.target.value}))}

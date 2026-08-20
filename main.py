@@ -65,6 +65,8 @@ from src.routes.vaccination import vaccination_bp
 from src.routes.hospital import hospital_bp, emergency_service_bp
 from src.routes.egypt_healthcare import egypt_healthcare_bp
 from src.routes.nursing import nursing_bp
+from src.models.consultation import Consultation, ConsultationMessage, ConsultationAttachment
+from src.routes.consultation import consultation_bp
 from src.database.egypt_healthcare_seed import (
     GOVERNORATES,
     FACILITY_TYPES,
@@ -205,6 +207,7 @@ app.register_blueprint(emergency_service_bp)
 app.register_blueprint(egypt_healthcare_bp)
 app.register_blueprint(pharmacy_order_bp, url_prefix='/api')
 app.register_blueprint(nursing_bp)
+app.register_blueprint(consultation_bp)
 
 # ── Database ──────────────────────────────────────────────────────────────────
 db_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'src', 'database', 'app.db')
@@ -319,7 +322,7 @@ def initialize_application_data():
 
     # ── Bootstrap first super-admin ───────────────────────────────────────────
     bootstrap_email    = os.environ.get('ADMIN_EMAIL', 'admin@sehaty.com')
-    bootstrap_password = os.environ.get('ADMIN_PASSWORD')
+    bootstrap_password = os.environ.get('ADMIN_PASSWORD') or os.environ.get('SEHATY_BOOTSTRAP_PASSWORD')
     if bootstrap_password:
         bootstrap_user = User.query.filter(
             sa_func.lower(User.email) == bootstrap_email.lower()
@@ -415,14 +418,41 @@ def initialize_application_data():
             'email_env': 'RADIOLOGY_EMAIL',
             'password_env': 'RADIOLOGY_PASSWORD',
             'name_env': 'RADIOLOGY_NAME',
-            'default_email': 'radiology@sehaty.com',
+            'default_email': 'rad@sehaty.com',
             'default_name': 'مركز صحتك للاشعة',
             'user_type': 'radiology_center',
             'license': 'SEHATY-RAD-001',
         },
+        {
+            'email_env': 'PHARMACY_EMAIL',
+            'password_env': 'PHARMACY_PASSWORD',
+            'name_env': 'PHARMACY_NAME',
+            'default_email': 'pharma@sehaty.com',
+            'default_name': 'صيدلية صحتي',
+            'user_type': 'pharmacy',
+            'license': 'SEHATY-PHARMACY-001',
+        },
+        {
+            'email_env': 'HOSPITAL_EMAIL',
+            'password_env': 'HOSPITAL_PASSWORD',
+            'name_env': 'HOSPITAL_NAME',
+            'default_email': 'hospital@sehaty.com',
+            'default_name': 'مستشفى صحتي',
+            'user_type': 'hospital',
+            'license': 'SEHATY-HOSPITAL-001',
+        },
+        {
+            'email_env': 'BLOOD_BANK_EMAIL',
+            'password_env': 'BLOOD_BANK_PASSWORD',
+            'name_env': 'BLOOD_BANK_NAME',
+            'default_email': 'bloodbank@sehaty.com',
+            'default_name': 'بنك دم صحتي',
+            'user_type': 'blood_bank',
+            'license': 'SEHATY-BLOOD-001',
+        },
     ]
     for account in professional_accounts:
-        password = os.environ.get(account['password_env'])
+        password = os.environ.get(account['password_env']) or os.environ.get('SEHATY_BOOTSTRAP_PASSWORD')
         if not password:
             continue
         email = os.environ.get(account['email_env'], account['default_email']).strip().lower()
@@ -454,7 +484,8 @@ def initialize_application_data():
             role = Role(
                 name=account['user_type'],
                 label_ar={'doctor': 'طبيب', 'nurse': 'تمريض', 'lab': 'معمل',
-                          'radiology_center': 'مركز أشعة'}[account['user_type']],
+                          'radiology_center': 'مركز أشعة', 'pharmacy': 'صيدلية',
+                          'hospital': 'مستشفى', 'blood_bank': 'بنك دم'}[account['user_type']],
             )
             db.session.add(role)
             db.session.flush()

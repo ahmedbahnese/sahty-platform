@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, request, g
 
 from src.models.user import db, User
 from src.models.notification import Notification
@@ -79,6 +79,16 @@ def nursing_requests(current_user):
         data = request.get_json(silent=True) or {}
         if not data.get("service_type") or not data.get("address"):
             return jsonify({"message": "نوع الخدمة والعنوان مطلوبان"}), 400
+        requester_role = getattr(g, "current_role", current_user.user_type)
+        target_patient_id = current_user.id
+        if requester_role in ("doctor", "nurse"):
+            try:
+                target_patient_id = int(data.get("patient_id"))
+            except (TypeError, ValueError):
+                return jsonify({"message": "رقم المريض مطلوب لطلب الزيارة من الطبيب أو التمريض"}), 400
+            patient = db.session.get(User, target_patient_id)
+            if not patient or patient.user_type not in ("patient", "doctor", "nurse"):
+                return jsonify({"message": "المريض المطلوب غير موجود"}), 404
         scheduled_at = None
         if data.get("scheduled_at"):
             try:
@@ -86,15 +96,24 @@ def nursing_requests(current_user):
             except ValueError:
                 return jsonify({"message": "موعد الزيارة غير صالح"}), 400
         item = NursingServiceRequest(
-            patient_id=current_user.id, service_type=data["service_type"],
+            patient_id=target_patient_id,
+            nurse_id=None,
+            requested_by_user_id=current_user.id,
+            doctor_id=current_user.id if requester_role == "doctor" else data.get("doctor_id"),
+            requester_role=requester_role,
+            provider_role=data.get("provider_role", "nurse"),
+            request_type=data.get("request_type", "home_visit"),
+            service_type=data["service_type"],
             description=data.get("description"), address=data["address"],
             scheduled_at=scheduled_at,
         )
         db.session.add(item)
         db.session.flush()
         _change_status(item, "PENDING", current_user.id)
+        if target_patient_id != current_user.id:
+            _notify(target_patient_id, "طلب زيارة منزلية جديد", "تم إنشاء طلب زيارة منزلية لحسابك من مقدم رعاية.", item.id)
         db.session.commit()
-        return jsonify({"message": "تم إرسال طلب التمريض", "request": item.to_dict()}), 201
+        return jsonify({"message": "تم إرسال طلب الزيارة المنزلية", "request": item.to_dict()}), 201
 
     if current_user.user_type == "nurse":
         rows = NursingServiceRequest.query.filter(

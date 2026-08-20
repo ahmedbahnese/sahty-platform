@@ -78,6 +78,8 @@ class BloodRequest(db.Model):
     # تفاصيل الطلب
     blood_type = db.Column(db.String(5), nullable=False)
     units_needed = db.Column(db.Integer, nullable=False)
+    component_type = db.Column(db.String(30), nullable=False, default='whole_blood')  # whole_blood, plasma, platelets, cryoprecipitate, other
+    is_irradiated = db.Column(db.Boolean, nullable=False, default=False)
     urgency_level = db.Column(db.String(20), nullable=False)  # critical, urgent, routine
     
     # معلومات المريض
@@ -104,6 +106,11 @@ class BloodRequest(db.Model):
     # معلومات إضافية
     description = db.Column(db.Text)
     special_requirements = db.Column(db.Text)
+    transfusion_request_file_path = db.Column(db.String(500))
+    transfusion_request_file_name = db.Column(db.String(200))
+    document_status = db.Column(db.String(30), nullable=False, default='document_required')  # document_required, verified, forwarded
+    forwarded_to_centers_at = db.Column(db.DateTime)
+    forwarded_by_user_id = db.Column(db.Integer, db.ForeignKey('users.id'))
     
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -118,6 +125,8 @@ class BloodRequest(db.Model):
             'hospital_id': self.hospital_id,
             'blood_type': self.blood_type,
             'units_needed': self.units_needed,
+            'component_type': self.component_type,
+            'is_irradiated': self.is_irradiated,
             'urgency_level': self.urgency_level,
             'patient_name': self.patient_name,
             'patient_age': self.patient_age,
@@ -134,6 +143,10 @@ class BloodRequest(db.Model):
             'needed_by_date': self.needed_by_date.isoformat() if self.needed_by_date else None,
             'description': self.description,
             'special_requirements': self.special_requirements,
+            'transfusion_request_file_path': self.transfusion_request_file_path,
+            'transfusion_request_file_name': self.transfusion_request_file_name,
+            'document_status': self.document_status,
+            'forwarded_to_centers_at': self.forwarded_to_centers_at.isoformat() if self.forwarded_to_centers_at else None,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None
         }

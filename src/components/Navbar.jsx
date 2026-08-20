@@ -28,7 +28,8 @@ import {
   LayoutDashboard,
   Building2,
   Sun,
-  Moon
+  Moon,
+  Video
 } from 'lucide-react'
 
 export default function Navbar() {
@@ -86,11 +87,13 @@ export default function Navbar() {
       { path: '/dashboard', label: 'لوحتي', icon: LayoutDashboard },
       { path: '/appointments', label: 'مواعيد المرضى', icon: Calendar },
       { path: '/prescriptions', label: 'الوصفات', icon: ClipboardList },
+      { path: '/consultations', label: 'الاستشارات', icon: Video },
     ],
     nurse: [
       { path: '/dashboard', label: 'لوحتي', icon: LayoutDashboard },
       { path: '/appointments', label: 'المواعيد', icon: Calendar },
       { path: '/nursing', label: 'خدمات التمريض', icon: Heart },
+      { path: '/consultations', label: 'الاستشارات', icon: Video },
     ],
     pharmacy: [
       { path: '/dashboard', label: 'لوحتي', icon: LayoutDashboard },
@@ -111,6 +114,11 @@ export default function Navbar() {
       { path: '/dashboard', label: 'لوحتي', icon: LayoutDashboard },
       { path: '/appointments', label: 'المواعيد', icon: Calendar },
       { path: '/lab-requests', label: 'التحاليل', icon: FlaskConical },
+    ],
+    blood_bank: [
+      { path: '/dashboard', label: 'لوحتي', icon: LayoutDashboard },
+      { path: '/blood-bank', label: 'طلبات الدم', icon: Droplets },
+      { path: '/account-settings', label: 'الإعدادات', icon: Settings },
     ],
     admin: [
       { path: '/admin', label: 'لوحة الإدارة', icon: LayoutDashboard },

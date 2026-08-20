@@ -35,13 +35,14 @@ import RadiologyCentersPage from './pages/RadiologyCentersPage'
 import HealthcareDirectoryPage from './pages/HealthcareDirectoryPage'
 import AccountSettingsPage from './pages/AccountSettingsPage'
 import NursingDashboardPage from './pages/NursingDashboardPage'
+import ConsultationsPage from './pages/ConsultationsPage'
 import FloatingAIChat from './components/FloatingAIChat'
 import SplashScreen from './components/SplashScreen'
 import { NotificationProvider } from './contexts/NotificationContext'
 import './App.css'
 
 const ADMIN_ROLES = ['admin', 'super_admin']
-const PROFESSIONAL_ROLES = ['doctor', 'pharmacy', 'lab', 'radiology_center', 'hospital', 'nurse']
+const PROFESSIONAL_ROLES = ['doctor', 'pharmacy', 'lab', 'radiology_center', 'hospital', 'nurse', 'blood_bank']
 
 // ── Loading spinner ────────────────────────────────────────────────────────────
 function Spinner() {
@@ -105,6 +106,8 @@ function AppContent() {
           <Route path="/hospitals" element={<HealthcareDirectoryPage />} />
           <Route path="/directory" element={<HealthcareDirectoryPage />} />
           <Route path="/ai-assistant" element={<AIAssistantPage />} />
+          <Route path="/consultations" element={<ProtectedRoute><ConsultationsPage /></ProtectedRoute>} />
+          <Route path="/consultations/:id" element={<ProtectedRoute><ConsultationsPage /></ProtectedRoute>} />
           <Route path="/pharmacies" element={<PharmaciesPage />} />
           <Route path="/labs-directory" element={<LabsDirectoryPage />} />
           <Route path="/radiology-centers" element={<RadiologyCentersPage />} />
@@ -145,14 +148,14 @@ function AppContent() {
           <Route path="/account-settings" element={<ProtectedRoute><AccountSettingsPage /></ProtectedRoute>} />
           <Route path="/vaccinations" element={<RoleRoute roles={['patient']}><VaccinationPage /></RoleRoute>} />
           <Route path="/symptom-checker" element={<SymptomCheckerPage />} />
-          <Route path="/medications" element={<RoleRoute roles={['patient', 'pharmacy']}><MedicationTrackingPage /></RoleRoute>} />
+          <Route path="/nursing" element={<RoleRoute roles={['patient', 'doctor', 'nurse']}><NursingDashboardPage /></RoleRoute>} />
           <Route path="/medication-orders" element={<RoleRoute roles={['patient', 'pharmacy']}><MedicationOrderPage /></RoleRoute>} />
 
           {/* ── صفحات مشتركة (مرضى + مزودو الخدمة) ── */}
           <Route
             path="/appointments"
             element={
-              <RoleRoute roles={['patient', 'doctor', 'lab', 'radiology_center', 'hospital', 'nurse']}>
+              <RoleRoute roles={['patient', 'doctor', 'lab', 'radiology_center', 'hospital', 'nurse', 'blood_bank']}>
                 <AppointmentsPage />
               </RoleRoute>
             }
