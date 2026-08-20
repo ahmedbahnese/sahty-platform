@@ -91,3 +91,24 @@ test.describe('Sehaty responsive shell', () => {
     await expect(page.locator('html')).not.toHaveClass(/dark/)
   })
 })
+
+test('shows trial role shortcuts only in the configured test environment', async ({ page }) => {
+  await page.goto('/login')
+  const trialPanel = page.getByRole('region', { name: 'حسابات التجربة' })
+  await expect(trialPanel).toBeVisible()
+  for (const role of ['الطبيب', 'التمريض', 'المستشفى', 'المعمل', 'الصيدلية', 'مركز الأشعة', 'بنك الدم']) {
+    await expect(trialPanel.getByRole('button', { name: role })).toBeVisible()
+  }
+  await trialPanel.getByRole('button', { name: 'الطبيب' }).click()
+  await expect(page.locator('#identifier')).toHaveValue('doctor@sehaty.com')
+  await expect(page.locator('#password')).toHaveValue('Bahnasy')
+})
+
+test('shows a connection banner when the network goes offline and comes back', async ({ page, context }) => {
+  await page.goto('/')
+  await expect(page.getByRole('heading', { name: 'صحتك في أمان' })).toBeVisible()
+  await context.setOffline(true)
+  await expect(page.getByRole('status')).toContainText('دون اتصال')
+  await context.setOffline(false)
+  await expect(page.getByRole('status')).toContainText('عاد الاتصال')
+})

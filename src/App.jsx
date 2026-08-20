@@ -37,6 +37,7 @@ import AccountSettingsPage from './pages/AccountSettingsPage'
 import NursingDashboardPage from './pages/NursingDashboardPage'
 import ConsultationsPage from './pages/ConsultationsPage'
 import FloatingAIChat from './components/FloatingAIChat'
+import ConnectivityBanner from './components/ConnectivityBanner'
 import SplashScreen from './components/SplashScreen'
 import { NotificationProvider } from './contexts/NotificationContext'
 import './App.css'
@@ -93,6 +94,7 @@ function AppContent() {
 
   return (
     <div className={`min-h-screen min-w-0 bg-slate-50 ${isAuthenticated ? 'lg:pl-72' : ''}`}>
+      <ConnectivityBanner />
       <Navbar />
       <main className="min-w-0 pb-20 lg:pb-0">
         <Routes>

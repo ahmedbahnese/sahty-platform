@@ -35,12 +35,15 @@ The application supports these default email addresses:
 
 For a new Replit environment, add `SEHATY_BOOTSTRAP_PASSWORD` as a Replit Secret with the initial password provided by the system owner. The value is read only from the environment and is never stored in GitHub. Existing passwords are preserved on restart; change all initial passwords immediately after the first successful login through the password-management flow.
 
-After setting PostgreSQL and the required secrets, run migrations before the first login:
+After setting PostgreSQL and the required secrets, run migrations and seed the trial accounts before the first login:
 
 ```bash
 flask db upgrade
+SEHATY_BOOTSTRAP_PASSWORD="$SEHATY_BOOTSTRAP_PASSWORD" python scripts/seed_demo_accounts.py
 bash scripts/import_directory_csv.py
 bash scripts/replit-api-run.sh
 ```
+
+The seed script reads `SEHATY_BOOTSTRAP_PASSWORD` from the environment, never prints it, and never overwrites existing account passwords. Keep `VITE_ENABLE_DEMO_ACCOUNTS=true` and `VITE_DEMO_PASSWORD` enabled only in the testing environment; remove them before production.
 
 The production migration is `0004_consultations_and_blood_workflow`.

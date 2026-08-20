@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { Heart, Eye, EyeOff, UserRound, Lock } from 'lucide-react'
+import { Heart, Eye, EyeOff, UserRound, Lock, Stethoscope, HeartPulse, Hospital, FlaskConical, Pill, ScanLine, Droplets } from 'lucide-react'
 import { useNotifications } from '../contexts/NotificationContext'
 
 export default function LoginPage() {
@@ -20,6 +20,21 @@ export default function LoginPage() {
   const { login } = useAuth()
   const notifications = useNotifications()
   const navigate = useNavigate()
+  const demoAccounts = [
+    { email: 'doctor@sehaty.com', label: 'الطبيب', icon: Stethoscope, className: 'border-blue-100 text-blue-700' },
+    { email: 'nurse@sehaty.com', label: 'التمريض', icon: HeartPulse, className: 'border-rose-100 text-rose-700' },
+    { email: 'hospital@sehaty.com', label: 'المستشفى', icon: Hospital, className: 'border-indigo-100 text-indigo-700' },
+    { email: 'lab@sehaty.com', label: 'المعمل', icon: FlaskConical, className: 'border-emerald-100 text-emerald-700' },
+    { email: 'pharma@sehaty.com', label: 'الصيدلية', icon: Pill, className: 'border-amber-100 text-amber-700' },
+    { email: 'rad@sehaty.com', label: 'مركز الأشعة', icon: ScanLine, className: 'border-violet-100 text-violet-700' },
+    { email: 'bloodbank@sehaty.com', label: 'بنك الدم', icon: Droplets, className: 'border-red-100 text-red-700' },
+  ]
+  const showDemoAccounts = import.meta.env.VITE_ENABLE_DEMO_ACCOUNTS === 'true'
+  const demoPassword = import.meta.env.VITE_DEMO_PASSWORD || ''
+  const selectDemoAccount = (email) => {
+    setFormData({ identifier: email, password: demoPassword })
+    setError('')
+  }
 
   const handleChange = (e) => {
     setFormData({
@@ -87,6 +102,12 @@ export default function LoginPage() {
               </AlertDescription>
             </Alert>
           )}
+
+          {showDemoAccounts && <section className="mb-6 rounded-2xl border border-cyan-100 bg-cyan-50/70 p-4" aria-label="حسابات التجربة">
+            <div className="mb-3 flex items-center justify-between"><div><h3 className="font-bold text-cyan-950">تجربة الخدمات حسب الدور</h3><p className="mt-1 text-xs text-cyan-700">اختر دورًا لملء بيانات الدخول تلقائيًا</p></div><span className="rounded-full bg-white px-2 py-1 text-[10px] font-bold text-cyan-700">بيئة اختبار</span></div>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">{demoAccounts.map(({ email, label, icon: Icon, className }) => <button key={email} type="button" onClick={() => selectDemoAccount(email)} className={`flex min-h-16 flex-col items-center justify-center gap-1 rounded-xl border bg-white px-2 py-2 text-xs font-semibold transition hover:-translate-y-0.5 hover:shadow-sm focus:outline-none focus:ring-2 focus:ring-cyan-500 ${className}`}><Icon className="h-5 w-5" aria-hidden="true"/><span>{label}</span></button>)}</div>
+            <p className="mt-3 text-center text-[11px] text-cyan-800">كلمة مرور التجربة مضبوطة من Secret في بيئة الاختبار.</p>
+          </section>}
 
           {/* النموذج */}
           <form onSubmit={handleSubmit} className="space-y-6">
