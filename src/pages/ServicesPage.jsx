@@ -200,10 +200,18 @@ export default function ServicesPage() {
     if (!service) return
     if (service.title === 'حجز المواعيد الطبية') {
       navigate('/doctors')
+    } else if (service.title === 'الاستشارات الطبية عن بُعد') {
+      navigate('/consultations')
     } else if (service.category === 'emergency') {
       navigate('/emergency')
     } else if (service.title === 'بنك الدم الرقمي') {
       navigate('/blood-bank')
+    } else if (service.category === 'home_visit') {
+      navigate('/nursing')
+    } else if (service.title.includes('تحاليل')) {
+      navigate('/lab-requests')
+    } else if (service.title.includes('أشعة')) {
+      navigate('/radiology')
     } else {
       setSelectedCategory(service.category)
       setRequestMessage(`تم استلام طلبك لخدمة «${service.title}». سيتم التواصل معك قريباً.`)

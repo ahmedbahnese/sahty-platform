@@ -154,6 +154,7 @@ function AppContent() {
           <Route path="/symptom-checker" element={<SymptomCheckerPage />} />
           <Route path="/nursing" element={<RoleRoute roles={['patient', 'doctor', 'nurse']}><NursingDashboardPage /></RoleRoute>} />
           <Route path="/medication-orders" element={<RoleRoute roles={['patient', 'pharmacy']}><MedicationOrderPage /></RoleRoute>} />
+          <Route path="/medications" element={<RoleRoute roles={['patient', 'doctor', 'pharmacy']}><MedicationTrackingPage /></RoleRoute>} />
 
           {/* ── صفحات مشتركة (مرضى + مزودو الخدمة) ── */}
           <Route

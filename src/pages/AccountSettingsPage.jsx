@@ -12,6 +12,7 @@ export default function AccountSettingsPage() {
   const { user, logout, switchRole } = useAuth()
   const navigate = useNavigate()
   const [phone, setPhone] = useState(user?.profile?.phone || '')
+  const [personal, setPersonal] = useState({ first_name: user?.profile?.first_name || '', last_name: user?.profile?.last_name || '', date_of_birth: user?.profile?.date_of_birth || '', address: user?.profile?.address || '', email: user?.email || user?.profile?.email || '' })
   const [passwords, setPasswords] = useState({ current_password: '', new_password: '', confirmation: '' })
   const [message, setMessage] = useState(null)
   const [busy, setBusy] = useState(false)
@@ -19,6 +20,16 @@ export default function AccountSettingsPage() {
   const [clinicLocations, setClinicLocations] = useState(user?.profile?.clinic_locations || [])
   const [profileImage, setProfileImage] = useState(null)
   const [availability, setAvailability] = useState([])
+
+  const savePersonal = async event => {
+    event.preventDefault()
+    setBusy(true)
+    try {
+      const response = await fetch('/api/auth/profile', { method: 'PUT', headers: authHeaders(), body: JSON.stringify({ ...personal, phone }) })
+      const data = await response.json()
+      setMessage({ ok: response.ok, text: data.message || (response.ok ? 'تم تحديث البيانات الشخصية' : 'تعذر تحديث البيانات') })
+    } catch { setMessage({ ok: false, text: 'تعذر الاتصال بالخادم' }) } finally { setBusy(false) }
+  }
 
   const savePhone = async event => {
     event.preventDefault()
@@ -122,6 +133,17 @@ export default function AccountSettingsPage() {
         </div>}
         {user?.active_roles?.length > 1 && <div className="mb-5 rounded-2xl border border-indigo-100 bg-indigo-50 p-5"><h2 className="mb-3 font-bold text-indigo-950">التبديل بين الأدوار</h2><div className="flex flex-wrap gap-2">{user.active_roles.map(role => <button key={role} onClick={async () => { const result = await switchRole(role); if (result.success) window.location.reload() }} className={`rounded-xl px-3 py-2 text-sm font-semibold ${user.user_type === role ? 'bg-indigo-600 text-white' : 'bg-white text-indigo-700'}`}>{({ patient: 'مستخدم/مريض', doctor: 'طبيب', nurse: 'تمريض', pharmacy: 'صيدلية', lab: 'معمل', radiology_center: 'مركز أشعة', hospital: 'مستشفى' }[role] || role)}</button>)}</div></div>}
         <div className="grid gap-5 md:grid-cols-2">
+          <form onSubmit={savePersonal} className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm md:col-span-2">
+            <h2 className="mb-4 flex items-center gap-2 font-bold text-gray-800"><UserRound className="h-5 w-5 text-blue-600" /> البيانات الشخصية</h2>
+            <div className="grid gap-3 md:grid-cols-2">
+              <label className="text-sm text-gray-600">الاسم الأول<input value={personal.first_name} onChange={e => setPersonal(p => ({ ...p, first_name: e.target.value }))} className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2.5" required /></label>
+              <label className="text-sm text-gray-600">اسم العائلة<input value={personal.last_name} onChange={e => setPersonal(p => ({ ...p, last_name: e.target.value }))} className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2.5" required /></label>
+              <label className="text-sm text-gray-600">تاريخ الميلاد / السن<input type="date" value={personal.date_of_birth || ''} onChange={e => setPersonal(p => ({ ...p, date_of_birth: e.target.value }))} className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2.5" /></label>
+              <label className="text-sm text-gray-600">البريد الإلكتروني<input type="email" value={personal.email} onChange={e => setPersonal(p => ({ ...p, email: e.target.value }))} className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2.5" required /></label>
+              <label className="text-sm text-gray-600 md:col-span-2">العنوان<input value={personal.address} onChange={e => setPersonal(p => ({ ...p, address: e.target.value }))} className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2.5" /></label>
+            </div>
+            <button disabled={busy} className="mt-5 flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white"><Save className="h-4 w-4" /> حفظ البيانات الشخصية</button>
+          </form>
           <form onSubmit={savePhone} className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
             <h2 className="mb-4 flex items-center gap-2 font-bold text-gray-800"><Phone className="h-5 w-5 text-blue-600" /> رقم الهاتف</h2>
             <label className="text-sm text-gray-600">رقم الهاتف

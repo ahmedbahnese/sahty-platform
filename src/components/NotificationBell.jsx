@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { Link } from 'react-router-dom'
-import { Bell, BellRing, Check, Trash2, Calendar, Droplets, Activity, AlertCircle } from 'lucide-react'
+import { Bell, BellRing, Check, Calendar, Droplets, Activity, AlertCircle, X, Volume2 } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 
 const TYPE_ICON = {
@@ -20,6 +20,7 @@ export default function NotificationBell() {
   const [notifications, setNotifs]    = useState([])
   const [open, setOpen]               = useState(false)
   const [loading, setLoading]         = useState(false)
+  const [mutedUntil, setMutedUntil]   = useState(() => Number(localStorage.getItem('sehaty_notifications_mute_until') || 0))
   const dropdownRef = useRef(null)
   const pollRef     = useRef(null)
 
@@ -105,6 +106,13 @@ export default function NotificationBell() {
     } catch { /* silent */ }
   }
 
+  const toggleMute = (hours) => {
+    const until = hours > 0 ? Date.now() + hours * 60 * 60 * 1000 : 0
+    setMutedUntil(until)
+    if (until) localStorage.setItem('sehaty_notifications_mute_until', String(until))
+    else localStorage.removeItem('sehaty_notifications_mute_until')
+  }
+
   const deleteNotif = async (e, id) => {
     e.stopPropagation()
     try {
@@ -160,13 +168,16 @@ export default function NotificationBell() {
                 </button>
               )}
             </div>
-            {unread > 0 && (
+            <div className="flex items-center gap-2">
+              {mutedUntil > Date.now() ? <button onClick={() => toggleMute(0)} className="flex items-center gap-1 text-xs text-amber-700 hover:text-amber-900"><Volume2 className="h-3.5 w-3.5" /> إلغاء الصمت</button> : <select onChange={e => toggleMute(Number(e.target.value))} defaultValue="" className="rounded-lg border border-gray-200 bg-white px-1.5 py-1 text-[10px] text-gray-600"><option value="">صمت</option><option value="1">ساعة</option><option value="4">4 ساعات</option><option value="8">8 ساعات</option></select>}
+              {unread > 0 && (
               <button onClick={markAllRead}
                 className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 transition-colors">
                 <Check className="h-3.5 w-3.5" />
                 تعيين الكل كمقروء
               </button>
-            )}
+              )}
+            </div>
           </div>
 
           {/* List */}
@@ -210,9 +221,10 @@ export default function NotificationBell() {
                       )}
                       <button
                         onClick={(e) => deleteNotif(e, n.id)}
-                        className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 text-gray-300 hover:text-red-500"
+                        className="rounded p-0.5 text-gray-300 transition-colors hover:text-red-500"
+                        aria-label="حذف الإشعار"
                       >
-                        <Trash2 className="h-3 w-3" />
+                        <X className="h-3 w-3" />
                       </button>
                     </div>
                   </div>

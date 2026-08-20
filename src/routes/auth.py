@@ -409,16 +409,34 @@ def get_profile(current_user):
             allowed = (
                 'phone', 'address', 'blood_type', 'height', 'weight',
                 'emergency_contact_name', 'emergency_contact_phone',
+                'first_name', 'last_name', 'date_of_birth',
             )
+            if 'email' in data:
+                email = str(data['email']).strip().lower()
+                if '@' not in email or User.query.filter(User.email == email, User.id != current_user.id).first():
+                    return jsonify({'message': 'البريد الإلكتروني غير صالح أو مستخدم بالفعل'}), 400
+                current_user.email = email
+                patient.email = email
             for field in allowed:
                 if field in data:
                     value = data[field]
+                    if field in ('first_name', 'last_name'):
+                        value = str(value).strip()
+                        if not value:
+                            return jsonify({'message': 'الاسم لا يمكن أن يكون فارغاً'}), 400
+                    if field == 'date_of_birth':
+                        try:
+                            value = datetime.datetime.strptime(str(value), '%Y-%m-%d').date()
+                        except (TypeError, ValueError):
+                            return jsonify({'message': 'تاريخ الميلاد غير صالح'}), 400
                     if field in ('height', 'weight'):
                         try:
                             value = float(value) if value not in (None, '') else None
                         except (TypeError, ValueError):
                             return jsonify({'message': 'الطول أو الوزن غير صالح'}), 400
                     setattr(patient, field, value)
+                    if field in ('first_name', 'last_name') and hasattr(current_user, field):
+                        setattr(current_user, field, value)
             db.session.commit()
             return jsonify({'message': 'تم تحديث بيانات الملف', 'profile': patient.to_dict()}), 200
 

@@ -44,7 +44,7 @@ const NAVIGATION = {
     ['clinical-summary', '/clinical-summary', 'الملخص السريري', FileText],
     ['prescriptions', '/prescriptions', 'الوصفات الدوائية', Pill],
     ['medications', '/medications', 'الأدوية', Pill],
-    ['lab-requests', '/lab-requests', 'نتائج التحاليل', Beaker],
+    ['lab-requests', '/lab-requests', 'التحاليل', Beaker],
     ['radiology', '/radiology', 'الأشعة', Activity],
     ['family-health', '/family-health', 'صحة الأسرة', Users],
     ['blood-bank', '/blood-bank', 'بنك الدم', Heart],

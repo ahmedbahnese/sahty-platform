@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useMemo, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import { CheckCircle2, CircleAlert, Info, LoaderCircle, X } from 'lucide-react'
 
 const NotificationContext = createContext(null)
@@ -71,19 +71,34 @@ function NotificationItem({ notification, onDismiss }) {
 
 export function NotificationProvider({ children }) {
   const [notifications, setNotifications] = useState([])
+  const [mutedUntil, setMutedUntil] = useState(() => Number(localStorage.getItem('sehaty_notifications_mute_until') || 0))
+  const isMuted = mutedUntil > Date.now()
+
+  useEffect(() => {
+    if (!isMuted && mutedUntil) { localStorage.removeItem('sehaty_notifications_mute_until'); setMutedUntil(0) }
+  }, [isMuted, mutedUntil])
+
+  const mute = useCallback((hours) => {
+    const until = hours > 0 ? Date.now() + hours * 60 * 60 * 1000 : 0
+    setMutedUntil(until)
+    if (until) localStorage.setItem('sehaty_notifications_mute_until', String(until))
+    else localStorage.removeItem('sehaty_notifications_mute_until')
+    setNotifications([])
+  }, [])
 
   const dismiss = useCallback((id) => {
     setNotifications(current => current.filter(notification => notification.id !== id))
   }, [])
 
   const notify = useCallback(({ type = 'info', title, message, duration = 5000 }) => {
+    if (mutedUntil > Date.now() && type !== 'error') return null
     const id = `${Date.now()}-${Math.random()}`
     setNotifications(current => [...current, { id, type, title, message, duration }].slice(-3))
     if (duration > 0) {
       window.setTimeout(() => dismiss(id), duration)
     }
     return id
-  }, [dismiss])
+  }, [dismiss, mutedUntil])
 
   const value = useMemo(() => ({
     notify,
@@ -91,8 +106,8 @@ export function NotificationProvider({ children }) {
     error: (message, title = 'تعذر التنفيذ') => notify({ type: 'error', title, message, duration: 7000 }),
     info: (message, title = 'تنبيه') => notify({ type: 'info', title, message }),
     loading: (message, title = 'جارٍ التنفيذ') => notify({ type: 'loading', title, message, duration: 0 }),
-    dismiss,
-  }), [dismiss, notify])
+    dismiss, mute, isMuted, mutedUntil,
+  }), [dismiss, isMuted, mute, mutedUntil, notify])
 
   return (
     <NotificationContext.Provider value={value}>
