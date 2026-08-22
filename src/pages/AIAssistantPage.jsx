@@ -55,6 +55,8 @@ export default function AIAssistantPage() {
 
   useEffect(() => {
     setMessages(welcomeMessages)
+  // welcomeMessages is an immutable initial value for this component.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   useEffect(() => {

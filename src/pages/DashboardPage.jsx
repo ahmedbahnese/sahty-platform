@@ -213,6 +213,8 @@ function AdminDashboard({ token }) {
     }
   }
 
+  // load is intentionally scoped to the selected dashboard filter.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { load() }, [filter])
 
   const review = async (id, status) => {

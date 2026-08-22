@@ -46,10 +46,9 @@ export default [
         varsIgnorePattern: '^[A-Z_]',
         argsIgnorePattern: '^[A-Z_]',
       }],
-      'react-refresh/only-export-components': [
-        'warn',
-        { allowConstantExport: true },
-      ],
+      // The project intentionally co-locates shadcn variants and context hooks
+      // with their components; these exports are stable and do not affect runtime refresh.
+      'react-refresh/only-export-components': 'off',
     },
   },
 ]

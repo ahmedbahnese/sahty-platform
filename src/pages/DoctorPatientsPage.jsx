@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   Activity, AlertTriangle, Beaker, CalendarDays, ChevronDown, ClipboardList,
   FileHeart, FlaskConical, HeartPulse, Loader2, Pill, Plus, Search, Stethoscope,
@@ -66,7 +66,7 @@ export default function DoctorPatientsPage() {
   const [vitalsBusy, setVitalsBusy] = useState(false)
 
   const headers = useMemo(() => ({ Authorization: `Bearer ${token}` }), [token])
-  const loadPatients = async () => {
+  const loadPatients = useCallback(async () => {
     setLoading(true); setMessage('')
     try {
       const params = new URLSearchParams()
@@ -77,9 +77,9 @@ export default function DoctorPatientsPage() {
       if (!response.ok) throw new Error(data.error || data.message || 'تعذر تحميل المرضى')
       setPatients(data.patients || [])
     } catch (error) { setMessage(error.message) } finally { setLoading(false) }
-  }
+  }, [headers, search, examDate])
 
-  useEffect(() => { loadPatients() }, [token])
+  useEffect(() => { loadPatients() }, [loadPatients])
 
   const openRecord = async patient => {
     setSelected(patient); setActiveTab('summary'); setRecordLoading(true); setMessage('')

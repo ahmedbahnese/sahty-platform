@@ -57,6 +57,8 @@ export default function HospitalsPage() {
       .finally(() => setLoading(false))
   }
 
+  // fetchHospitals is intentionally keyed by the public directory filters.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { fetchHospitals() }, [search, filterGov, filterType, filterEmergency, page])
 
   const getLocation = () => {

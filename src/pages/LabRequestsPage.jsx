@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import {
   FlaskConical, Plus, CheckCircle, XCircle, Upload, Bell,
@@ -69,7 +69,7 @@ export default function LabRequestsPage() {
   const doctorLabel = [user?.profile?.first_name, user?.profile?.last_name].filter(Boolean).join(' ') || user?.email || ''
   const [doctorPatients, setDoctorPatients] = useState([])
 
-  const headers = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }
+  const headers = useMemo(() => ({ Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }), [token])
 
   const showToast = (msg, type = 'success') => {
     setToast({ msg, type })
@@ -82,7 +82,7 @@ export default function LabRequestsPage() {
       const res = await fetch(`${API}/lab-requests`, { headers })
       if (res.ok) setRequests(await res.json())
     } finally { setLoading(false) }
-  }, [token])
+  }, [headers])
 
   useEffect(() => { load() }, [load])
   useEffect(() => {

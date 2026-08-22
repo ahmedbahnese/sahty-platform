@@ -25,6 +25,8 @@ export default function NursingDashboardPage() {
     } catch (error) { setMessage(error.message || 'تعذر تحميل طلبات التمريض') }
     finally { setLoading(false) }
   }
+  // load is intentionally keyed by the authenticated token.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { load() }, [token])
 
   const createRequest = async event => {

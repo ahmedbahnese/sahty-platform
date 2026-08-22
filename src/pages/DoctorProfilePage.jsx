@@ -33,15 +33,19 @@ export default function DoctorProfilePage() {
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
   })
 
+  // fetchDoctor is a local loader keyed by the route id.
   useEffect(() => {
     fetchDoctor()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id])
 
+  // fetchSlots is a local loader keyed by the selected doctor and date range.
   useEffect(() => {
     if (doctor) {
       setSelectedDate('')
       fetchSlots()
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [doctor, slotDays])
 
   async function fetchDoctor() {

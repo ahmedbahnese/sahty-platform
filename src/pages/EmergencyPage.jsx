@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import {
   AlertTriangle, Ambulance, Phone, MapPin, Navigation, Heart,
@@ -104,7 +104,7 @@ export default function EmergencyPage() {
   const [editingAlertId, setEditingAlertId] = useState(null)
   const [editingAlert, setEditingAlert] = useState(null)
 
-  const hdr = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }
+  const hdr = useMemo(() => ({ Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }), [token])
 
   const showToast = (msg, type='success') => {
     setToast({ msg, type })
@@ -181,15 +181,13 @@ export default function EmergencyPage() {
       const res = await fetch(`${API}/emergency/qr`, { headers: hdr })
       if (res.ok) setQrData(await res.json())
     } finally { setQrLoading(false) }
-  }, [token, isAuthenticated])
-
+    }, [isAuthenticated, hdr])
   /* ── Family contacts ── */
   const loadContacts = useCallback(async () => {
     if (!isAuthenticated) return
     const res = await fetch(`${API}/emergency/family-contacts`, { headers: hdr })
     if (res.ok) setContacts(await res.json())
-  }, [token, isAuthenticated])
-
+    }, [isAuthenticated, hdr])
   const addContact = async e => {
     e.preventDefault()
     setBusy(true)
@@ -272,8 +270,7 @@ export default function EmergencyPage() {
     if (!isAuthenticated) return
     const res = await fetch(`${API}/emergency/alerts`, { headers: hdr })
     if (res.ok) setAlerts(await res.json())
-  }, [token, isAuthenticated])
-
+    }, [isAuthenticated, hdr])
   const resolveAlert = async id => {
     const res = await fetch(`${API}/emergency/alerts/${id}/resolve`, { method:'PUT', headers: hdr })
     if (res.ok) { showToast('تم إغلاق التنبيه'); loadAlerts() }

@@ -195,7 +195,7 @@ function ApprovalsSection({ headers, onMessage }) {
       setProviders(await res.json())
     } catch { onMessage('تعذر تحميل الطلبات', 'error') }
     finally { setLoading(false) }
-  }, [typeFilter, statusFilter, headers])
+  }, [typeFilter, statusFilter, headers, onMessage])
 
   useEffect(() => { load() }, [load])
 
@@ -353,9 +353,9 @@ function UsersSection({ headers, onMessage }) {
       setUsers(await res.json())
     } catch { onMessage('تعذر تحميل المستخدمين', 'error') }
     finally { setLoading(false) }
-  }, [headers])
-
+    }, [headers, onMessage])
   useEffect(() => { load() }, [load])
+
 
   const toggle = async (user) => {
     const res = await fetch(`/api/admin/users/${user.id}/status`, {
