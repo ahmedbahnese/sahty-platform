@@ -1,42 +1,42 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
-import { useState } from 'react'
+import { lazy, Suspense, useState } from 'react'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import Navbar from './components/Navbar'
 import Footer from './components/Footer'
 import HomePage from './pages/HomePage'
 import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
-import DashboardPage from './pages/DashboardPage'
-import DoctorsPage from './pages/DoctorsPage'
-import ServicesPage from './pages/ServicesPage'
-import BloodBankPage from './pages/BloodBankPage'
-import EmergencyPage from './pages/EmergencyPage'
-import MedicalRecordPage from './pages/MedicalRecordPage'
-import AppointmentsPage from './pages/AppointmentsPage'
-import PrescriptionsPage from './pages/PrescriptionsPage'
-import AIAssistantPage from './pages/AIAssistantPage'
-import MedicationTrackingPage from './pages/MedicationTrackingPage'
-import FamilyHealthPage from './pages/FamilyHealthPage'
-import AdminDashboardPage from './pages/AdminDashboardPage'
-import LabRequestsPage from './pages/LabRequestsPage'
-import RadiologyRequestsPage from './pages/RadiologyRequestsPage'
-import MedicationOrderPage from './pages/MedicationOrderPage'
-import HospitalsPage from './pages/HospitalsPage'
-import DoctorProfilePage from './pages/DoctorProfilePage'
-import PendingApprovalPage from './pages/PendingApprovalPage'
-import VaccinationPage from './pages/VaccinationPage'
-import SymptomCheckerPage from './pages/SymptomCheckerPage'
-import ClinicalSummaryPage from './pages/ClinicalSummaryPage'
-import MedicalReportPage from './pages/MedicalReportPage'
-import PublicMedicalRecordPage from './pages/PublicMedicalRecordPage'
-import PharmaciesPage from './pages/PharmaciesPage'
-import LabsDirectoryPage from './pages/LabsDirectoryPage'
-import RadiologyCentersPage from './pages/RadiologyCentersPage'
-import HealthcareDirectoryPage from './pages/HealthcareDirectoryPage'
-import AccountSettingsPage from './pages/AccountSettingsPage'
-import NursingDashboardPage from './pages/NursingDashboardPage'
-import ConsultationsPage from './pages/ConsultationsPage'
-import DoctorPatientsPage from './pages/DoctorPatientsPage'
+const DashboardPage = lazy(() => import('./pages/DashboardPage'))
+const DoctorsPage = lazy(() => import('./pages/DoctorsPage'))
+const ServicesPage = lazy(() => import('./pages/ServicesPage'))
+const BloodBankPage = lazy(() => import('./pages/BloodBankPage'))
+const EmergencyPage = lazy(() => import('./pages/EmergencyPage'))
+const MedicalRecordPage = lazy(() => import('./pages/MedicalRecordPage'))
+const AppointmentsPage = lazy(() => import('./pages/AppointmentsPage'))
+const PrescriptionsPage = lazy(() => import('./pages/PrescriptionsPage'))
+const AIAssistantPage = lazy(() => import('./pages/AIAssistantPage'))
+const MedicationTrackingPage = lazy(() => import('./pages/MedicationTrackingPage'))
+const FamilyHealthPage = lazy(() => import('./pages/FamilyHealthPage'))
+const AdminDashboardPage = lazy(() => import('./pages/AdminDashboardPage'))
+const LabRequestsPage = lazy(() => import('./pages/LabRequestsPage'))
+const RadiologyRequestsPage = lazy(() => import('./pages/RadiologyRequestsPage'))
+const MedicationOrderPage = lazy(() => import('./pages/MedicationOrderPage'))
+const HospitalsPage = lazy(() => import('./pages/HospitalsPage'))
+const DoctorProfilePage = lazy(() => import('./pages/DoctorProfilePage'))
+const PendingApprovalPage = lazy(() => import('./pages/PendingApprovalPage'))
+const VaccinationPage = lazy(() => import('./pages/VaccinationPage'))
+const SymptomCheckerPage = lazy(() => import('./pages/SymptomCheckerPage'))
+const ClinicalSummaryPage = lazy(() => import('./pages/ClinicalSummaryPage'))
+const MedicalReportPage = lazy(() => import('./pages/MedicalReportPage'))
+const PublicMedicalRecordPage = lazy(() => import('./pages/PublicMedicalRecordPage'))
+const PharmaciesPage = lazy(() => import('./pages/PharmaciesPage'))
+const LabsDirectoryPage = lazy(() => import('./pages/LabsDirectoryPage'))
+const RadiologyCentersPage = lazy(() => import('./pages/RadiologyCentersPage'))
+const HealthcareDirectoryPage = lazy(() => import('./pages/HealthcareDirectoryPage'))
+const AccountSettingsPage = lazy(() => import('./pages/AccountSettingsPage'))
+const NursingDashboardPage = lazy(() => import('./pages/NursingDashboardPage'))
+const ConsultationsPage = lazy(() => import('./pages/ConsultationsPage'))
+const DoctorPatientsPage = lazy(() => import('./pages/DoctorPatientsPage'))
 import FloatingAIChat from './components/FloatingAIChat'
 import ConnectivityBanner from './components/ConnectivityBanner'
 import SplashScreen from './components/SplashScreen'
@@ -98,7 +98,8 @@ function AppContent() {
       <ConnectivityBanner />
       <Navbar />
       <main className="min-w-0 pb-20 lg:pb-0">
-        <Routes>
+        <Suspense fallback={<Spinner />}>
+          <Routes>
           {/* ── العامة ── */}
           <Route path="/" element={<HomePage />} />
           <Route path="/doctors" element={<DoctorsPage />} />
@@ -200,7 +201,8 @@ function AppContent() {
 
           {/* ── توجيه افتراضي ── */}
           <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
+          </Routes>
+        </Suspense>
       </main>
       <Footer />
       <FloatingAIChat />

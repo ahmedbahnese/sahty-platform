@@ -14,6 +14,17 @@ export default defineConfig({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
+          'ui-vendor': ['lucide-react', 'framer-motion', 'sonner'],
+          'charts-vendor': ['recharts'],
+        },
+      },
+    },
+  },
   server: {
     host: '0.0.0.0',
     port: 5000,
