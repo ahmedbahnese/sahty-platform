@@ -1,5 +1,6 @@
 import logging
 import os
+import secrets
 import sys
 import datetime
 
@@ -533,6 +534,60 @@ def initialize_application_data():
             else:
                 provider.status = 'approved'
         db.session.commit()
+
+    # Preview-only clinical fixture: keep the doctor patient-management screen
+    # useful without polluting production data or replacing real appointments.
+    if os.environ.get('FLASK_ENV', 'production') != 'production' and os.environ.get(
+        'SEHATY_ENABLE_DEMO_FIXTURE', 'yes'
+    ).lower() in {'1', 'true', 'yes'}:
+        demo_doctor_user = User.query.filter_by(email='doctor@sehaty.com').first()
+        demo_doctor = Doctor.query.filter_by(user_id=demo_doctor_user.id).first() if demo_doctor_user else None
+        if demo_doctor:
+            demo_patient_user = User.query.filter_by(email='demo.patient@sehaty.com').first()
+            if not demo_patient_user:
+                demo_patient_user = User(
+                    username='demo_patient',
+                    email='demo.patient@sehaty.com',
+                    password_hash=generate_password_hash(secrets.token_urlsafe(24)),
+                    user_type='patient',
+                    is_active=True,
+                )
+                db.session.add(demo_patient_user)
+                db.session.flush()
+            demo_patient = Patient.query.filter_by(user_id=demo_patient_user.id).first()
+            if not demo_patient:
+                demo_patient = Patient(
+                    user_id=demo_patient_user.id,
+                    first_name='مريم',
+                    last_name='أحمد',
+                    date_of_birth=datetime.date(1992, 5, 14),
+                    gender='female',
+                    national_id='SEHATY-DEMO-PATIENT-001',
+                    phone='01000000001',
+                    email=demo_patient_user.email,
+                    address='الإسكندرية، مصر',
+                    blood_type='O+',
+                    height=165,
+                    weight=62,
+                )
+                db.session.add(demo_patient)
+                db.session.flush()
+            demo_appointment = Appointment.query.filter_by(
+                doctor_id=demo_doctor.id, patient_id=demo_patient.id
+            ).filter(Appointment.status != 'cancelled').first()
+            if not demo_appointment:
+                db.session.add(Appointment(
+                    patient_id=demo_patient.id,
+                    doctor_id=demo_doctor.id,
+                    appointment_date=datetime.datetime.utcnow() + datetime.timedelta(days=1),
+                    duration=30,
+                    appointment_type='in_person',
+                    status='confirmed',
+                    reason='موعد تجريبي لعرض ملف المريض السريري',
+                    notes='بيانات اختبارية محلية فقط',
+                    payment_status='pending',
+                ))
+                db.session.commit()
 
 
 @app.before_request
