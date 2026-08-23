@@ -151,9 +151,9 @@ function PrescriptionCard({ rx, onAction, userType }) {
 }
 
 // ── نموذج إنشاء وصفة ──────────────────────────────
-function CreatePrescriptionModal({ onClose, onCreated, token }) {
+function CreatePrescriptionModal({ onClose, onCreated, token, initialPatientId = '' }) {
   const [patients, setPatients] = useState([])
-  const [form, setForm] = useState({ patient_id: '', diagnosis: '', notes: '', valid_until: '' })
+  const [form, setForm] = useState({ patient_id: initialPatientId, diagnosis: '', notes: '', valid_until: '' })
   const [items, setItems] = useState([{ drug_name: '', generic_name: '', dosage: '', form: '', frequency: '', duration: '', quantity: '', instructions: '' }])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -349,6 +349,7 @@ function SendPharmacyModal({ rx, onClose, onSent, token }) {
 
 export default function PrescriptionsPage() {
   const { user, token, isDoctor } = useAuth()
+  const initialPatientId = new URLSearchParams(window.location.search).get('patient_id') || ''
   const isPharmacy = user?.user_type === 'pharmacy'
 
   const [prescriptions, setPrescriptions] = useState([])
@@ -496,7 +497,7 @@ export default function PrescriptionsPage() {
 
       {/* نوافذ */}
       {modal?.type === 'create' && (
-        <CreatePrescriptionModal token={token} onClose={() => setModal(null)}
+        <CreatePrescriptionModal token={token} initialPatientId={initialPatientId} onClose={() => setModal(null)}
           onCreated={rx => { setPrescriptions(prev => [rx, ...prev]); setModal(null); showToast('تم إنشاء الوصفة ✓') }} />
       )}
       {modal?.type === 'send' && (

@@ -52,11 +52,12 @@ const PREP_BY_CATEGORY = {
 
 export default function LabRequestsPage() {
   const { token, user } = useAuth()
+  const initialPatientId = new URLSearchParams(window.location.search).get('patient_id') || ''
   const [requests, setRequests]   = useState([])
   const [loading, setLoading]     = useState(true)
   const [tab, setTab]             = useState('all')
   const [expanded, setExpanded]   = useState(null)
-  const [showForm, setShowForm]   = useState(false)
+  const [showForm, setShowForm]   = useState(Boolean(initialPatientId))
   const [actionModal, setActionModal] = useState(null)
   const [busy, setBusy]           = useState(false)
   const [toast, setToast]         = useState(null)
@@ -103,7 +104,7 @@ export default function LabRequestsPage() {
 
   // ── نموذج الطلب ─────────────────────────────────────────
   const [form, setForm] = useState({
-    urgency: 'routine', clinical_notes: '', ordering_doctor: doctorLabel, patient_id: '',
+    urgency: 'routine', clinical_notes: '', ordering_doctor: doctorLabel, patient_id: initialPatientId,
     lab_center_name: '', scheduled_datetime: '',
     home_collection: false,
     collection_address: '', collection_date: '', collection_time: '', collection_staff_name: '',

@@ -51,8 +51,11 @@ const API = (path, opts = {}) => {
 
 /* ──────────────────────────────────────────────── */
 export default function BloodBankPage() {
+  const queryParams = new URLSearchParams(window.location.search)
+  const initialPatientId = queryParams.get('patient_id') || ''
+  const initialPatientName = queryParams.get('patient_name') || ''
   const [activeTab, setActiveTab] = useState(
-    'banks'
+    initialPatientId ? 'requests' : 'banks'
   )
 
   /* stats */
@@ -62,7 +65,7 @@ export default function BloodBankPage() {
   const [requests, setRequests]       = useState([])
   const [reqLoading, setReqLoading]   = useState(false)
   const [reqError, setReqError]       = useState('')
-  const [showAddRequest, setShowAddRequest] = useState(false)
+  const [showAddRequest, setShowAddRequest] = useState(Boolean(initialPatientId))
   const [filterBlood, setFilterBlood] = useState('')
   const [filterGov, setFilterGov]     = useState('')
 
@@ -78,7 +81,7 @@ export default function BloodBankPage() {
 
   /* new request form */
   const [reqForm, setReqForm] = useState({
-    patient_name: '', blood_type: '', units_needed: 1, component_type: 'whole_blood', is_irradiated: false,
+    patient_id: initialPatientId, patient_name: initialPatientName, blood_type: '', units_needed: 1, component_type: 'whole_blood', is_irradiated: false,
     hospital_name: '', city: '', urgency_level: 'urgent',
     contact_phone: '', description: '', needed_by_date: '',
   })
@@ -135,7 +138,7 @@ export default function BloodBankPage() {
         setReqSubmitMsg({ type: 'success', text: 'تم إنشاء الطلب بنجاح' })
         setRequests(prev => [data.request, ...prev])
         setShowAddRequest(false)
-        setReqForm({ patient_name:'', blood_type:'', units_needed:1, component_type:'whole_blood', is_irradiated:false, hospital_name:'', city:'', urgency_level:'urgent', contact_phone:'', description:'', needed_by_date:'' })
+        setReqForm({ patient_id:'', patient_name:'', blood_type:'', units_needed:1, component_type:'whole_blood', is_irradiated:false, hospital_name:'', city:'', urgency_level:'urgent', contact_phone:'', description:'', needed_by_date:'' })
         setReqFile(null)
       } else {
         setReqSubmitMsg({ type: 'error', text: data.error || data.message || 'حدث خطأ' })
@@ -257,6 +260,7 @@ export default function BloodBankPage() {
                           <div className="col-span-2">
                             <Label>اسم المريض *</Label>
                             <Input required value={reqForm.patient_name} onChange={e=>setReqForm(f=>({...f,patient_name:e.target.value}))} placeholder="الاسم الكامل" />
+                            {reqForm.patient_id && <p className="mt-1 text-xs text-emerald-600">تم تحديد المريض من قائمة مرضاك — رقم الملف: {reqForm.patient_id}</p>}
                           </div>
                           <div>
                             <Label>فصيلة الدم *</Label>

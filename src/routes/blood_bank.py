@@ -256,7 +256,31 @@ def create_request(current_user):
     except ValueError:
         return jsonify({'success': False, 'error': 'صيغة التاريخ غير صحيحة (ISO 8601)'}), 400
 
-    patient = Patient.query.filter_by(user_id=current_user.id).first()
+    patient = None
+    selected_patient_id = data.get('patient_id')
+    if selected_patient_id:
+        try:
+            selected_patient_id = int(selected_patient_id)
+        except (TypeError, ValueError):
+            return jsonify({'success': False, 'error': 'رقم المريض غير صالح'}), 400
+
+        if current_user.user_type == 'doctor':
+            from src.models.doctor import Doctor
+            from src.models.appointment import Appointment
+            doctor = Doctor.query.filter_by(user_id=current_user.id).first()
+            if doctor:
+                patient = Patient.query.join(Appointment, Appointment.patient_id == Patient.id).filter(
+                    Patient.id == selected_patient_id,
+                    Appointment.doctor_id == doctor.id,
+                ).first()
+        else:
+            patient = Patient.query.filter_by(id=selected_patient_id, user_id=current_user.id).first()
+
+        if not patient:
+            return jsonify({'success': False, 'error': 'لا تملك صلاحية إنشاء طلب نقل دم لهذا المريض'}), 403
+    else:
+        patient = Patient.query.filter_by(user_id=current_user.id).first()
+
     component_type = data.get('component_type', 'whole_blood')
     allowed_components = {'whole_blood', 'plasma', 'platelets', 'cryoprecipitate', 'other'}
     if component_type not in allowed_components:

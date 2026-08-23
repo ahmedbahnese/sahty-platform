@@ -2,11 +2,12 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   Activity, AlertTriangle, Beaker, CalendarDays, ChevronDown, ClipboardList,
   FileHeart, FlaskConical, HeartPulse, Loader2, Pill, Plus, Search, Stethoscope,
-  Syringe, UserRound, X, ArrowUpRight, Clock3, ShieldCheck, ScanLine, Printer,
+  Syringe, UserRound, X, ArrowUpRight, Clock3, ShieldCheck, ScanLine, Printer, Droplets,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useAuth } from '../contexts/AuthContext'
+import { useNavigate } from 'react-router-dom'
 
 const tabs = [
   ['summary', 'ملخص المريض', FileHeart],
@@ -50,6 +51,7 @@ function PatientHeader({ patient, onClose, onPrint }) {
 
 export default function DoctorPatientsPage() {
   const { token } = useAuth()
+  const navigate = useNavigate()
   const [search, setSearch] = useState('')
   const [examDate, setExamDate] = useState('')
   const [patients, setPatients] = useState([])
@@ -92,6 +94,17 @@ export default function DoctorPatientsPage() {
   }
 
   const closeRecord = () => { setSelected(null); setRecord(null); setActiveTab('summary') }
+
+  const openClinicalAction = (patient, action) => {
+    const params = new URLSearchParams({ patient_id: String(patient.id), patient_name: patient.full_name || '' })
+    const routes = {
+      treatment: `/prescriptions?${params.toString()}`,
+      lab: `/lab-requests?${params.toString()}`,
+      radiology: `/radiology?${params.toString()}`,
+      blood: `/blood-bank?${params.toString()}`,
+    }
+    if (routes[action]) navigate(routes[action])
+  }
 
   const submitReport = async event => {
     event.preventDefault(); if (!selected) return
@@ -141,7 +154,7 @@ export default function DoctorPatientsPage() {
     <header className="rounded-2xl bg-gradient-to-l from-[#063b70] to-[#0b9ca8] p-6 text-white shadow-sm"><p className="text-sm text-cyan-100">لوحة الطبيب</p><h1 className="mt-2 text-2xl font-bold">إدارة المرضى والملفات السريرية</h1><p className="mt-2 text-sm text-cyan-50">ابحث بالاسم أو الرقم الطبي أو الهاتف أو تاريخ الفحص، ثم افتح الملف المصرح لك به.</p></header>
     <section className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm"><div className="grid gap-3 md:grid-cols-[1fr_220px_auto]"><div className="relative"><Search className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" /><Input value={search} onChange={e => setSearch(e.target.value)} onKeyDown={e => e.key === 'Enter' && loadPatients()} className="pr-10" placeholder="اسم المريض، الرقم الطبي، الهاتف أو الرقم القومي" aria-label="بحث عن مريض" /></div><div className="relative"><CalendarDays className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" /><Input value={examDate} onChange={e => setExamDate(e.target.value)} className="pr-10" type="date" aria-label="تاريخ الفحص" /></div><Button onClick={loadPatients} disabled={loading}>{loading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'بحث'}</Button></div></section>
     {message && <div role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-rose-800">{message}</div>}
-    <section className="grid gap-4 lg:grid-cols-[minmax(280px,350px)_1fr]"><aside className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm"><div className="mb-3 flex items-center justify-between"><h2 className="font-bold text-slate-900">قائمة المرضى</h2><span className="rounded-full bg-blue-50 px-2 py-1 text-xs text-blue-700">{patients.length}</span></div><div className="space-y-2">{patients.length === 0 && <p className="rounded-xl bg-slate-50 p-6 text-center text-sm text-slate-500">لا توجد نتائج. ابحث عن مريض مرتبط بمواعيدك.</p>}{patients.map(patient => <button key={patient.id} onClick={() => openRecord(patient)} className={`w-full rounded-xl border p-3 text-right transition hover:border-cyan-300 hover:bg-cyan-50 ${selected?.id === patient.id ? 'border-cyan-500 bg-cyan-50' : 'border-slate-100'}`}><div className="flex items-center gap-3"><span className="rounded-full bg-cyan-100 p-2 text-cyan-700"><UserRound className="h-4 w-4" /></span><span><strong className="block text-sm text-slate-900">{patient.full_name}</strong><small className="text-xs text-slate-500">{patient.medical_number} · {patient.phone}</small></span></div></button>)}</div></aside>
+    <section className="grid gap-4 lg:grid-cols-[minmax(280px,350px)_1fr]"><aside className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm"><div className="mb-3 flex items-center justify-between"><h2 className="font-bold text-slate-900">قائمة المرضى</h2><span className="rounded-full bg-blue-50 px-2 py-1 text-xs text-blue-700">{patients.length}</span></div><div className="space-y-2">{patients.length === 0 && <p className="rounded-xl bg-slate-50 p-6 text-center text-sm text-slate-500">لا توجد نتائج. ابحث عن مريض مرتبط بمواعيدك.</p>}{patients.map(patient => <div key={patient.id} className={`rounded-xl border p-3 text-right transition hover:border-cyan-300 hover:bg-cyan-50 ${selected?.id === patient.id ? 'border-cyan-500 bg-cyan-50' : 'border-slate-100'}`}><button onClick={() => openRecord(patient)} className="flex min-h-11 w-full items-center gap-3 text-right" aria-label={`فتح الملف السريري للمريض ${patient.full_name}`}><span className="rounded-full bg-cyan-100 p-2 text-cyan-700"><UserRound className="h-4 w-4" /></span><span className="min-w-0"><strong className="block truncate text-sm text-slate-900">{patient.full_name}</strong><small className="block truncate text-xs text-slate-500">{patient.medical_number} · {patient.phone || 'هاتف غير مسجل'}</small></span><ArrowUpRight className="mr-auto h-4 w-4 shrink-0 text-slate-400" /></button><div className="mt-3 grid grid-cols-2 gap-2 border-t border-slate-100 pt-3 sm:grid-cols-4"><button type="button" onClick={() => openClinicalAction(patient, 'treatment')} className="flex min-h-11 items-center justify-center gap-1.5 rounded-lg bg-rose-50 px-2 py-2 text-xs font-bold text-rose-700 transition hover:bg-rose-100 active:scale-[.98]" aria-label={`كتابة وصفة للمريض ${patient.full_name}`}><Pill className="h-4 w-4" />علاج</button><button type="button" onClick={() => openClinicalAction(patient, 'lab')} className="flex min-h-11 items-center justify-center gap-1.5 rounded-lg bg-teal-50 px-2 py-2 text-xs font-bold text-teal-700 transition hover:bg-teal-100 active:scale-[.98]" aria-label={`طلب تحليل للمريض ${patient.full_name}`}><FlaskConical className="h-4 w-4" />تحليل</button><button type="button" onClick={() => openClinicalAction(patient, 'radiology')} className="flex min-h-11 items-center justify-center gap-1.5 rounded-lg bg-amber-50 px-2 py-2 text-xs font-bold text-amber-700 transition hover:bg-amber-100 active:scale-[.98]" aria-label={`طلب أشعة للمريض ${patient.full_name}`}><ScanLine className="h-4 w-4" />أشعة</button><button type="button" onClick={() => openClinicalAction(patient, 'blood')} className="flex min-h-11 items-center justify-center gap-1.5 rounded-lg bg-red-50 px-2 py-2 text-xs font-bold text-red-700 transition hover:bg-red-100 active:scale-[.98]" aria-label={`طلب نقل دم للمريض ${patient.full_name}`}><Droplets className="h-4 w-4" />نقل دم</button></div></div>)}</div></aside>
       <div data-print-area={selected ? 'true' : undefined} className="min-w-0 rounded-2xl border border-slate-100 bg-white p-3 shadow-sm">{!selected && <div className="flex min-h-72 flex-col items-center justify-center text-center text-slate-500"><FileHeart className="mb-3 h-14 w-14 text-cyan-300" /><p className="font-semibold">اختر مريضاً لفتح الملف السريري</p><p className="mt-1 text-sm">ستظهر هنا البيانات المصرح بها للطبيب فقط.</p></div>}{selected && (recordLoading ? <div className="flex min-h-72 items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-cyan-600" /></div> : record && <div className="space-y-3"><PatientHeader patient={record.patient} onClose={closeRecord} onPrint={printRecord} /><nav className="flex gap-1 overflow-x-auto border-b border-slate-200 pb-1" aria-label="أقسام الملف السريري">{tabs.map(([key, label, Icon]) => <button key={key} onClick={() => setActiveTab(key)} className={`flex shrink-0 items-center gap-2 rounded-t-lg px-3 py-3 text-xs font-semibold transition ${activeTab === key ? 'border-b-2 border-cyan-600 bg-cyan-50 text-cyan-800' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'}`}><Icon className="h-4 w-4" />{label}</button>)}<div className="relative mr-auto"><button onClick={() => setOrdersOpen(value => !value)} className="flex items-center gap-1 rounded-lg px-3 py-3 text-xs font-semibold text-slate-600 hover:bg-slate-50"><ClipboardList className="h-4 w-4" />إجراءات<ChevronDown className="h-3 w-3" /></button>{ordersOpen && <div className="absolute left-0 top-11 z-10 w-48 rounded-xl border border-slate-200 bg-white p-2 text-sm shadow-xl"><button onClick={() => { setActiveTab('orders'); setOrdersOpen(false) }} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-right hover:bg-cyan-50"><FlaskConical className="h-4 w-4" />طلبات التحاليل والأشعة</button><button onClick={() => { setActiveTab('notes'); setOrdersOpen(false) }} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-right hover:bg-cyan-50"><Stethoscope className="h-4 w-4" />ملاحظة سريرية</button><button onClick={() => { setActiveTab('orders'); setOrdersOpen(false) }} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-right hover:bg-cyan-50"><Pill className="h-4 w-4" />الأدوية</button></div>}</div></nav><div className="rounded-xl bg-white p-1">{renderTab()}</div></div>)}</div>
     </section>
   </div></>

@@ -48,11 +48,12 @@ const BODY_PARTS = [
 
 export default function RadiologyRequestsPage() {
   const { token, user } = useAuth()
+  const initialPatientId = new URLSearchParams(window.location.search).get('patient_id') || ''
   const [requests, setRequests]   = useState([])
   const [loading, setLoading]     = useState(true)
   const [tab, setTab]             = useState('all')
   const [expanded, setExpanded]   = useState(null)
-  const [showForm, setShowForm]   = useState(false)
+  const [showForm, setShowForm]   = useState(Boolean(initialPatientId))
   const [actionModal, setActionModal] = useState(null)
   const [busy, setBusy]           = useState(false)
   const [toast, setToast]         = useState(null)
@@ -102,7 +103,7 @@ export default function RadiologyRequestsPage() {
   // ── نموذج الطلب الجديد ──────────────────────────────────
   const [form, setForm] = useState({
     scan_type: 'xray', body_part: '', body_part_code: '', urgency: 'routine',
-    clinical_reason: '', ordering_doctor: doctorLabel, patient_id: '',
+    clinical_reason: '', ordering_doctor: doctorLabel, patient_id: initialPatientId,
     radiology_center_name: '', scheduled_datetime: '',
     patient_weight: '', requires_sedation: false, uses_contrast: false,
     preparation_required: false,
