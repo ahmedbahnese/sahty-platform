@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { 
@@ -23,11 +23,22 @@ import {
   Lightbulb,
   HelpCircle,
   Send,
-  AlertCircle
+  AlertCircle,
+  Search,
+  MapPin,
+  ArrowRight
 } from 'lucide-react'
 
 export default function HomePage() {
   const { isAuthenticated } = useAuth()
+  const [featuredDoctors, setFeaturedDoctors] = useState([])
+
+  useEffect(() => {
+    fetch('/api/doctors?page=1&per_page=3')
+      .then(response => response.ok ? response.json() : null)
+      .then(data => setFeaturedDoctors(data?.doctors || []))
+      .catch(() => setFeaturedDoctors([]))
+  }, [])
 
   const features = [
     {
@@ -127,9 +138,9 @@ export default function HomePage() {
   }
 
   return (
-    <div className="min-h-screen" dir="rtl">
+    <div className="home-page min-h-screen bg-[#f7f8fc] pb-20 lg:pb-0" dir="rtl">
       {/* Hero */}
-      <section className="relative overflow-hidden py-24 lg:py-32"
+      <section className="home-hero relative mx-auto max-w-7xl overflow-hidden rounded-b-[2rem] px-4 py-10 sm:px-8 sm:py-16 lg:mt-6 lg:rounded-[2rem] lg:px-12 lg:py-24"
         style={{ background: 'linear-gradient(135deg, #0f2444 0%, #1a3a6b 40%, #1e4d8c 100%)' }}>
         <div className="absolute inset-0 opacity-10">
           <div className="absolute top-20 left-20 w-64 h-64 rounded-full bg-blue-400 blur-3xl"></div>
@@ -142,7 +153,7 @@ export default function HomePage() {
                 <Activity className="h-4 w-4" />
                 <span>منصة الرعاية الصحية الشاملة رقم #1</span>
               </div>
-              <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold text-white leading-tight">
+              <h1 className="text-4xl font-extrabold leading-[1.2] text-white sm:text-5xl md:text-6xl lg:text-7xl">
                 صحتك<br />
                 <span style={{ color: '#60a5fa' }}>في أمان</span>
               </h1>
@@ -175,7 +186,7 @@ export default function HomePage() {
             </div>
 
             {/* Stats cards */}
-            <div className="grid grid-cols-2 gap-4">
+            <div className="hidden grid-cols-2 gap-4 lg:grid">
               {stats.map((stat, i) => {
                 const Icon = stat.icon
                 return (
@@ -190,6 +201,29 @@ export default function HomePage() {
               })}
             </div>
           </div>
+        </div>
+      </section>
+
+      {/* Mobile-style search and specialties */}
+      <section className="mx-auto max-w-7xl px-4 pt-6 sm:px-6 lg:px-8">
+        <div className="relative rounded-2xl border border-slate-100 bg-white p-2 shadow-[0_10px_35px_rgba(26,39,74,.08)]">
+          <Search className="absolute right-5 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
+          <Link to="/doctors" className="block rounded-xl bg-slate-50 py-3.5 pr-12 text-sm text-slate-400 transition hover:bg-blue-50">ابحث عن طبيب أو تخصص أو خدمة</Link>
+        </div>
+        <div className="mt-7 flex items-center justify-between">
+          <h2 className="text-lg font-extrabold text-slate-900">ابحث حسب التخصص</h2>
+          <Link to="/doctors" className="text-xs font-bold text-indigo-600">عرض الكل</Link>
+        </div>
+        <div className="mt-4 grid grid-cols-4 gap-3 sm:grid-cols-7">
+          {[
+            { label: 'عام', icon: Stethoscope, tone: 'bg-indigo-600 text-white', link: '/doctors' },
+            { label: 'قلب', icon: Heart, tone: 'bg-rose-50 text-rose-500', link: '/doctors?specialization=طب القلب' },
+            { label: 'أطفال', icon: Users, tone: 'bg-emerald-50 text-emerald-600', link: '/doctors?specialization=طب الأطفال' },
+            { label: 'عيون', icon: Activity, tone: 'bg-amber-50 text-amber-600', link: '/doctors?specialization=طب العيون' },
+            { label: 'عظام', icon: Stethoscope, tone: 'bg-sky-50 text-sky-600', link: '/doctors?specialization=طب العظام' },
+            { label: 'جلدية', icon: Shield, tone: 'bg-purple-50 text-purple-600', link: '/doctors?specialization=الأمراض الجلدية' },
+            { label: 'أخرى', icon: ArrowRight, tone: 'bg-slate-100 text-slate-500', link: '/doctors' },
+          ].map(({ label, icon: Icon, tone, link }) => <Link key={label} to={link} className="group flex min-w-0 flex-col items-center gap-2"><span className={`flex h-14 w-14 items-center justify-center rounded-2xl shadow-sm transition group-hover:-translate-y-1 ${tone}`}><Icon className="h-6 w-6" /></span><span className="truncate text-[11px] font-bold text-slate-600">{label}</span></Link>)}
         </div>
       </section>
 
@@ -255,6 +289,19 @@ export default function HomePage() {
             })}
           </div>
         </div>
+      </section>
+
+      {/* Featured doctors */}
+      <section className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8 lg:py-20">
+        <div className="mb-5 flex items-center justify-between">
+          <div><p className="text-xs font-bold uppercase tracking-wider text-indigo-500">رعاية موثوقة</p><h2 className="mt-1 text-2xl font-extrabold text-slate-900">أفضل الأطباء</h2></div>
+          <Link to="/doctors" className="flex items-center gap-1 text-xs font-bold text-indigo-600">عرض الكل <ChevronLeft className="h-4 w-4" /></Link>
+        </div>
+        {featuredDoctors.length > 0 ? <div className="grid gap-4 md:grid-cols-3">{featuredDoctors.map(doctor => {
+          const doctorName = doctor.full_name || doctor.name || [doctor.first_name, doctor.last_name].filter(Boolean).join(' ') || 'طبيب معتمد'
+          const doctorImage = doctor.profile_image || doctor.photo_url || doctor.image_url
+          return <Link key={doctor.id} to={`/doctors/${doctor.id}`} className="group flex items-center gap-3 rounded-2xl border border-slate-100 bg-white p-3 shadow-[0_8px_24px_rgba(26,39,74,.06)] transition hover:-translate-y-1 hover:shadow-lg"><div className="h-16 w-16 shrink-0 overflow-hidden rounded-2xl bg-gradient-to-br from-indigo-100 to-sky-100">{doctorImage ? <img src={doctorImage} alt={doctorName} className="h-full w-full object-cover" /> : <div className="flex h-full items-center justify-center text-indigo-600"><Stethoscope className="h-7 w-7" /></div>}</div><div className="min-w-0 flex-1"><h3 className="truncate text-sm font-extrabold text-slate-900">{doctorName}</h3><p className="mt-0.5 truncate text-xs text-slate-500">{doctor.specialization || 'طب عام'}</p><div className="mt-1 flex items-center gap-1 text-[11px] font-bold text-amber-500"><span>★</span><span>{doctor.rating || '—'}</span><span className="font-normal text-slate-400">متاح للحجز</span></div></div><ChevronLeft className="h-5 w-5 shrink-0 text-slate-300 transition group-hover:-translate-x-1" /></Link>
+        })}</div> : <Link to="/doctors" className="block rounded-2xl border border-dashed border-indigo-200 bg-indigo-50/40 p-6 text-center text-sm font-bold text-indigo-700">استعرض الأطباء المتاحين واحجز موعدك الآن</Link>}
       </section>
 
       {/* Feedback / Customer Service */}

@@ -386,6 +386,23 @@ export default function Navbar() {
          </div>
        )}
 
+       {/* App-style bottom navigation on small screens */}
+       <div className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200/80 bg-white/95 px-4 pb-[max(.55rem,env(safe-area-inset-bottom))] pt-2 shadow-[0_-8px_30px_rgba(15,36,68,.08)] backdrop-blur lg:hidden dark:border-slate-800 dark:bg-slate-950/95">
+         <div className="mx-auto grid max-w-md grid-cols-4 gap-1">
+           {(isAuthenticated ? [
+             { path: '/dashboard', label: 'الرئيسية', icon: LayoutDashboard },
+             { path: '/doctors', label: 'الأطباء', icon: Stethoscope },
+             { path: '/appointments', label: 'المواعيد', icon: Calendar },
+             { path: '/account-settings', label: 'حسابي', icon: User },
+           ] : [
+             { path: '/', label: 'الرئيسية', icon: Heart },
+             { path: '/doctors', label: 'الأطباء', icon: Stethoscope },
+             { path: '/services', label: 'الخدمات', icon: Shield },
+             { path: '/login', label: 'دخول', icon: User },
+           ]).map(({ path, label, icon: Icon }) => <Link key={path} to={path} className={`flex min-h-12 flex-col items-center justify-center gap-0.5 rounded-xl text-[10px] font-bold transition ${isActive(path) || (path === '/dashboard' && location.pathname === '/') ? 'bg-indigo-50 text-indigo-600 dark:bg-indigo-950/60 dark:text-indigo-300' : 'text-slate-400 hover:bg-slate-50 dark:text-slate-500 dark:hover:bg-slate-900'}`}><Icon className="h-5 w-5" /><span>{label}</span></Link>)}
+         </div>
+       </div>
+
       {roleFormOpen && (
         <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/40 p-4" dir="rtl">
           <form onSubmit={submitRoleApplication} className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl">
