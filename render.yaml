@@ -3,24 +3,47 @@ databases:
     databaseName: sahty
     user: sahty
     plan: free
+    region: frankfurt
 
 services:
   - type: web
     name: sahty-platform
     env: python
+    plan: free
+    region: frankfurt
+    branch: main
     buildCommand: pip install -r requirements.txt && npm ci --include=dev && npm run build
-    startCommand: flask --app main db upgrade && gunicorn --bind 0.0.0.0:$PORT wsgi:application
+    startCommand: flask --app main db upgrade && gunicorn --bind 0.0.0.0:$PORT --workers ${WEB_CONCURRENCY:-2} --access-logfile - --error-logfile - wsgi:application
     healthCheckPath: /api/health
     envVars:
       - key: FLASK_ENV
         value: production
-      # Override this value when using a custom frontend domain. The service
-      # URL is also added automatically by the Flask application on Render.
+      - key: LOG_LEVEL
+        value: INFO
+      - key: WEB_CONCURRENCY
+        value: "2"
+      # The Render service URL is also added automatically by Flask. Replace
+      # this value only when a custom frontend origin is configured.
       - key: CORS_ORIGINS
         value: https://sahty-platform.onrender.com
       - key: DATABASE_URL
         fromDatabase:
           name: sahty-database
           property: connectionString
+      - key: RATELIMIT_STORAGE_URI
+        fromService:
+          type: keyvalue
+          name: sahty-rate-limit
+          property: connectionString
       - key: SESSION_SECRET
         generateValue: true
+
+  - type: keyvalue
+    name: sahty-rate-limit
+    plan: free
+    region: frankfurt
+    maxmemoryPolicy: noeviction
+    persistenceMode: off
+    ipAllowList:
+      - source: 0.0.0.0/0
+        description: Render private network access
