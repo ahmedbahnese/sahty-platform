@@ -19,6 +19,15 @@ def _columns(bind, table_name):
 
 def upgrade():
     bind = op.get_bind()
+    # The default Alembic version table uses VARCHAR(32), while this
+    # revision id is longer. Widen it before Alembic records this revision.
+    if sa.inspect(bind).has_table("alembic_version"):
+        op.alter_column(
+            "alembic_version",
+            "version_num",
+            existing_type=sa.String(length=32),
+            type_=sa.String(length=64),
+        )
     inspector = sa.inspect(bind)
 
     if not inspector.has_table("consultations"):
