@@ -211,6 +211,47 @@ function AppContent() {
 }
 
 export default function App() {
+  if (import.meta.env.VITE_SAHTY_STATIC_PREVIEW === 'true') {
+    return (
+      <main dir="rtl" lang="ar" className="min-h-screen bg-gradient-to-br from-sky-50 via-white to-teal-50 px-5 py-10 text-slate-800 sm:px-8">
+        <section className="mx-auto flex min-h-[80vh] max-w-4xl flex-col justify-center">
+          <div className="mb-8 flex items-center gap-3">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-sky-700 text-xl font-bold text-white">ص</div>
+            <div>
+              <p className="text-2xl font-bold text-sky-950">صحتي</p>
+              <p className="text-sm text-slate-500">منصة الرعاية الصحية</p>
+            </div>
+          </div>
+
+          <div className="rounded-3xl border border-amber-300 bg-amber-50 p-5 text-amber-950 shadow-sm sm:p-7" role="status">
+            <p className="mb-2 font-bold">نسخة معاينة للواجهة فقط</p>
+            <p className="leading-7">هذه المعاينة لا تتصل بخادم التطبيق أو قاعدة البيانات. تسجيل الدخول والبحث والسجلات والطلبات والملفات والخدمات الطبية غير مفعّلة هنا.</p>
+            <p className="mt-3 font-semibold">لا تُدخل معلومات شخصية أو صحية، ولا تعتمد على هذه الصفحة للرعاية أو الطوارئ.</p>
+          </div>
+
+          <h1 className="mt-10 text-3xl font-extrabold leading-tight text-slate-950 sm:text-5xl">رعاية صحية مترابطة، في مكان واحد.</h1>
+          <p className="mt-4 max-w-2xl text-lg leading-8 text-slate-600">تستعرض هذه الصفحة فكرة المنصة وتجربة الواجهة. تفعيل الوظائف يتطلب إعداد الخادم وقاعدة البيانات والتخزين ومراجعة ضوابط الخصوصية قبل الإطلاق.</p>
+
+          <div className="mt-8 grid gap-4 sm:grid-cols-2">
+            {[
+              ['الخدمات والمواعيد', 'عرض تصميمي فقط؛ لا توجد حجوزات أو بيانات حية.'],
+              ['السجلات الصحية', 'غير متاحة حتى ربط قاعدة البيانات والتخزين الآمن.'],
+              ['الدليل الصحي', 'لا يجري البحث عن أطباء أو مراكز في هذه المعاينة.'],
+              ['المساعدة الذكية', 'غير متصلة؛ لا تقدّم تشخيصًا أو نصيحة طبية.'],
+            ].map(([title, detail]) => (
+              <article key={title} className="rounded-2xl border border-slate-200 bg-white/90 p-5 shadow-sm">
+                <h2 className="font-bold text-slate-900">{title}</h2>
+                <p className="mt-2 text-sm leading-6 text-slate-600">{detail}</p>
+              </article>
+            ))}
+          </div>
+
+          <p className="mt-8 text-sm text-slate-500">للطوارئ اتصل بخدمات الطوارئ المحلية. هذه الصفحة ليست خدمة طبية.</p>
+        </section>
+      </main>
+    )
+  }
+
   return (
     <Router>
       <NotificationProvider>

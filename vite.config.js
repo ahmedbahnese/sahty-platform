@@ -5,10 +5,16 @@ import path from 'path'
 import { fileURLToPath } from 'url'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
+const isSahtyStaticPreview =
+  process.env.VERCEL_ENV === 'preview' &&
+  process.env.VERCEL_GIT_COMMIT_REF === 'deploy/vercel-python-311'
 
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  define: {
+    'import.meta.env.VITE_SAHTY_STATIC_PREVIEW': JSON.stringify(isSahtyStaticPreview ? 'true' : 'false'),
+  },
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
