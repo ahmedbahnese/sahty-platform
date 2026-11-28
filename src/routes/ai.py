@@ -4,13 +4,15 @@
 
 from flask import Blueprint, request, jsonify, current_app
 from werkzeug.utils import secure_filename
-from datetime import datetime
+from datetime import datetime, time, timedelta
+from zoneinfo import ZoneInfo
 import json
 
 from src.routes.auth import token_required, optional_token
 from src.models.patient import Patient
 from src.models.medication import Medication, MedicationLog
 from src.models.user import db
+from src.models.ai_usage import AIDailyUsage
 from src.services.ai_service import AIService
 
 ai_bp = Blueprint('ai', __name__, url_prefix='/api/ai')
@@ -24,6 +26,88 @@ def get_ai_service():
         _ai_service = AIService()
     return _ai_service
 
+
+# ────────────────────────────────────────────────────
+# الحصة اليومية المجانية للذكاء الاصطناعي
+# مجانية بالكامل للمستخدم، وتتجدد كل يوم في منتصف الليل
+# بتوقيت القاهرة. الحدود: 20 رسالة شات + 5 تحليل صور +
+# 10 فحص أعراض يومياً لكل مستخدم (والضيوف بنفس الحدود
+# حسب عنوان IP). لا تُحتسب المحاولات الفاشلة.
+# ────────────────────────────────────────────────────
+CAIRO_TZ = ZoneInfo('Africa/Cairo')
+
+AI_DAILY_LIMITS = {'chat': 20, 'image': 5, 'symptom': 10}
+AI_BUCKET_LABELS = {'chat': 'رسائل الشات', 'image': 'تحليل الصور', 'symptom': 'فحص الأعراض'}
+
+
+def _cairo_today():
+    return datetime.now(CAIRO_TZ).date()
+
+
+def _cairo_next_midnight_iso():
+    nxt = datetime.combine(_cairo_today() + timedelta(days=1), time.min, tzinfo=CAIRO_TZ)
+    return nxt.isoformat()
+
+
+def _usage_key(current_user):
+    if current_user is not None:
+        return {'user_id': current_user.id}
+    forwarded = request.headers.get('X-Forwarded-For', '')
+    ip = forwarded.split(',')[0].strip() or request.remote_addr or 'unknown'
+    return {'guest_key': f'ip:{ip}'}
+
+
+def _get_or_create_usage(current_user):
+    key = _usage_key(current_user)
+    today = _cairo_today()
+    row = AIDailyUsage.query.filter_by(usage_date=today, **key).first()
+    if row is None:
+        row = AIDailyUsage(usage_date=today, **key)
+        db.session.add(row)
+        try:
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
+            row = AIDailyUsage.query.filter_by(usage_date=today, **key).first()
+    return row
+
+
+def _usage_payload(current_user):
+    row = _get_or_create_usage(current_user)
+    out = {}
+    for bucket, limit in AI_DAILY_LIMITS.items():
+        used = getattr(row, f'{bucket}_count')
+        out[bucket] = {'used': used, 'limit': limit, 'remaining': max(0, limit - used)}
+    out['resets_at'] = _cairo_next_midnight_iso()
+    out['date'] = str(_cairo_today())
+    return out
+
+
+def _require_quota(current_user, bucket):
+    """Return a 429 response if today's free quota for the bucket is used up."""
+    row = _get_or_create_usage(current_user)
+    if getattr(row, f'{bucket}_count') >= AI_DAILY_LIMITS[bucket]:
+        return jsonify({
+            'success': False,
+            'code': 'ai_daily_limit',
+            'error': (
+                f"وصلت إلى حدك اليومي المجاني من {AI_BUCKET_LABELS[bucket]} "
+                f"({AI_DAILY_LIMITS[bucket]} يومياً). تتجدد الحصة غداً في منتصف الليل بتوقيت القاهرة، "
+                f"وباقي خدمات التطبيق (الدليل، الحجوزات، الأدوية) تعمل بدون حدود.",
+            ),
+            'bucket': bucket,
+            'limit': AI_DAILY_LIMITS[bucket],
+            'used': getattr(row, f'{bucket}_count'),
+            'resets_at': _cairo_next_midnight_iso(),
+        }), 429
+    return None
+
+
+def _consume_quota(current_user, bucket):
+    row = _get_or_create_usage(current_user)
+    setattr(row, f'{bucket}_count', getattr(row, f'{bucket}_count') + 1)
+    db.session.commit()
+
 ALLOWED_IMAGE_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'bmp', 'tiff', 'webp'}
 ALLOWED_AUDIO_EXTENSIONS = {'webm', 'mp3', 'wav', 'ogg', 'm4a', 'flac'}
 MAX_FILE_SIZE = 20 * 1024 * 1024  # 20 MB
@@ -36,6 +120,8 @@ def _allowed(filename, allowed_set):
 @ai_bp.before_request
 def require_clinical_ai_review():
     """Do not expose unvalidated clinical AI workflows by default."""
+    if request.path == '/api/ai/usage':
+        return None
     if (
         current_app.config.get('SAHTY_PRODUCTION_LIKE', False)
         and not current_app.config.get('SAHTY_CLINICAL_AI_ENABLED', False)
@@ -45,6 +131,13 @@ def require_clinical_ai_review():
             'code': 'clinical_ai_unavailable',
             'error': 'خدمات الذكاء الاصطناعي الطبي غير متاحة حالياً حتى استكمال مراجعة السلامة والخصوصية.',
         }), 503
+
+
+@ai_bp.route('/usage', methods=['GET'])
+@optional_token
+def ai_usage(current_user):
+    """الحصة اليومية المجانية المتبقية — تتجدد في منتصف الليل بتوقيت القاهرة."""
+    return jsonify({'success': True, 'usage': _usage_payload(current_user)})
 
 
 # ────────────────────────────────────────────────────
@@ -77,11 +170,16 @@ def ai_chat(current_user):
     if not isinstance(history, list):
         history = []
 
+    quota_error = _require_quota(current_user, 'chat')
+    if quota_error:
+        return quota_error
     result = get_ai_service().voice_assistant(
         data['message'],
         _build_chat_context(current_user),
         history=history,
     )
+    if result.get('success'):
+        _consume_quota(current_user, 'chat')
     return jsonify(result)
 
 
@@ -95,11 +193,16 @@ def voice_assistant(current_user):
     history = data.get('history', [])
     if not isinstance(history, list):
         history = []
+    quota_error = _require_quota(current_user, 'chat')
+    if quota_error:
+        return quota_error
     result = get_ai_service().voice_assistant(
         data['message'],
         _build_chat_context(current_user),
         history=history,
     )
+    if result.get('success'):
+        _consume_quota(current_user, 'chat')
     return jsonify(result)
 
 
@@ -135,7 +238,12 @@ def analyze_medical_image(current_user):
                 'symptoms': request.form.get('symptoms', '')
             }
 
+    quota_error = _require_quota(current_user, 'image')
+    if quota_error:
+        return quota_error
     result = get_ai_service().analyze_medical_image(file_data, image_type, patient_info)
+    if result.get('success'):
+        _consume_quota(current_user, 'image')
     return jsonify(result)
 
 
@@ -165,7 +273,12 @@ def analyze_voice(current_user):
             age = (date.today() - patient.date_of_birth).days // 365 if patient.date_of_birth else None
             context = {'age': age, 'gender': patient.gender}
 
+    quota_error = _require_quota(current_user, 'chat')
+    if quota_error:
+        return quota_error
     result = get_ai_service().analyze_voice(audio_data, context)
+    if result.get('success'):
+        _consume_quota(current_user, 'chat')
     return jsonify(result)
 
 
@@ -196,7 +309,12 @@ def symptom_checker(current_user):
                 'medical_history': data.get('medical_history', '')
             }
 
+    quota_error = _require_quota(current_user, 'symptom')
+    if quota_error:
+        return quota_error
     result = get_ai_service().symptom_checker(symptoms, patient_info)
+    if result.get('success'):
+        _consume_quota(current_user, 'symptom')
     return jsonify(result)
 
 
@@ -219,7 +337,12 @@ def medication_adherence(current_user):
     meds_data = [m.to_dict() for m in medications]
     logs_data = [l.to_dict() for l in logs]
 
+    quota_error = _require_quota(current_user, 'symptom')
+    if quota_error:
+        return quota_error
     result = get_ai_service().analyze_medication_adherence(logs_data, meds_data)
+    if result.get('success'):
+        _consume_quota(current_user, 'symptom')
     return jsonify(result)
 
 
@@ -231,7 +354,12 @@ def drug_interaction(current_user):
     if not data or 'medications' not in data:
         return jsonify({'success': False, 'error': 'قائمة الأدوية مطلوبة'}), 400
 
+    quota_error = _require_quota(current_user, 'symptom')
+    if quota_error:
+        return quota_error
     result = get_ai_service().check_drug_interactions(data['medications'])
+    if result.get('success'):
+        _consume_quota(current_user, 'symptom')
     return jsonify(result)
 
 
@@ -260,7 +388,12 @@ def health_report(current_user):
         'medications': '، '.join(med_names) if med_names else 'لا توجد',
     }
 
+    quota_error = _require_quota(current_user, 'symptom')
+    if quota_error:
+        return quota_error
     result = get_ai_service().generate_health_report(patient_data)
+    if result.get('success'):
+        _consume_quota(current_user, 'symptom')
     return jsonify(result)
 
 
@@ -295,7 +428,12 @@ def analyze_medical_document(current_user):
             age = (date.today() - patient.date_of_birth).days // 365 if patient.date_of_birth else None
             patient_info = {'age': age, 'gender': patient.gender}
 
+    quota_error = _require_quota(current_user, 'image')
+    if quota_error:
+        return quota_error
     result = get_ai_service().analyze_medical_document(file_data, doc_type, patient_info)
+    if result.get('success'):
+        _consume_quota(current_user, 'image')
     return jsonify(result)
 
 
@@ -347,12 +485,23 @@ def symptom_checker_v2(current_user):
             age = (date.today() - patient.date_of_birth).days // 365 if patient.date_of_birth else None
             patient_info = {'age': age, 'gender': patient.gender, 'medical_history': medical_history}
 
+    quota_error = _require_quota(current_user, 'symptom')
+    if quota_error:
+        return quota_error
+    if image_data:
+        quota_error = _require_quota(current_user, 'image')
+        if quota_error:
+            return quota_error
     result = get_ai_service().symptom_checker_with_followup(
         symptoms=symptoms,
         patient_info=patient_info,
         conversation_history=history,
         image_data=image_data,
     )
+    if result.get('success'):
+        _consume_quota(current_user, 'symptom')
+        if image_data:
+            _consume_quota(current_user, 'image')
     return jsonify(result)
 
 
@@ -377,9 +526,15 @@ def health_tips(current_user):
         f"جنسه {gender_txt}. النصائح يجب أن تكون عملية وقابلة للتطبيق اليومي."
     )
 
+    quota_error = _require_quota(current_user, 'chat')
+    if quota_error:
+        return quota_error
     result = get_ai_service().voice_assistant(prompt, context)
+    if result.get('response'):
+        _consume_quota(current_user, 'chat')
     return jsonify({
         'success': True,
         'tips': result.get('response', ''),
         'timestamp': datetime.now().isoformat()
     })
+
