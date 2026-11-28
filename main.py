@@ -34,6 +34,7 @@ from src.models.egypt_healthcare import (
     EgyptFacility,
     HealthcareDirectoryRecord,
 )
+from src.models.ai_usage import AIDailyUsage
 from src.models.professional import (
     Role,
     UserRole,
