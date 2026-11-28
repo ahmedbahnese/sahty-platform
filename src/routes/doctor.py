@@ -80,7 +80,7 @@ def list_doctors():
 
 def _doctor_summary(doctor):
     """ملخص بيانات الطبيب لقوائم البحث"""
-    d = doctor.to_dict()
+    d = doctor.to_public_dict()
     # حساب عدد المواعيد المكتملة
     d['appointments_count'] = Appointment.query.filter_by(
         doctor_id=doctor.id, status='completed'
@@ -114,7 +114,7 @@ def get_doctor(doctor_id):
         .filter(Appointment.doctor_id == doctor_id)\
         .order_by(AppointmentRating.created_at.desc()).limit(5).all()
 
-    data = doctor.to_dict()
+    data = doctor.to_public_dict()
     data['availability']  = _get_availability_days(doctor_id)
     data['appointments_count'] = Appointment.query.filter_by(
         doctor_id=doctor_id, status='completed'

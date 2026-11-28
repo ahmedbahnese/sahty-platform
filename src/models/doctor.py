@@ -77,6 +77,18 @@ class Doctor(db.Model):
             'updated_at': self.updated_at.isoformat() if self.updated_at else None
         }
 
+    def to_public_dict(self):
+        """Public-facing serialization for directory listings and profiles.
+
+        Omits identity/contact fields (email, license_number) that must not
+        be exposed to anonymous visitors. The doctor's own profile
+        endpoints (/api/doctors/me) keep using to_dict().
+        """
+        data = self.to_dict()
+        data.pop('email', None)
+        data.pop('license_number', None)
+        return data
+
 class DoctorAvailability(db.Model):
     __tablename__ = 'doctor_availability'
     
