@@ -60,7 +60,12 @@ def list_hospitals():
     # hospital table. Both sources are normalized to the response shape used
     # by the current frontend.
     legacy_hospitals = query.order_by(Hospital.rating.desc()).all()
-    facility_query = EgyptFacility.query
+    # Separation: the imported directory holds every facility type, but
+    # this endpoint is hospitals only — never return pharmacies, labs,
+    # radiology centres or blood banks here.
+    facility_query = EgyptFacility.query.filter(
+        EgyptFacility.facility_type.has(name_en='Hospital')
+    )
     if search:
         facility_query = facility_query.filter(or_(
             EgyptFacility.name_ar.ilike(f'%{search}%'),
