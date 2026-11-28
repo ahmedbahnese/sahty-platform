@@ -4,6 +4,7 @@
 from flask import Blueprint, request, jsonify
 from src.models.user import db
 from src.models.notification import Notification
+from src.models.push_subscription import PushSubscription
 from src.routes.auth import token_required
 
 notification_bp = Blueprint('notification', __name__, url_prefix='/api/notifications')
@@ -83,3 +84,81 @@ def clear_all(current_user):
     deleted = Notification.query.filter_by(user_id=current_user.id, is_read=True).delete()
     db.session.commit()
     return jsonify({'success': True, 'deleted': deleted}), 200
+
+def _ensure_push_table():
+    """Create push_subscriptions on first use (the app does not run migrations on Vercel)."""
+    from sqlalchemy import text
+    try:
+        db.session.execute(text("SELECT 1 FROM push_subscriptions LIMIT 1"))
+    except Exception:
+        db.session.rollback()
+        db.session.execute(text("""
+            CREATE TABLE IF NOT EXISTS push_subscriptions (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER REFERENCES users(id),
+                endpoint TEXT NOT NULL UNIQUE,
+                p256dh VARCHAR(200) NOT NULL,
+                auth VARCHAR(200) NOT NULL,
+                created_at TIMESTAMP NOT NULL DEFAULT NOW()
+            )
+        """))
+        db.session.commit()
+
+
+def _optional_user_id():
+    """User id from a Bearer token when one is sent; None for guests."""
+    import jwt
+    import os
+    auth_header = request.headers.get('Authorization', '')
+    if not auth_header.startswith('Bearer '):
+        return None
+    token = auth_header[7:]
+    for secret in (os.environ.get('JWT_SECRET'), os.environ.get('SESSION_SECRET')):
+        if not secret:
+            continue
+        try:
+            payload = jwt.decode(token, secret, algorithms=['HS256'])
+            return payload.get('user_id')
+        except Exception:
+            continue
+    return None
+
+
+@notification_bp.route('/push-subscribe', methods=['POST'])
+def push_subscribe():
+    """Store a Web Push subscription so the device receives emergency alerts.
+    Works for guests too; links to the user when a valid token is sent."""
+    _ensure_push_table()
+    data = request.get_json(silent=True) or {}
+    sub = data.get('subscription') or {}
+    endpoint = (sub.get('endpoint') or '').strip()
+    keys = sub.get('keys') or {}
+    p256dh = (keys.get('p256dh') or '').strip()
+    auth = (keys.get('auth') or '').strip()
+    if not endpoint or not p256dh or not auth:
+        return jsonify({'message': 'بيانات الاشتراك غير كاملة'}), 400
+    user_id = _optional_user_id()
+    existing = PushSubscription.query.filter_by(endpoint=endpoint).first()
+    if existing:
+        existing.user_id = user_id or existing.user_id
+        existing.p256dh = p256dh
+        existing.auth = auth
+    else:
+        db.session.add(PushSubscription(
+            user_id=user_id, endpoint=endpoint, p256dh=p256dh, auth=auth,
+        ))
+    db.session.commit()
+    return jsonify({'success': True}), 200
+
+
+@notification_bp.route('/push-subscribe', methods=['DELETE'])
+def push_unsubscribe():
+    """Remove a Web Push subscription (stop emergency alerts on this device)."""
+    _ensure_push_table()
+    data = request.get_json(silent=True) or {}
+    endpoint = (data.get('endpoint') or '').strip()
+    if not endpoint:
+        return jsonify({'message': 'الاشتراك غير محدد'}), 400
+    PushSubscription.query.filter_by(endpoint=endpoint).delete()
+    db.session.commit()
+    return jsonify({'success': True}), 200

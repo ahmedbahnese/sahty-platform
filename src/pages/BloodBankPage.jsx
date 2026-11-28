@@ -508,36 +508,49 @@ function BloodBanksTab() {
   const [banks, setBanks]         = useState([])
   const [loading, setLoading]     = useState(true)
   const [error, setError]         = useState('')
-  const [bankBlood, setBankBlood] = useState('')
   const [bankGov, setBankGov]     = useState('')
   const [userCoords, setUserCoords] = useState(null)
   const [locStatus, setLocStatus]   = useState('')
 
+  // The directory API returns name_ar / full_address / phone_numbers
+  // (not name / address / phone). The old code read the wrong fields, so
+  // every bank card rendered empty even though the banks were loaded.
   useEffect(() => {
     setLoading(true)
     setError('')
     const params = new URLSearchParams({ type: 'Blood Bank', per_page: '50' })
+    if (userCoords) {
+      params.set('nearest', '1')
+      params.set('lat', userCoords.lat)
+      params.set('lng', userCoords.lng)
+    }
     fetch(`/api/facilities?${params}`)
       .then(r => r.ok ? r.json() : Promise.reject())
       .then(d => setBanks(d.facilities || []))
       .catch(() => setError('تعذّر تحميل بنوك الدم'))
       .finally(() => setLoading(false))
-  }, [bankBlood])
+  }, [userCoords])
 
   const getLocation = () => {
     if (!navigator.geolocation) { setLocStatus('المتصفح لا يدعم تحديد الموقع'); return }
     setLocStatus('جاري تحديد موقعك...')
     navigator.geolocation.getCurrentPosition(
-      ({ coords: c }) => { setUserCoords({ lat: c.latitude, lng: c.longitude }); setLocStatus('تم تحديد الموقع') },
+      ({ coords: c }) => { setUserCoords({ lat: c.latitude, lng: c.longitude }); setLocStatus('تم تحديد الموقع — مرتبة من الأقرب إليك') },
       () => setLocStatus('تعذّر تحديد الموقع. تأكد من الإذن.')
     )
   }
+
+  // Governorates actually present in the loaded banks, not the full list
+  // of Egyptian governorates (the directory only covers Cairo/Alexandria/Beheira).
+  const bankGovernorates = [...new Set(banks.map(b => b.governorate).filter(Boolean))].sort()
 
   const filteredBanks = banks
     .filter(b => !bankGov || b.governorate === bankGov)
     .map(b => ({
       ...b,
-      distance: userCoords && b.latitude ? haversine(userCoords.lat, userCoords.lng, b.latitude, b.longitude) : null
+      distance: b.distance_km ?? (userCoords && b.latitude && b.longitude
+        ? haversine(userCoords.lat, userCoords.lng, b.latitude, b.longitude)
+        : null),
     }))
     .sort((a, b) => (a.distance ?? 9999) - (b.distance ?? 9999))
 
@@ -545,17 +558,12 @@ function BloodBanksTab() {
     <div className="space-y-5">
       <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
         <div className="flex gap-2 flex-wrap">
-          <select value={bankBlood} onChange={e=>setBankBlood(e.target.value)}
-            className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-red-400 focus:outline-none">
-            <option value="">كل الفصائل</option>
-            {BLOOD_TYPES.map(t=><option key={t} value={t}>{t}</option>)}
-          </select>
           <select value={bankGov} onChange={e=>setBankGov(e.target.value)}
             className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-red-400 focus:outline-none">
             <option value="">كل المحافظات</option>
-            {GOVERNORATES.map(g=><option key={g} value={g}>{g}</option>)}
+            {bankGovernorates.map(g=><option key={g} value={g}>{g}</option>)}
           </select>
-          {(bankBlood||bankGov) && <button onClick={()=>{setBankBlood('');setBankGov('')}} className="text-sm text-gray-500 underline">إلغاء</button>}
+          {bankGov && <button onClick={()=>setBankGov('')} className="text-sm text-gray-500 underline">إلغاء</button>}
         </div>
         <Button variant="outline" onClick={getLocation} className="shrink-0">
           <Navigation className="h-4 w-4 ml-1"/> {userCoords ? 'تحديث موقعي' : 'تحديد موقعي (ترتيب بالقرب)'}
@@ -571,26 +579,30 @@ function BloodBanksTab() {
         </Alert>
       )}
       {!loading && !error && filteredBanks.length === 0 && (
-        <p className="text-center text-gray-500 py-8">لا توجد مستشفيات مسجلة. يمكن للمدير إضافتها من لوحة التحكم.</p>
+        <p className="text-center text-gray-500 py-8">لا توجد بنوك دم مطابقة للفلاتر الحالية.</p>
       )}
       {!loading && !error && filteredBanks.length > 0 && (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {filteredBanks.map(bank => (
+          {filteredBanks.map(bank => {
+            const firstPhone = (bank.phone_numbers || '').split('/')[0].trim()
+            return (
             <div key={bank.id} className="bg-white border border-gray-200 rounded-xl p-4 hover:shadow-md transition-shadow">
               <div className="flex items-start gap-3">
                 <div className="bg-red-100 p-2 rounded-lg shrink-0"><Building2 className="h-5 w-5 text-red-600"/></div>
                 <div className="flex-1 min-w-0">
-                  <h3 className="font-semibold text-gray-900 text-sm leading-tight">{bank.name}</h3>
-                  <p className="text-xs text-gray-500 mt-0.5 flex items-center gap-1"><MapPin className="h-3 w-3"/>{bank.address}</p>
-                  {bank.distance !== null && <p className="text-xs text-blue-600 mt-0.5 font-medium">{bank.distance} كم منك</p>}
+                  <h3 className="font-semibold text-gray-900 text-sm leading-tight">{bank.name_ar}</h3>
+                  <p className="text-xs text-gray-500 mt-0.5 flex items-center gap-1"><MapPin className="h-3 w-3"/>{bank.full_address || `${bank.city}، ${bank.governorate}`}</p>
+                  {bank.distance !== null && bank.distance !== undefined && <p className="text-xs text-blue-600 mt-0.5 font-medium">{bank.distance} كم منك</p>}
                 </div>
               </div>
               <div className="mt-3 flex gap-2">
-                <a href={`tel:${bank.phone}`} className="flex-1">
-                  <Button size="sm" className="w-full bg-red-600 hover:bg-red-700 text-xs">
-                    <Phone className="h-3 w-3 ml-1"/>{bank.phone}
-                  </Button>
-                </a>
+                {firstPhone && (
+                  <a href={`tel:${firstPhone}`} className="flex-1">
+                    <Button size="sm" className="w-full bg-red-600 hover:bg-red-700 text-xs">
+                      <Phone className="h-3 w-3 ml-1"/>{bank.phone_numbers}
+                    </Button>
+                  </a>
+                )}
                 {bank.latitude && bank.longitude && (
                   <a href={`https://www.google.com/maps?q=${bank.latitude},${bank.longitude}`} target="_blank" rel="noopener noreferrer" className="shrink-0">
                     <Button size="sm" variant="outline" className="text-xs"><Navigation className="h-3 w-3"/></Button>
@@ -598,7 +610,8 @@ function BloodBanksTab() {
                 )}
               </div>
             </div>
-          ))}
+            )
+          })}
         </div>
       )}
     </div>

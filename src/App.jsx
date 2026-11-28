@@ -37,6 +37,7 @@ const AccountSettingsPage = lazy(() => import('./pages/AccountSettingsPage'))
 const NursingDashboardPage = lazy(() => import('./pages/NursingDashboardPage'))
 const ConsultationsPage = lazy(() => import('./pages/ConsultationsPage'))
 const DoctorPatientsPage = lazy(() => import('./pages/DoctorPatientsPage'))
+import InstallPrompt from './components/InstallPrompt'
 import FloatingAIChat from './components/FloatingAIChat'
 import ConnectivityBanner from './components/ConnectivityBanner'
 import SplashScreen from './components/SplashScreen'
@@ -97,6 +98,7 @@ function AppContent() {
     <div className={`min-h-screen min-w-0 bg-slate-50 ${isAuthenticated ? 'lg:pl-72' : ''}`}>
       <ConnectivityBanner />
       <Navbar />
+      <InstallPrompt />
       <main className="min-w-0 pb-20 lg:pb-0">
         <Suspense fallback={<Spinner />}>
           <Routes>
@@ -262,3 +264,4 @@ export default function App() {
     </Router>
   )
 }
+

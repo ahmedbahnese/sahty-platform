@@ -1,0 +1,26 @@
+{
+  "background_color": "#7f1d1d",
+  "description": "تطبيق طوارئ صحتي: نداء استغاثة وطلب إسعاف (123) وجهات اتصال الطوارئ.",
+  "dir": "rtl",
+  "display": "standalone",
+  "icons": [
+    {
+      "src": "/icons/emergency.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml"
+    },
+    {
+      "src": "/icons/emergency-maskable.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ],
+  "lang": "ar",
+  "name": "طوارئ صحتي",
+  "orientation": "portrait",
+  "scope": "/emergency",
+  "short_name": "طوارئ صحتي",
+  "start_url": "/emergency",
+  "theme_color": "#dc2626"
+}

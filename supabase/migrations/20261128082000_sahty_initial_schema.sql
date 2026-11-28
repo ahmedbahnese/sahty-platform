@@ -188,3 +188,7 @@ CREATE TABLE public.users ( id SERIAL NOT NULL, username VARCHAR(80), email VARC
 -- Migration 0007: per-user daily AI usage counters (free daily quotas).
  CREATE TABLE public.ai_daily_usage (id SERIAL PRIMARY KEY, user_id INTEGER REFERENCES public.users (id), guest_key VARCHAR(120), usage_date DATE NOT NULL, chat_count INTEGER NOT NULL DEFAULT 0, image_count INTEGER NOT NULL DEFAULT 0, symptom_count INTEGER NOT NULL DEFAULT 0, CONSTRAINT uq_ai_usage_user_date UNIQUE (user_id, usage_date), CONSTRAINT uq_ai_usage_guest_date UNIQUE (guest_key, usage_date));
  ALTER TABLE public.ai_daily_usage ENABLE ROW LEVEL SECURITY;
+
+-- Migration 0008: Web Push subscriptions for emergency notifications.
+ CREATE TABLE public.push_subscriptions (id SERIAL PRIMARY KEY, user_id INTEGER REFERENCES public.users (id), endpoint TEXT NOT NULL UNIQUE, p256dh VARCHAR(200) NOT NULL, auth VARCHAR(200) NOT NULL, created_at TIMESTAMP NOT NULL DEFAULT NOW());
+ ALTER TABLE public.push_subscriptions ENABLE ROW LEVEL SECURITY;

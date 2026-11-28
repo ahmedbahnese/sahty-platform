@@ -3,8 +3,9 @@ import { useAuth } from '../contexts/AuthContext'
 import {
   AlertTriangle, Ambulance, Phone, MapPin, Navigation, Heart,
   Zap, Shield, QrCode, Users, Plus, Trash2, CheckCircle,
-  Clock, Activity, Bell, X, ChevronDown, ChevronUp
+  Clock, Activity, Bell, X, ChevronDown, ChevronUp, Download
 } from 'lucide-react'
+import { subscribeEmergencyPush } from '../lib/push'
 
 const API = '/api'
 
@@ -77,6 +78,7 @@ export default function EmergencyPage() {
 
   /* SOS */
   const [sosActive, setSosActive]     = useState(false)
+  const [notifState, setNotifState]   = useState('')
   const [sosResult, setSosResult]     = useState(null)
   const [sosCountdown, setSosCountdown] = useState(0)
   const sosTimer = useRef(null)
@@ -277,6 +279,48 @@ export default function EmergencyPage() {
   }
 
   useEffect(() => { loadContacts(); loadAlerts() }, [loadContacts, loadAlerts])
+
+  // While on the Emergency page, offer the standalone emergency app manifest,
+  // so installing from here adds "طوارئ صحتي" as its own home-screen app.
+  useEffect(() => {
+    const link = document.querySelector('link[rel="manifest"]')
+    const previous = link ? link.getAttribute('href') : null
+    if (link) link.setAttribute('href', '/manifest-emergency.webmanifest')
+    return () => { if (link && previous) link.setAttribute('href', previous) }
+  }, [])
+
+  const installEmergencyApp = async () => {
+    const promptEvent = window.__sahtyInstallPrompt
+    if (promptEvent) {
+      promptEvent.prompt()
+      const choice = await promptEvent.userChoice.catch(() => null)
+      if (choice && choice.outcome === 'accepted') showToast('جارٍ تثبيت تطبيق الطوارئ على شاشتك')
+      else showToast('يمكنك التثبيت من قائمة المتصفح (إضافة إلى الشاشة الرئيسية)', 'error')
+      window.__sahtyInstallPrompt = null
+    } else if (/iphone|ipad|ipod/i.test(navigator.userAgent)) {
+      showToast('من زر المشاركة اختر «إضافة إلى الشاشة الرئيسية» لتثبيت تطبيق الطوارئ')
+    } else {
+      showToast('من قائمة المتصفح اختر «تثبيت التطبيق» أو «إضافة إلى الشاشة الرئيسية»')
+    }
+  }
+
+  const enableEmergencyNotifications = async () => {
+    if (!('Notification' in window)) { showToast('المتصفح لا يدعم الإشعارات', 'error'); return }
+    const permission = await Notification.requestPermission()
+    if (permission !== 'granted') { showToast('لم يتم منح إذن الإشعارات — يمكنك تفعيلها لاحقاً من إعدادات المتصفح', 'error'); return }
+    setNotifState('loading')
+    const result = await subscribeEmergencyPush()
+    setNotifState(result.ok ? 'on' : '')
+    if (result.ok) {
+      showToast('تم تفعيل إشعارات الطوارئ على هذا الجهاز — ستصلك تنبيهات الطوارئ')
+      try {
+        const registration = await navigator.serviceWorker.ready
+        registration.showNotification('إشعارات الطوارئ مفعّلة', { body: 'سيصلك تنبيه هنا عند وجود طارئ.', icon: '/icons/emergency.svg' })
+      } catch (_) {}
+    } else {
+      showToast(result.reason || 'تعذر تفعيل الإشعارات', 'error')
+    }
+  }
   useEffect(() => { if (tab === 'qr') loadQR() }, [tab, loadQR])
   useEffect(() => () => clearInterval(sosTimer.current), [])
 
@@ -327,9 +371,25 @@ export default function EmergencyPage() {
         </div>
       </div>
 
+      {/* ── تثبيت تطبيق الطوارئ + إشعارات ── */}
+      <div className="max-w-2xl mx-auto px-4">
+        <div className="grid gap-3 sm:grid-cols-2 -mt-4 mb-5 relative">
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+            <div className="flex items-center gap-2 mb-1"><Download size={18} className="text-red-600" /><h2 className="font-bold text-sm">تطبيق الطوارئ على شاشتك</h2></div>
+            <p className="text-xs text-gray-500 mb-3">ثبّت صفحة الطوارئ كتطبيق منفصل يفتح مباشرة من شاشتك الرئيسية.</p>
+            <button onClick={installEmergencyApp} className="w-full rounded-xl bg-red-600 px-3 py-2 text-xs font-semibold text-white hover:bg-red-700">تثبيت تطبيق الطوارئ</button>
+          </div>
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+            <div className="flex items-center gap-2 mb-1"><Bell size={18} className="text-red-600" /><h2 className="font-bold text-sm">إشعارات الطوارئ</h2></div>
+            <p className="text-xs text-gray-500 mb-3">فعّل الإشعارات ليصلك تنبيه على جهازك عند وجود طارئ.</p>
+            <button onClick={enableEmergencyNotifications} disabled={notifState === 'loading'} className="w-full rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700 hover:bg-red-100 disabled:opacity-50">{notifState === 'on' ? 'إشعارات الطوارئ مفعّلة ✓' : notifState === 'loading' ? 'جارٍ التفعيل...' : 'تفعيل إشعارات الطوارئ'}</button>
+          </div>
+        </div>
+      </div>
+
       {/* ── تبويبات ── */}
       <div className="max-w-2xl mx-auto px-4">
-        <div className="flex gap-2 bg-white rounded-2xl p-1.5 shadow-sm border border-gray-100 -mt-4 mb-5 relative">
+        <div className="flex gap-2 bg-white rounded-2xl p-1.5 shadow-sm border border-gray-100 mb-5 relative">
           <TabBtn id="sos"      label="SOS"      icon={AlertTriangle} />
           <TabBtn id="ambulance"label="إسعاف"    icon={Ambulance}    />
           <TabBtn id="qr"       label="QR طوارئ" icon={QrCode}       />

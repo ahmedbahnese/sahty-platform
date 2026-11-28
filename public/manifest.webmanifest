@@ -1,0 +1,67 @@
+{
+  "background_color": "#0f2444",
+  "description": "منصة طبية شاملة: دليل المستشفيات والصيدليات والمعامل ومراكز الأشعة وبنوك الدم، حجز مواعيد، استشارات، وطوارئ.",
+  "dir": "rtl",
+  "display": "standalone",
+  "icons": [
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml"
+    },
+    {
+      "src": "/icons/icon-maskable.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ],
+  "lang": "ar",
+  "name": "صحتي - منصة الرعاية الصحية",
+  "orientation": "portrait",
+  "scope": "/",
+  "short_name": "صحتي",
+  "shortcuts": [
+    {
+      "description": "نداء استغاثة وطلب إسعاف",
+      "icons": [
+        {
+          "src": "/icons/emergency.svg",
+          "sizes": "512x512",
+          "type": "image/svg+xml"
+        }
+      ],
+      "name": "طوارئ",
+      "short_name": "طوارئ",
+      "url": "/emergency"
+    },
+    {
+      "description": "مستشفيات وصيدليات ومعامل ومراكز أشعة وبنوك دم",
+      "icons": [
+        {
+          "src": "/icons/emergency.svg",
+          "sizes": "512x512",
+          "type": "image/svg+xml"
+        }
+      ],
+      "name": "الدليل الطبي",
+      "short_name": "الدليل",
+      "url": "/directory"
+    },
+    {
+      "description": "بنوك الدم وطلبات التبرع",
+      "icons": [
+        {
+          "src": "/icons/emergency.svg",
+          "sizes": "512x512",
+          "type": "image/svg+xml"
+        }
+      ],
+      "name": "بنك الدم",
+      "short_name": "بنك الدم",
+      "url": "/blood-bank"
+    }
+  ],
+  "start_url": "/",
+  "theme_color": "#0f2444"
+}

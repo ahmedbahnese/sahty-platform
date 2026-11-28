@@ -1,3 +1,5 @@
+import json
+import os
 from datetime import datetime
 from functools import wraps
 
@@ -288,3 +290,53 @@ def stats(current_user):
         'users_by_role': users_by_role,
         'providers': provider_counts,
     })
+
+@admin_bp.route('/emergency-broadcast', methods=['POST'])
+@admin_only
+def emergency_broadcast(current_user):
+    """Send an emergency push notification to every subscribed device.
+    Requires VAPID_PRIVATE_KEY in the environment (set by the owner in Vercel)."""
+    from src.models.push_subscription import PushSubscription
+
+    data = request.get_json(silent=True) or {}
+    title = (data.get('title') or 'تنبيه طوارئ — صحتي').strip()
+    body = (data.get('body') or '').strip()
+    url = (data.get('url') or '/emergency').strip()
+    if not body:
+        return jsonify({'message': 'نص التنبيه مطلوب'}), 400
+    private_key = os.environ.get('VAPID_PRIVATE_KEY', '').strip()
+    if not private_key:
+        return jsonify({'message': 'إشعارات الدفع غير مفعّلة بعد — أضف VAPID_PRIVATE_KEY في إعدادات الخادم'}), 503
+    try:
+        from pywebpush import webpush, WebPushException
+    except ImportError:
+        return jsonify({'message': 'مكتبة إشعارات الدفع غير مثبّتة بعد'}), 503
+    subs = PushSubscription.query.all()
+    sent = 0
+    removed = 0
+    for sub in subs:
+        try:
+            webpush(
+                subscription_info={
+                    'endpoint': sub.endpoint,
+                    'keys': {'p256dh': sub.p256dh, 'auth': sub.auth},
+                },
+                data=json.dumps(
+                    {'title': title, 'body': body, 'url': url, 'tag': 'sahty-emergency'},
+                    ensure_ascii=False,
+                ),
+                vapid_private_key=private_key,
+                vapid_claims={'sub': 'mailto:saheaty@gmail.com'},
+            )
+            sent += 1
+        except WebPushException as exc:
+            if exc.response is not None and exc.response.status_code in (404, 410):
+                db.session.delete(sub)
+                removed += 1
+        except Exception:
+            pass
+    db.session.commit()
+    _write_audit(current_user, 'emergency_broadcast',
+                 f'أرسل تنبيه طوارئ إلى {sent} جهاز (حذف {removed} اشتراك منتهي)')
+    return jsonify({'success': True, 'sent': sent, 'removed_expired': removed,
+                    'total': len(subs)}), 200

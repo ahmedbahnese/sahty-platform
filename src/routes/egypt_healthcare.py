@@ -69,7 +69,11 @@ def list_facilities():
         if not open_now or record._is_open_now() is True
     ]
     if nearest and user_lat is not None and user_lng is not None:
-        serialized.sort(key=lambda item: item["distance_km"] if item["distance_km"] is not None else 10**9)
+        # Nearest mode shows the nearest places only (with real coordinates),
+        # not the whole directory merely re-sorted.
+        serialized = [item for item in serialized if item["distance_km"] is not None]
+        serialized.sort(key=lambda item: item["distance_km"])
+        serialized = serialized[:20]
     else:
         serialized.sort(key=lambda item: item["name_ar"])
     if imported_directory_available:
@@ -141,18 +145,40 @@ def list_facilities():
 
 @egypt_healthcare_bp.route("/metadata", methods=["GET"])
 def directory_metadata():
+    from src.models.egypt_healthcare import EgyptCity, EgyptGovernorate
+
     rows = HealthcareDirectoryRecord.query.with_entities(
         HealthcareDirectoryRecord.facility_type,
         HealthcareDirectoryRecord.governorate,
         HealthcareDirectoryRecord.city,
     ).all()
-    if rows:
-        return jsonify({
-            "facility_types": sorted({row[0] for row in rows}),
-            "governorates": sorted({row[1] for row in rows}),
-            "cities": sorted({row[2] for row in rows}),
-        })
-    return jsonify({"facility_types": [], "governorates": [], "cities": []})
+    # Cities grouped by governorate, from the reference table (complete
+    # district lists), so the city filter only offers the selected
+    # governorate's own cities/districts.
+    grouped = {}
+    city_rows = (
+        db.session.query(EgyptCity.name_ar, EgyptGovernorate.name_ar)
+        .join(EgyptGovernorate, EgyptCity.governorate_id == EgyptGovernorate.id)
+        .all()
+    )
+    for city_ar, gov_ar in city_rows:
+        grouped.setdefault(gov_ar, []).append(city_ar)
+    # Any city used by directory records but missing from the reference
+    # table still appears under its governorate.
+    for _type, gov_ar, city_ar in rows:
+        if gov_ar and city_ar:
+            grouped.setdefault(gov_ar, [])
+            if city_ar not in grouped[gov_ar]:
+                grouped[gov_ar].append(city_ar)
+    for gov in grouped:
+        grouped[gov] = sorted(set(grouped[gov]))
+    all_cities = sorted({c for cities in grouped.values() for c in cities})
+    return jsonify({
+        "facility_types": sorted({row[0] for row in rows}),
+        "governorates": sorted({row[1] for row in rows}),
+        "cities": all_cities,
+        "cities_by_governorate": grouped,
+    })
 
 
 @egypt_healthcare_bp.route("/<int:facility_id>", methods=["GET"])

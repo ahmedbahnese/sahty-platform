@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
   Building2, Clock3, FlaskConical, Home, Loader2, MapPin, Navigation,
-  Phone, Pill, Radio, Search, ShieldCheck, Siren, X,
+  Phone, Pill, Radio, Search, ShieldCheck, X,
 } from 'lucide-react'
 
 const TYPES = [
@@ -10,7 +10,6 @@ const TYPES = [
   { value: 'Laboratory', label: 'معامل التحاليل', icon: FlaskConical, color: 'amber' },
   { value: 'Radiology Center', label: 'مراكز الأشعة', icon: Radio, color: 'purple' },
   { value: 'Blood Bank', label: 'بنوك الدم', icon: ShieldCheck, color: 'rose' },
-  { value: 'Ambulance Center', label: 'مراكز الإسعاف', icon: Siren, color: 'red' },
 ]
 
 function DirectoryCard({ item, onDetails }) {
@@ -78,7 +77,19 @@ export default function HealthcareDirectoryPage() {
     setLoading(true); setError('')
     fetch(`/api/facilities?${params}`)
       .then(response => response.ok ? response.json() : Promise.reject())
-      .then(data => setItems(data.facilities || []))
+      .then(data => {
+        const list = data.facilities || []
+        setItems(list)
+        // Nearest mode: take the governorate/city from the closest facility
+        // and apply them automatically, so the user sees the nearest places
+        // in their own area without choosing anything by hand.
+        if (nearest && coords && list.length > 0) {
+          const closest = list[0]
+          if (closest.governorate && closest.governorate !== governorate) setGovernorate(closest.governorate)
+          if (closest.city && closest.city !== city) setCity(closest.city)
+          setLocationMessage(`تم تحديد موقعك تلقائياً: ${closest.governorate}، ${closest.city} — يعرض أقرب الأماكن إليك فقط`)
+        }
+      })
       .catch(() => setError('تعذر تحميل بيانات الدليل الطبي'))
       .finally(() => setLoading(false))
   }, [type, search, governorate, city, specialty, openNow, nearest, coords])
@@ -87,13 +98,20 @@ export default function HealthcareDirectoryPage() {
     if (!navigator.geolocation) { setLocationMessage('المتصفح لا يدعم تحديد الموقع'); return }
     setLocationMessage('جاري طلب موقعك...')
     navigator.geolocation.getCurrentPosition(
-      position => { setCoords({ lat: position.coords.latitude, lng: position.coords.longitude }); setNearest(true); setLocationMessage('تم ترتيب النتائج حسب الأقرب') },
+      position => { setCoords({ lat: position.coords.latitude, lng: position.coords.longitude }); setNearest(true); setLocationMessage('جاري تحديد أقرب الأماكن إليك...') },
       () => { setLocationMessage('تعذر تحديد الموقع؛ يمكنك متابعة البحث بالمحافظة والمدينة') ; setNearest(false) },
       { enableHighAccuracy: true, timeout: 10000 }
     )
   }
 
-  const cities = useMemo(() => metadata.cities || [], [metadata.cities])
+  // When a governorate is chosen, offer only that governorate's own
+  // cities/districts (metadata.cities_by_governorate); otherwise all cities.
+  const cities = useMemo(() => {
+    if (governorate && metadata.cities_by_governorate && metadata.cities_by_governorate[governorate]) {
+      return metadata.cities_by_governorate[governorate]
+    }
+    return metadata.cities || []
+  }, [metadata, governorate])
   const selectedType = TYPES.find(item => item.value === type)
 
   return (
@@ -111,7 +129,7 @@ export default function HealthcareDirectoryPage() {
         <section className="mb-6 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
           <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-5">
             <label className="relative lg:col-span-2"><Search className="absolute right-3 top-3 h-4 w-4 text-gray-400" /><input value={search} onChange={event => setSearch(event.target.value)} placeholder={`ابحث في ${selectedType?.label || 'الدليل'}...`} className="w-full rounded-xl border border-gray-200 py-2.5 pr-10 pl-3 text-sm outline-none focus:border-blue-400" /></label>
-            <select value={governorate} onChange={event => setGovernorate(event.target.value)} className="rounded-xl border border-gray-200 px-3 py-2 text-sm"><option value="">كل المحافظات</option>{metadata.governorates.map(value => <option key={value}>{value}</option>)}</select>
+            <select value={governorate} onChange={event => { setGovernorate(event.target.value); setCity('') }} className="rounded-xl border border-gray-200 px-3 py-2 text-sm"><option value="">كل المحافظات</option>{metadata.governorates.map(value => <option key={value}>{value}</option>)}</select>
             <select value={city} onChange={event => setCity(event.target.value)} className="rounded-xl border border-gray-200 px-3 py-2 text-sm"><option value="">كل المدن</option>{cities.map(value => <option key={value}>{value}</option>)}</select>
             <input value={specialty} onChange={event => setSpecialty(event.target.value)} placeholder="التخصص / الخدمة" className="rounded-xl border border-gray-200 px-3 py-2 text-sm outline-none" />
           </div>
@@ -128,7 +146,7 @@ export default function HealthcareDirectoryPage() {
         {!loading && !error && items.length === 0 && <div className="rounded-2xl border border-dashed border-gray-200 bg-white py-20 text-center text-gray-500"><ShieldCheck className="mx-auto mb-3 h-10 w-10 text-gray-300" /><p>لا توجد نتائج مطابقة للفلاتر الحالية</p></div>}
         {!loading && !error && items.length > 0 && <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{items.map(item => <DirectoryCard key={item.id} item={item} onDetails={setSelected} />)}</div>}
       </div>
-      {selected && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={event => event.target === event.currentTarget && setSelected(null)}><div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-6"><div className="mb-5 flex items-start justify-between"><div><h2 className="text-xl font-bold">{selected.name_ar}</h2><p className="text-sm text-gray-500">{selected.name_en}</p></div><button onClick={() => setSelected(null)}><X className="h-5 w-5 text-gray-500" /></button></div><div className="space-y-3 text-sm text-gray-700"><p><b>النوع:</b> {selected.facility_type}</p><p><b>العنوان:</b> {selected.full_address || `${selected.city}، ${selected.governorate}`}</p><p><b>الهاتف:</b> {selected.phone_numbers || 'غير متاح'}</p><p><b>الخدمات:</b> {selected.services || 'غير متاح في المصدر'}</p><p><b>المصدر:</b> {selected.data_source || 'قاعدة الدليل المرفقة'}</p></div></div></div>}
+      {selected && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={event => event.target === event.currentTarget && setSelected(null)}><div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-6"><div className="mb-5 flex items-start justify-between"><div><h2 className="text-xl font-bold">{selected.name_ar}</h2><p className="text-sm text-gray-500">{selected.name_en}</p></div><button onClick={() => setSelected(null)}><X className="h-5 w-5 text-gray-500" /></button></div><div className="space-y-3 text-sm text-gray-700"><p><b>النوع:</b> {selected.facility_type}</p><p><b>العنوان:</b> {selected.full_address || `${selected.city}، ${selected.governorate}`}</p><p><b>الهاتف:</b> {selected.phone_numbers || 'غير متاح'}</p><p><b>الخدمات:</b> {selected.services || 'غير متاحة'}</p></div></div></div>}
     </div>
   )
 }
