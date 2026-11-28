@@ -331,9 +331,13 @@ def _apply_vercel_database_rate_limit():
             ).delete(synchronize_session=False)
         db.session.commit()
     except Exception:
+        # Fail OPEN, never fail closed: a rate-limit storage failure must
+        # never take down the whole API (2026-11-28 outage: pool_size=1 +
+        # hot-row contention made every check time out and 503'd all /api
+        # traffic). The in-memory Flask-Limiter still applies as a backstop.
         db.session.rollback()
-        app.logger.exception('Shared API rate-limit storage failed')
-        return jsonify({'error': 'تعذر التحقق من حد الطلبات'}), 503
+        app.logger.exception('Shared API rate-limit storage failed (fail-open)')
+        return None
 
     if exceeded_retry_after is not None:
         response = jsonify({'error': 'تجاوزت الحد المسموح للطلبات، حاول لاحقاً'})
@@ -391,8 +395,8 @@ engine_options = {
 }
 if database_url.startswith(('postgresql://', 'postgresql+psycopg2://')):
     engine_options.update({
-        'pool_size': int(os.environ.get('DB_POOL_SIZE', '1' if os.environ.get('VERCEL') == '1' else '10')),
-        'max_overflow': int(os.environ.get('DB_MAX_OVERFLOW', '0' if os.environ.get('VERCEL') == '1' else '20')),
+        'pool_size': int(os.environ.get('DB_POOL_SIZE', '5' if os.environ.get('VERCEL') == '1' else '10')),
+        'max_overflow': int(os.environ.get('DB_MAX_OVERFLOW', '5' if os.environ.get('VERCEL') == '1' else '20')),
         'pool_timeout': int(os.environ.get('DB_POOL_TIMEOUT', '10' if os.environ.get('VERCEL') == '1' else '30')),
     })
 app.config['SQLALCHEMY_ENGINE_OPTIONS'] = engine_options
