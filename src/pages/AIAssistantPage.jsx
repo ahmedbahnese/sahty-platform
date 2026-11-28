@@ -30,6 +30,22 @@ export default function AIAssistantPage() {
   const [inputMessage, setInputMessage] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [isListening, setIsListening] = useState(false)
+  const [aiUsage, setAiUsage] = useState(null)
+
+  const fetchAiUsage = async () => {
+    try {
+      const res = await fetch('/api/ai/usage', {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+      })
+      if (res.ok) {
+        const data = await res.json()
+        if (data.usage) setAiUsage(data.usage)
+      }
+    } catch (e) { /* the quota banner stays hidden if the endpoint is unavailable */ }
+  }
+
+  useEffect(() => { fetchAiUsage() }, [])
+
   const [selectedImage, setSelectedImage] = useState(null)
   const [imagePreview, setImagePreview] = useState(null)
   const [symptoms, setSymptoms] = useState([''])
@@ -108,13 +124,14 @@ export default function AIAssistantPage() {
       const botMessage = {
         id: Date.now() + 1,
         type: 'bot',
-        content: data.response || 'عذراً، لم أتمكن من فهم سؤالك. يرجى المحاولة مرة أخرى.',
+        content: data.code === 'ai_daily_limit' ? data.error : (data.response || 'عذراً، لم أتمكن من فهم سؤالك. يرجى المحاولة مرة أخرى.'),
         urgency: data.urgency_level,
         specialty: data.recommended_specialty,
         timestamp: new Date().toISOString()
       }
 
       setMessages(prev => [...prev, botMessage])
+      fetchAiUsage()
     } catch (error) {
       console.error('خطأ في إرسال الرسالة:', error)
       const errorMessage = {
@@ -200,6 +217,7 @@ export default function AIAssistantPage() {
 
       const data = await response.json()
       setAnalysisResult(data)
+      fetchAiUsage()
     } catch (error) {
       console.error('خطأ في تحليل الصورة:', error)
       alert('حدث خطأ في تحليل الصورة')
@@ -245,6 +263,7 @@ export default function AIAssistantPage() {
 
       const data = await response.json()
       setAnalysisResult(data)
+      fetchAiUsage()
     } catch (error) {
       console.error('خطأ في فحص الأعراض:', error)
       alert('حدث خطأ في فحص الأعراض')
@@ -278,6 +297,31 @@ export default function AIAssistantPage() {
             مساعد ذكي متطور لتقديم الاستشارات الطبية الأولية وتحليل الصور الطبية
           </p>
         </div>
+
+        {/* الحصة اليومية المجانية */}
+        {aiUsage && (
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 mb-8 p-5">
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+              <p className="text-sm font-bold text-gray-800">حصتك اليومية المجانية من الذكاء الاصطناعي</p>
+              <span className="text-xs text-gray-500">تتجدد غداً في منتصف الليل بتوقيت القاهرة</span>
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+              {[
+                { label: 'رسائل الشات', value: aiUsage.chat },
+                { label: 'تحليل الصور', value: aiUsage.image },
+                { label: 'فحص الأعراض', value: aiUsage.symptom },
+              ].map(item => (
+                <div key={item.label} className="bg-gray-50 rounded-xl p-3 text-center">
+                  <p className="text-lg font-bold text-blue-600">{item.value.remaining} / {item.value.limit}</p>
+                  <p className="text-xs text-gray-600 mt-0.5">{item.label} متبقية اليوم</p>
+                  <div className="h-1.5 bg-gray-200 rounded-full mt-2 overflow-hidden">
+                    <div className="h-full bg-blue-500 rounded-full" style={{ width: `${(item.value.remaining / item.value.limit) * 100}%` }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* التبويبات */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 mb-8">
@@ -671,4 +715,5 @@ export default function AIAssistantPage() {
     </div>
   )
 }
+
 
