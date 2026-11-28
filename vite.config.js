@@ -5,10 +5,12 @@ import path from 'path'
 import { fileURLToPath } from 'url'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
+
+// Production is live: it connects to the Supabase database via the Flask API.
+// Only the deploy/vercel-python-311 preview keeps the static-only landing.
 const isSahtyStaticPreview =
-  process.env.VERCEL_ENV === 'production' ||
-  (process.env.VERCEL_ENV === 'preview' &&
-    process.env.VERCEL_GIT_COMMIT_REF === 'deploy/vercel-python-311')
+  process.env.VERCEL_ENV === 'preview' &&
+  process.env.VERCEL_GIT_COMMIT_REF === 'deploy/vercel-python-311'
 
 // https://vite.dev/config/
 export default defineConfig({
