@@ -66,6 +66,11 @@ export default function HealthcareDirectoryPage() {
   }, [])
 
   useEffect(() => {
+    // Ignore stale responses: when filters change quickly, an older
+    // request can resolve after the newest one and overwrite the list
+    // with another governorate's results. Only the latest request may
+    // update the displayed list.
+    let cancelled = false
     const params = new URLSearchParams({ type, per_page: '60' })
     if (search.trim()) params.set('search', search.trim())
     if (governorate) params.set('governorate', governorate)
@@ -74,10 +79,11 @@ export default function HealthcareDirectoryPage() {
     if (openNow) params.set('open_now', '1')
     if (nearest) params.set('nearest', '1')
     if (coords) { params.set('lat', coords.lat); params.set('lng', coords.lng) }
-    setLoading(true); setError('')
+    setLoading(true); setError(''); setItems([])
     fetch(`/api/facilities?${params}`)
       .then(response => response.ok ? response.json() : Promise.reject())
       .then(data => {
+        if (cancelled) return
         const list = data.facilities || []
         setItems(list)
         // Nearest mode: take the governorate/city from the closest facility
@@ -90,8 +96,9 @@ export default function HealthcareDirectoryPage() {
           setLocationMessage(`تم تحديد موقعك تلقائياً: ${closest.governorate}، ${closest.city} — يعرض أقرب الأماكن إليك فقط`)
         }
       })
-      .catch(() => setError('تعذر تحميل بيانات الدليل الطبي'))
-      .finally(() => setLoading(false))
+      .catch(() => { if (!cancelled) setError('تعذر تحميل بيانات الدليل الطبي') })
+      .finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
   }, [type, search, governorate, city, specialty, openNow, nearest, coords])
 
   const requestLocation = () => {
