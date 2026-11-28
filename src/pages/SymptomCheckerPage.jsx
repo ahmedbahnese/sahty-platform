@@ -32,6 +32,23 @@ export default function SymptomCheckerPage() {
   const [isListening, setIsListening] = useState(false)
   const [followUpInput, setFollowUpInput] = useState('')
   const [phase, setPhase] = useState('input') // input | chat
+  const [aiUsage, setAiUsage] = useState(null)
+
+  const fetchAiUsage = async () => {
+    try {
+      const res = await fetch('/api/ai/usage', {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+      })
+      if (res.ok) {
+        const data = await res.json()
+        if (data.usage) setAiUsage(data.usage)
+      }
+    } catch (e) { /* the quota banner stays hidden if the endpoint is unavailable */ }
+  }
+
+  useEffect(() => { fetchAiUsage() }, [])
+
+
   const fileRef = useRef(null)
   const messagesEndRef = useRef(null)
 
@@ -114,6 +131,7 @@ export default function SymptomCheckerPage() {
         { role: 'user', content: userContent },
         { role: 'assistant', content: botMsg.content },
       ])
+      fetchAiUsage()
     } catch {
       setMessages(prev => [...prev, { id: Date.now() + 2, role: 'bot', content: 'حدث خطأ في الاتصال. يرجى المحاولة مرة أخرى.' }])
     } finally { setLoading(false) }
@@ -140,6 +158,7 @@ export default function SymptomCheckerPage() {
       }
       setMessages(prev => [...prev, botMsg])
       setHistory([...newHistory, { role: 'assistant', content: botMsg.content }])
+      fetchAiUsage()
     } catch {
       setMessages(prev => [...prev, { id: Date.now() + 2, role: 'bot', content: 'حدث خطأ في الاتصال.' }])
     } finally { setLoading(false) }
@@ -177,6 +196,28 @@ export default function SymptomCheckerPage() {
             في حالات الطوارئ اتصل بالإسعاف فوراً.
           </p>
         </div>
+
+        {/* الحصة اليومية المجانية */}
+        {aiUsage && (
+          <div className="mb-6 bg-white border border-gray-100 rounded-2xl p-4 shadow-sm">
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+              <p className="text-sm font-bold text-gray-800">حصتك اليومية المجانية من الذكاء الاصطناعي</p>
+              <span className="text-xs text-gray-500">تتجدد غداً في منتصف الليل بتوقيت القاهرة</span>
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+              {[
+                { label: 'رسائل الشات', value: aiUsage.chat },
+                { label: 'تحليل الصور', value: aiUsage.image },
+                { label: 'فحص الأعراض', value: aiUsage.symptom },
+              ].map(item => (
+                <div key={item.label} className="bg-gray-50 rounded-xl p-3 text-center">
+                  <p className="text-base font-bold text-blue-600">{item.value.remaining} / {item.value.limit}</p>
+                  <p className="text-xs text-gray-600 mt-0.5">{item.label} متبقية</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Input phase */}
         {phase === 'input' && (
@@ -363,3 +404,4 @@ export default function SymptomCheckerPage() {
     </div>
   )
 }
+
