@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
   Building2, Clock3, FlaskConical, Home, Loader2, MapPin, Navigation,
-  Phone, Pill, Radio, Search, ShieldCheck, X,
+  Phone, Pill, Radio, Search, ShieldCheck, Siren, X,
 } from 'lucide-react'
 
 const TYPES = [
@@ -10,6 +10,7 @@ const TYPES = [
   { value: 'Laboratory', label: 'معامل التحاليل', icon: FlaskConical, color: 'amber' },
   { value: 'Radiology Center', label: 'مراكز الأشعة', icon: Radio, color: 'purple' },
   { value: 'Blood Bank', label: 'بنوك الدم', icon: ShieldCheck, color: 'rose' },
+  { value: 'Ambulance Center', label: 'مراكز الإسعاف', icon: Siren, color: 'red' },
 ]
 
 function DirectoryCard({ item, onDetails }) {
