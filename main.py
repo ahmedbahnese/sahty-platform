@@ -124,6 +124,12 @@ app.config['JWT_SECRET'] = os.environ.get('JWT_SECRET', app.config['SECRET_KEY']
 # ── Environment guards ─────────────────────────────────────────────────────────
 environment_name = os.environ.get('FLASK_ENV', 'production').lower()
 production_like = environment_name in ('staging', 'production')
+app.config['SAHTY_PRODUCTION_LIKE'] = production_like
+# Clinical AI sends health-related user input to an external model provider.
+# Keep it unavailable unless the deployment explicitly opts in after review.
+app.config['SAHTY_CLINICAL_AI_ENABLED'] = os.environ.get(
+    'SAHTY_CLINICAL_AI_ENABLED', 'false'
+).strip().lower() in ('1', 'true', 'yes')
 
 # ── Security headers ──────────────────────────────────────────────────────────
 @app.after_request

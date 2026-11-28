@@ -101,7 +101,8 @@ def get_stats():
 # ────────────────────────────────────────────
 
 @blood_bank_bp.route('/donors', methods=['GET'])
-def list_donors():
+@token_required
+def list_donors(current_user):
     """قائمة المتبرعين (بحث حسب فصيلة الدم والمدينة)"""
     blood_type = request.args.get('blood_type')
     city       = request.args.get('city')

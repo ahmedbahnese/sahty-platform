@@ -33,6 +33,20 @@ def _allowed(filename, allowed_set):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in allowed_set
 
 
+@ai_bp.before_request
+def require_clinical_ai_review():
+    """Do not expose unvalidated clinical AI workflows by default."""
+    if (
+        current_app.config.get('SAHTY_PRODUCTION_LIKE', False)
+        and not current_app.config.get('SAHTY_CLINICAL_AI_ENABLED', False)
+    ):
+        return jsonify({
+            'success': False,
+            'code': 'clinical_ai_unavailable',
+            'error': 'خدمات الذكاء الاصطناعي الطبي غير متاحة حالياً حتى استكمال مراجعة السلامة والخصوصية.',
+        }), 503
+
+
 # ────────────────────────────────────────────────────
 # المساعد الذكي (نصي)
 # ────────────────────────────────────────────────────

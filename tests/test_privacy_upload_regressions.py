@@ -108,3 +108,19 @@ def test_vercel_database_limiter_uses_shared_counter(client, app, monkeypatch):
     finally:
         app.config["TESTING"] = True
         db.session.remove()
+
+
+def test_clinical_ai_is_unavailable_without_explicit_enablement(client, app, monkeypatch):
+    monkeypatch.setitem(app.config, 'SAHTY_PRODUCTION_LIKE', True)
+    monkeypatch.setitem(app.config, 'SAHTY_CLINICAL_AI_ENABLED', False)
+
+    response = client.post('/api/ai/symptom-checker', json={'symptoms': ['صداع']})
+
+    assert response.status_code == 503
+    assert response.get_json()['code'] == 'clinical_ai_unavailable'
+
+
+def test_public_donor_listing_requires_authentication(client):
+    response = client.get('/api/blood-bank/donors')
+
+    assert response.status_code == 401
