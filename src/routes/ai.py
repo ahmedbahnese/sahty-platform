@@ -27,6 +27,16 @@ def get_ai_service():
     return _ai_service
 
 
+@ai_bp.after_request
+def _map_provider_limit_to_429(response):
+    """A provider free-limit failure surfaces as HTTP 429 (not a 200 with an error body)."""
+    if response.is_json:
+        body = response.get_json(silent=True) or {}
+        if isinstance(body, dict) and body.get('code') == 'ai_provider_limit':
+            response.status_code = 429
+    return response
+
+
 # ────────────────────────────────────────────────────
 # الحصة اليومية المجانية للذكاء الاصطناعي
 # مجانية بالكامل للمستخدم، وتتجدد كل يوم في منتصف الليل
@@ -548,4 +558,5 @@ def health_tips(current_user):
         'tips': result.get('response', ''),
         'timestamp': datetime.now().isoformat()
     })
+
 

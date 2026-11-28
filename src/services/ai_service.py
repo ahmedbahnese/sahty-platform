@@ -13,26 +13,201 @@ import io
 from flask import current_app
 
 
+# ──────────────────────────────────────────────
+# مزوّدو الذكاء الاصطناعي (مجانيون، متوافقون مع OpenAI)
+# ──────────────────────────────────────────────
+# Gemini أساسي (شات + صور + أعراض) وGroq احتياطي + صوت (Whisper).
+# OpenAI يبقى خياراً للتوافق مع الإعداد القديم.
+# اختيار المزوّد من متغيرات البيئة:
+#   AI_PRIMARY_PROVIDER  (الافتراضي: gemini)
+#   AI_FALLBACK_PROVIDER (الافتراضي: groq)
+# المفاتيح: GEMINI_API_KEY / GROQ_API_KEY / OPENAI_API_KEY.
+# المزوّد الذي ليس له مفتاح يُتخطَّى بصمت.
+PROVIDERS = {
+    'gemini': {
+        'base_url': 'https://generativelanguage.googleapis.com/v1beta/openai/',
+        'key_env': 'GEMINI_API_KEY',
+        'chat_model': 'gemini-2.0-flash',
+        'vision_model': 'gemini-2.0-flash',
+        'voice_model': None,  # واجهة OpenAI المتوافقة من Gemini لا تدعم تحويل الصوت إلى نص
+    },
+    'groq': {
+        'base_url': 'https://api.groq.com/openai/v1',
+        'key_env': 'GROQ_API_KEY',
+        'chat_model': 'llama-3.3-70b-versatile',
+        'vision_model': 'meta-llama/llama-4-scout-17b-16e-instruct',
+        'voice_model': 'whisper-large-v3-turbo',
+    },
+    'openai': {
+        'base_url': None,  # يُؤخذ من OPENAI_API_BASE أو الافتراضي لدى OpenAI
+        'key_env': 'OPENAI_API_KEY',
+        'chat_model': 'gpt-4o',
+        'vision_model': 'gpt-4o',
+        'voice_model': 'whisper-1',
+    },
+}
+
+_MODEL_KEY = {'chat': 'chat_model', 'vision': 'vision_model', 'voice': 'voice_model'}
+_FREE_LIMIT_MESSAGE = (
+    'انتهت الحصة المجانية لدى مزوّد الذكاء الاصطناعي. '
+    'حاول غداً بعد تجدد الحد المجاني.'
+)
+
+
+class _AIProviderLimitError(Exception):
+    """Raised when a provider reports its free quota/rate limit is exhausted."""
+
+
+def _is_rate_limit_error(exc: BaseException) -> bool:
+    """True when an exception looks like a provider rate-limit/quota failure."""
+    if isinstance(exc, getattr(openai, 'RateLimitError', ())):
+        return True
+    if getattr(exc, 'status_code', None) == 429:
+        return True
+    text = str(exc).lower()
+    return any(
+        marker in text
+        for marker in (
+            '429', 'rate limit', 'rate_limit', 'ratelimit', 'too many requests',
+            'quota', 'insufficient_quota', 'exceeded your current quota',
+        )
+    )
+
+
+def _failure_dict(exc: BaseException, **extra) -> Dict:
+    """Public failure dict for a provider error, preserving the old return shapes."""
+    if isinstance(exc, _AIProviderLimitError):
+        result = {
+            'success': False,
+            'code': 'ai_provider_limit',
+            'error': _FREE_LIMIT_MESSAGE,
+            'timestamp': datetime.now().isoformat(),
+        }
+    else:
+        result = {
+            'success': False,
+            'error': str(exc),
+            'timestamp': datetime.now().isoformat(),
+        }
+    result.update(extra)
+    return result
+
+
 class AIService:
     def __init__(self):
         """تهيئة خدمة الذكاء الاصطناعي (lazy — client created on first use)"""
-        self._client = None
+        self._clients = {}
+
+    # ── المزوّدون ──────────────────────────────────────
+    def _provider_chain(self, kind: str) -> List[str]:
+        """Ordered providers to try for a kind ('chat'/'vision'/'voice')."""
+        primary = os.getenv('AI_PRIMARY_PROVIDER', 'gemini').strip().lower()
+        fallback = os.getenv('AI_FALLBACK_PROVIDER', 'groq').strip().lower()
+        model_key = _MODEL_KEY[kind]
+        chain = []
+        for name in (primary, fallback):
+            if name not in PROVIDERS or name in chain:
+                continue
+            if PROVIDERS[name].get(model_key) is None:
+                continue
+            if not os.getenv(PROVIDERS[name]['key_env']):
+                continue
+            chain.append(name)
+        return chain
+
+    def _voice_chain(self) -> List[str]:
+        """Voice: Groq first (Whisper), then OpenAI if configured. Gemini has no audio transcription."""
+        chain = []
+        for name in ('groq', 'openai'):
+            if PROVIDERS[name].get('voice_model') is None:
+                continue
+            if not os.getenv(PROVIDERS[name]['key_env']):
+                continue
+            chain.append(name)
+        return chain
+
+    def _get_client(self, provider_name: str):
+        if provider_name not in self._clients:
+            cfg = PROVIDERS[provider_name]
+            api_key = os.getenv(cfg['key_env'])
+            if not api_key:
+                raise ValueError(
+                    f"{cfg['key_env']} غير محدد. "
+                    'يرجى إضافة مفتاح المزوّد في الإعدادات لاستخدام ميزات الذكاء الاصطناعي.'
+                )
+            kwargs = {'api_key': api_key}
+            base_url = cfg['base_url'] or os.getenv('OPENAI_API_BASE')
+            if base_url:
+                kwargs['base_url'] = base_url
+            self._clients[provider_name] = openai.OpenAI(**kwargs)
+        return self._clients[provider_name]
 
     @property
     def client(self):
-        if self._client is None:
-            api_key = os.getenv('OPENAI_API_KEY')
-            if not api_key:
-                raise ValueError(
-                    'OPENAI_API_KEY غير محدد. '
-                    'يرجى إضافة مفتاح OpenAI في الإعدادات لاستخدام ميزات الذكاء الاصطناعي.'
+        """Primary provider's client (backward compat for the old single-client use)."""
+        chain = self._provider_chain('chat') or self._provider_chain('vision')
+        if not chain:
+            raise ValueError(
+                'لم يتم إعداد أي مزوّد ذكاء اصطناعي. '
+                'أضف GEMINI_API_KEY أو GROQ_API_KEY في الإعدادات.'
+            )
+        return self._get_client(chain[0])
+
+    def _chat_complete(self, kind: str, messages: List[Dict], **kwargs) -> str:
+        """Chat/vision completion: primary once, then fallback once. Returns the response text."""
+        chain = self._provider_chain(kind)
+        if not chain:
+            raise ValueError(
+                'لم يتم إعداد أي مزوّد ذكاء اصطناعي. '
+                'أضف GEMINI_API_KEY أو GROQ_API_KEY في الإعدادات.'
+            )
+        model_key = _MODEL_KEY[kind]
+        last_error = None
+        saw_rate_limit = False
+        for name in chain:
+            try:
+                response = self._get_client(name).chat.completions.create(
+                    model=PROVIDERS[name][model_key],
+                    messages=messages,
+                    **kwargs,
                 )
-            base_url = os.getenv('OPENAI_API_BASE')
-            kwargs = {'api_key': api_key}
-            if base_url:
-                kwargs['base_url'] = base_url
-            self._client = openai.OpenAI(**kwargs)
-        return self._client
+                return response.choices[0].message.content
+            except Exception as exc:  # noqa: BLE001 — any provider failure triggers one fallback attempt
+                last_error = exc
+                if _is_rate_limit_error(exc):
+                    saw_rate_limit = True
+        if saw_rate_limit:
+            raise _AIProviderLimitError(str(last_error))
+        raise last_error
+
+    def _transcribe(self, audio_file, language: str = 'ar') -> str:
+        """Audio transcription: Groq (Whisper) first, then OpenAI. Gemini has no transcription."""
+        chain = self._voice_chain()
+        if not chain:
+            raise ValueError(
+                'لا يوجد مزوّد صوت مُهيَّأ. أضف GROQ_API_KEY أو OPENAI_API_KEY لاستخدام المساعد الصوتي.'
+            )
+        last_error = None
+        saw_rate_limit = False
+        for name in chain:
+            try:
+                try:
+                    audio_file.seek(0)
+                except Exception:
+                    pass
+                response = self._get_client(name).audio.transcriptions.create(
+                    model=PROVIDERS[name]['voice_model'],
+                    file=audio_file,
+                    language=language,
+                )
+                return response.text
+            except Exception as exc:  # noqa: BLE001 — any provider failure triggers one fallback attempt
+                last_error = exc
+                if _is_rate_limit_error(exc):
+                    saw_rate_limit = True
+        if saw_rate_limit:
+            raise _AIProviderLimitError(str(last_error))
+        raise last_error
 
     # ──────────────────────────────────────────────
     # تحليل الصور الطبية
@@ -75,14 +250,9 @@ class AIService:
                 )
                 messages[1]["content"][0]["text"] += patient_context
 
-            response = self.client.chat.completions.create(
-                model="gpt-4o",
-                messages=messages,
-                max_tokens=1500,
-                temperature=0.3
+            analysis_result = self._chat_complete(
+                'vision', messages, max_tokens=1500, temperature=0.3
             )
-
-            analysis_result = response.choices[0].message.content
             image_analysis = self._analyze_image_properties(image_data)
 
             return {
@@ -97,11 +267,7 @@ class AIService:
             }
 
         except Exception as e:
-            return {
-                'success': False,
-                'error': str(e),
-                'timestamp': datetime.now().isoformat()
-            }
+            return _failure_dict(e)
 
     def _analyze_image_properties(self, image_data: bytes) -> Dict:
         try:
@@ -180,14 +346,9 @@ class AIService:
 
             messages.append({"role": "user", "content": user_input})
 
-            response = self.client.chat.completions.create(
-                model="gpt-4o",
-                messages=messages,
-                max_tokens=800,
-                temperature=0.7
+            assistant_response = self._chat_complete(
+                'chat', messages, max_tokens=800, temperature=0.7
             )
-
-            assistant_response = response.choices[0].message.content
             analysis = self._analyze_assistant_response(assistant_response)
 
             return {
@@ -200,12 +361,9 @@ class AIService:
             }
 
         except Exception as e:
-            return {
-                'success': False,
-                'error': str(e),
-                'response': 'عذراً، حدث خطأ في النظام. يرجى المحاولة مرة أخرى.',
-                'timestamp': datetime.now().isoformat()
-            }
+            return _failure_dict(
+                e, response='عذراً، حدث خطأ في النظام. يرجى المحاولة مرة أخرى.'
+            )
 
     def _analyze_assistant_response(self, response_text: str) -> Dict:
         analysis = {'urgency_level': 'عادي', 'recommended_specialty': None, 'follow_up_needed': False}
@@ -261,8 +419,8 @@ class AIService:
                     f"- التاريخ المرضي: {patient_info.get('medical_history', 'غير محدد')}"
                 )
 
-            response = self.client.chat.completions.create(
-                model="gpt-4o",
+            analysis = self._chat_complete(
+                'chat',
                 messages=[
                     {"role": "system", "content": "أنت طبيب متخصص في التشخيص الأولي. قدم تحليلاً دقيقاً ومفيداً باللغة العربية."},
                     {"role": "user", "content": prompt}
@@ -270,8 +428,6 @@ class AIService:
                 max_tokens=1200,
                 temperature=0.5
             )
-
-            analysis = response.choices[0].message.content
 
             return {
                 'success': True,
@@ -282,7 +438,7 @@ class AIService:
             }
 
         except Exception as e:
-            return {'success': False, 'error': str(e), 'timestamp': datetime.now().isoformat()}
+            return _failure_dict(e)
 
     # ──────────────────────────────────────────────
     # تحليل الصوت
@@ -294,13 +450,7 @@ class AIService:
             audio_file = io.BytesIO(audio_data)
             audio_file.name = "audio.webm"
 
-            transcript_response = self.client.audio.transcriptions.create(
-                model="whisper-1",
-                file=audio_file,
-                language="ar"
-            )
-
-            transcribed_text = transcript_response.text
+            transcribed_text = self._transcribe(audio_file, language="ar")
 
             # معالجة النص المُحوَّل كمحادثة طبية
             assistant_result = self.voice_assistant(transcribed_text, context)
@@ -316,7 +466,7 @@ class AIService:
             }
 
         except Exception as e:
-            return {'success': False, 'error': str(e), 'timestamp': datetime.now().isoformat()}
+            return _failure_dict(e)
 
     # ──────────────────────────────────────────────
     # متابعة الأدوية بالذكاء الاصطناعي
@@ -340,8 +490,8 @@ class AIService:
                 "5. تحذيرات صحية إذا وُجدت"
             )
 
-            response = self.client.chat.completions.create(
-                model="gpt-4o",
+            analysis = self._chat_complete(
+                'chat',
                 messages=[
                     {"role": "system", "content": "أنت صيدلاني ومتخصص في إدارة الأدوية. قدم تقييماً دقيقاً باللغة العربية."},
                     {"role": "user", "content": prompt}
@@ -350,8 +500,6 @@ class AIService:
                 temperature=0.4
             )
 
-            analysis = response.choices[0].message.content
-
             return {
                 'success': True,
                 'analysis': analysis,
@@ -359,15 +507,15 @@ class AIService:
             }
 
         except Exception as e:
-            return {'success': False, 'error': str(e), 'timestamp': datetime.now().isoformat()}
+            return _failure_dict(e)
 
     def check_drug_interactions(self, medications: List[str]) -> Dict:
         """فحص تفاعلات الأدوية"""
         try:
             meds_text = "، ".join(medications)
 
-            response = self.client.chat.completions.create(
-                model="gpt-4o",
+            analysis = self._chat_complete(
+                'chat',
                 messages=[
                     {"role": "system", "content": "أنت صيدلاني متخصص في فحص تفاعلات الأدوية. قدم تحليلاً دقيقاً باللغة العربية."},
                     {"role": "user", "content": (
@@ -380,8 +528,6 @@ class AIService:
                 temperature=0.3
             )
 
-            analysis = response.choices[0].message.content
-
             return {
                 'success': True,
                 'analysis': analysis,
@@ -390,7 +536,7 @@ class AIService:
             }
 
         except Exception as e:
-            return {'success': False, 'error': str(e), 'timestamp': datetime.now().isoformat()}
+            return _failure_dict(e)
 
     # ──────────────────────────────────────────────
     # Family Health Manager - تحليل صحة الأسرة
@@ -400,8 +546,8 @@ class AIService:
         try:
             family_data = json.dumps(family_members, ensure_ascii=False, indent=2)
 
-            response = self.client.chat.completions.create(
-                model="gpt-4o",
+            analysis = self._chat_complete(
+                'chat',
                 messages=[
                     {"role": "system", "content": "أنت طبيب أسرة متخصص في الرعاية الصحية الشاملة. قدم تحليلاً دقيقاً باللغة العربية."},
                     {"role": "user", "content": (
@@ -418,8 +564,6 @@ class AIService:
                 temperature=0.5
             )
 
-            analysis = response.choices[0].message.content
-
             return {
                 'success': True,
                 'analysis': analysis,
@@ -428,13 +572,13 @@ class AIService:
             }
 
         except Exception as e:
-            return {'success': False, 'error': str(e), 'timestamp': datetime.now().isoformat()}
+            return _failure_dict(e)
 
     def generate_health_report(self, patient_data: Dict) -> Dict:
         """إنتاج تقرير صحي شامل"""
         try:
-            response = self.client.chat.completions.create(
-                model="gpt-4o",
+            report_text = self._chat_complete(
+                'chat',
                 messages=[
                     {"role": "system", "content": "أنت طبيب متخصص في كتابة التقارير الطبية الشاملة باللغة العربية."},
                     {"role": "user", "content": (
@@ -454,12 +598,12 @@ class AIService:
 
             return {
                 'success': True,
-                'report': response.choices[0].message.content,
+                'report': report_text,
                 'timestamp': datetime.now().isoformat()
             }
 
         except Exception as e:
-            return {'success': False, 'error': str(e), 'timestamp': datetime.now().isoformat()}
+            return _failure_dict(e)
 
     # ──────────────────────────────────────────────
     # تحليل المستندات الطبية (تقارير، وصفات، نتائج)
@@ -521,10 +665,9 @@ class AIService:
                     {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_base64}"}}
                 ]}
             ]
-            response = self.client.chat.completions.create(
-                model="gpt-4o", messages=messages, max_tokens=1500, temperature=0.3,
+            result_text = self._chat_complete(
+                'vision', messages, max_tokens=1500, temperature=0.3,
             )
-            result_text = response.choices[0].message.content
             return {
                 'success': True,
                 'analysis': result_text,
@@ -534,7 +677,7 @@ class AIService:
                 'timestamp': datetime.now().isoformat(),
             }
         except Exception as e:
-            return {'success': False, 'error': str(e), 'timestamp': datetime.now().isoformat()}
+            return _failure_dict(e)
 
     def symptom_checker_with_followup(self, symptoms: list, patient_info: dict = None,
                                        conversation_history: list = None,
@@ -577,10 +720,10 @@ class AIService:
                 ]})
             else:
                 messages.append({"role": "user", "content": symptom_text})
-            response = self.client.chat.completions.create(
-                model="gpt-4o", messages=messages, max_tokens=1000, temperature=0.5,
+            result_text = self._chat_complete(
+                'vision' if image_data else 'chat', messages,
+                max_tokens=1000, temperature=0.5,
             )
-            result_text = response.choices[0].message.content
             analysis = self._analyze_assistant_response(result_text)
             return {
                 'success': True,
@@ -591,4 +734,5 @@ class AIService:
                 'timestamp': datetime.now().isoformat(),
             }
         except Exception as e:
-            return {'success': False, 'error': str(e), 'timestamp': datetime.now().isoformat()}
+            return _failure_dict(e)
+
