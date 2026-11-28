@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
-  Search, Star, MapPin, Clock, Calendar, Filter,
+  Search, Star, MapPin, Clock, Calendar, Filter, Phone,
   Stethoscope, Heart, Brain, Eye, Bone, Baby,
   Sparkles, X, ChevronDown, CheckCircle, Video, Loader2
 } from 'lucide-react'
@@ -367,6 +367,12 @@ function DoctorCard({ doctor, onClick }) {
               <span className="truncate">{doctor.clinic_name || doctor.clinic_address}</span>
             </div>
           )}
+          {doctor.phone && (
+            <div className="flex items-center gap-2 text-xs text-gray-500">
+              <Phone className="h-3.5 w-3.5 text-gray-400" />
+              <a href={`tel:${doctor.phone}`} onClick={e => e.stopPropagation()} className="truncate text-blue-600 hover:underline" dir="ltr">{doctor.phone}</a>
+            </div>
+          )}
           {doctor.availability_days?.length > 0 && (
             <div className="flex items-center gap-2 text-xs text-green-600">
               <Calendar className="h-3.5 w-3.5" />
@@ -397,7 +403,7 @@ function DoctorCard({ doctor, onClick }) {
             style={{ background: 'linear-gradient(135deg, #0f2444 0%, #2563eb 100%)' }}
             onClick={e => { e.stopPropagation(); onClick() }}>
             <Calendar className="h-4 w-4 inline ml-1.5" />
-            احجز موعداً
+            {doctor.is_verified ? 'احجز موعداً' : 'تواصل مع العيادة'}
           </button>
         </div>
       </div>

@@ -23,7 +23,6 @@ import {
 
 export default function ServicesPage() {
   const [selectedCategory, setSelectedCategory] = useState('all')
-  const [requestMessage, setRequestMessage] = useState('')
   const navigate = useNavigate()
 
   const serviceCategories = [
@@ -121,7 +120,8 @@ export default function ServicesPage() {
       features: ['برامج مخصصة', 'متابعة يومية', 'نصائح غذائية', 'تمارين موجهة'],
       price: 'من 120 جنيه',
       duration: 'شهري',
-      popular: false
+      popular: false,
+      comingSoon: true
     },
     {
       id: 9,
@@ -212,11 +212,18 @@ export default function ServicesPage() {
       navigate('/lab-requests')
     } else if (service.title.includes('أشعة')) {
       navigate('/radiology')
-    } else {
-      setSelectedCategory(service.category)
-      setRequestMessage(`تم استلام طلبك لخدمة «${service.title}». سيتم التواصل معك قريباً.`)
-      window.scrollTo({ top: 0, behavior: 'smooth' })
+    } else if (service.title === 'تحليل الصور الطبية بالذكاء الاصطناعي') {
+      navigate('/ai-assistant')
+    } else if (service.title === 'برامج الصحة النفسية') {
+      navigate('/consultations')
+    } else if (service.title === 'رعاية الأمومة والطفولة') {
+      navigate('/family-health')
     }
+    // 'برامج اللياقة والتغذية' has no live destination yet: its button is
+    // disabled with a "coming soon" label (see the card below) and never
+    // reaches this handler. No service here shows a confirmation banner —
+    // the old else branch claimed a request was received without calling
+    // any API, and there is no service-request backend.
   }
 
   return (
@@ -255,12 +262,6 @@ export default function ServicesPage() {
           </div>
         </div>
 
-        {requestMessage && (
-          <div className="mb-6 rounded-lg border border-green-200 bg-green-50 p-4 text-green-800 text-center">
-            {requestMessage}
-          </div>
-        )}
-
         {/* عدد الخدمات */}
         <div className="mb-6">
           <p className="text-gray-600 text-center">
@@ -283,6 +284,11 @@ export default function ServicesPage() {
                     {service.popular && (
                       <span className="bg-green-100 text-green-800 text-xs font-medium px-2 py-1 rounded-full">
                         الأكثر طلباً
+                      </span>
+                    )}
+                    {service.comingSoon && (
+                      <span className="bg-amber-100 text-amber-800 text-xs font-medium px-2 py-1 rounded-full">
+                        قريباً
                       </span>
                     )}
                   </div>
@@ -320,10 +326,15 @@ export default function ServicesPage() {
                 <div className="px-6 py-4 bg-gray-50 border-t border-gray-100">
                   <Button 
                     onClick={() => handleServiceRequest(service.id)}
+                    disabled={service.comingSoon}
                     className="w-full flex items-center justify-center"
                   >
-                    طلب الخدمة
-                    <ArrowRight className="h-4 w-4 mr-2" />
+                    {service.comingSoon ? 'ستتوفر قريباً' : (
+                      <>
+                        طلب الخدمة
+                        <ArrowRight className="h-4 w-4 mr-2" />
+                      </>
+                    )}
                   </Button>
                 </div>
               </div>

@@ -220,6 +220,12 @@ export default function DoctorProfilePage() {
                     {doctor.clinic_address}
                   </span>
                 )}
+                {doctor.phone && (
+                  <a href={`tel:${doctor.phone}`} className="flex items-center gap-1.5 text-blue-600 hover:underline" dir="ltr">
+                    <Phone className="h-4 w-4 text-blue-400" />
+                    {doctor.phone}
+                  </a>
+                )}
                 {doctor.consultation_duration && (
                   <span className="flex items-center gap-1.5">
                     <Clock className="h-4 w-4 text-purple-400" />
@@ -377,29 +383,52 @@ export default function DoctorProfilePage() {
 
             {/* Book CTA */}
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
-              <h3 className="text-sm font-bold text-gray-900 mb-3">حجز موعد</h3>
-              {bookingSuccess ? (
-                <div className="text-center py-3">
-                  <CheckCircle className="h-10 w-10 text-green-500 mx-auto mb-2" />
-                  <p className="text-sm font-semibold text-green-700">تم الحجز بنجاح!</p>
-                  {confirmedAppointment && (
-                    <div className="mt-3 rounded-xl bg-emerald-50 p-3 text-right text-xs text-emerald-800">
-                      <p className="font-bold">د. {doctor.first_name} {doctor.last_name}</p>
-                      <p className="mt-1">{doctor.specialization}</p>
-                      <p className="mt-1">{formatDate(confirmedAppointment.appointment_date)} — {new Date(confirmedAppointment.appointment_date).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })}</p>
-                      <p className="mt-1">الحالة: بانتظار تأكيد الطبيب</p>
-                    </div>
+              {!doctor.is_verified ? (
+                <>
+                  <h3 className="text-sm font-bold text-gray-900 mb-3">تواصل مع العيادة</h3>
+                  <p className="text-sm text-gray-500">
+                    هذا الطبيب مدرج في الدليل — الحجز عبر الإنترنت غير متاح له. للحجز اتصل بالعيادة مباشرة.
+                  </p>
+                  {doctor.phone && (
+                    <a href={`tel:${doctor.phone}`} className="mt-4 flex items-center justify-center gap-2 w-full rounded-xl bg-blue-600 px-4 py-3 text-sm font-bold text-white hover:bg-blue-700" dir="ltr">
+                      <Phone className="h-4 w-4" />
+                      {doctor.phone}
+                    </a>
                   )}
-                  <p className="text-xs text-gray-500 mt-2">تم إرسال إشعار إلى الطبيب</p>
-                  <button onClick={() => navigate('/appointments')}
-                    className="mt-3 w-full py-2 text-sm text-blue-600 border border-blue-200 rounded-xl hover:bg-blue-50 transition-colors">
-                    عرض مواعيدي
-                  </button>
-                </div>
+                  {doctor.clinic_address && (
+                    <p className="mt-3 flex items-center gap-1.5 text-xs text-gray-500">
+                      <MapPin className="h-3.5 w-3.5 text-gray-400" />
+                      {doctor.clinic_address}
+                    </p>
+                  )}
+                </>
               ) : (
-                <p className="text-sm text-gray-500">
-                  اختر وقتاً من التقويم لبدء الحجز
-                </p>
+                <>
+                  <h3 className="text-sm font-bold text-gray-900 mb-3">حجز موعد</h3>
+                  {bookingSuccess ? (
+                    <div className="text-center py-3">
+                      <CheckCircle className="h-10 w-10 text-green-500 mx-auto mb-2" />
+                      <p className="text-sm font-semibold text-green-700">تم الحجز بنجاح!</p>
+                      {confirmedAppointment && (
+                        <div className="mt-3 rounded-xl bg-emerald-50 p-3 text-right text-xs text-emerald-800">
+                          <p className="font-bold">د. {doctor.first_name} {doctor.last_name}</p>
+                          <p className="mt-1">{doctor.specialization}</p>
+                          <p className="mt-1">{formatDate(confirmedAppointment.appointment_date)} — {new Date(confirmedAppointment.appointment_date).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })}</p>
+                          <p className="mt-1">الحالة: بانتظار تأكيد الطبيب</p>
+                        </div>
+                      )}
+                      <p className="text-xs text-gray-500 mt-2">تم إرسال إشعار إلى الطبيب</p>
+                      <button onClick={() => navigate('/appointments')}
+                        className="mt-3 w-full py-2 text-sm text-blue-600 border border-blue-200 rounded-xl hover:bg-blue-50 transition-colors">
+                        عرض مواعيدي
+                      </button>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-gray-500">
+                      اختر وقتاً من التقويم لبدء الحجز
+                    </p>
+                  )}
+                </>
               )}
             </div>
           </div>

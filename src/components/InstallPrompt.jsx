@@ -1,47 +1,17 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { Download, Share, X } from 'lucide-react'
-import { getInstallPromptEvent, isIOS, isStandalone } from '../lib/push'
+import { usePwaInstall, promptInstall } from '../lib/pwaInstall'
 
-// "Install Sahty as an app" banner: shows when the browser offers installation
-// (beforeinstallprompt) and the app is not installed yet. On iOS it shows the
-// manual "Add to Home Screen" instructions instead.
+// "Install Sahty as an app" banner: a first-visit nudge only. Dismissing it
+// hides the banner for the session — the header install button stays
+// available, so the user can retry any time. Install state comes from the
+// shared hook in lib/pwaInstall (single beforeinstallprompt capture).
 export default function InstallPrompt() {
-  const [deferredPrompt, setDeferredPrompt] = useState(null)
-  const [visible, setVisible] = useState(false)
-  const [installed, setInstalled] = useState(isStandalone())
+  const { installed, canPrompt, isIOS } = usePwaInstall()
   const [dismissed, setDismissed] = useState(
     () => sessionStorage.getItem('sahty-install-dismissed') === '1'
   )
-
-  useEffect(() => {
-    const onPrompt = event => {
-      event.preventDefault()
-      window.__sahtyInstallPrompt = event
-      setDeferredPrompt(event)
-      if (!isStandalone() && sessionStorage.getItem('sahty-install-dismissed') !== '1') {
-        setVisible(true)
-      }
-    }
-    const onInstalled = () => {
-      setInstalled(true)
-      setVisible(false)
-      window.__sahtyInstallPrompt = null
-      setDeferredPrompt(null)
-    }
-    window.addEventListener('beforeinstallprompt', onPrompt)
-    window.addEventListener('appinstalled', onInstalled)
-    const existing = getInstallPromptEvent()
-    if (existing) {
-      setDeferredPrompt(existing)
-      if (!isStandalone() && sessionStorage.getItem('sahty-install-dismissed') !== '1') {
-        setVisible(true)
-      }
-    }
-    return () => {
-      window.removeEventListener('beforeinstallprompt', onPrompt)
-      window.removeEventListener('appinstalled', onInstalled)
-    }
-  }, [])
+  const [declined, setDeclined] = useState(false)
 
   if (installed || dismissed) return null
 
@@ -51,19 +21,30 @@ export default function InstallPrompt() {
   }
 
   const install = async () => {
-    const promptEvent = deferredPrompt || getInstallPromptEvent()
-    if (!promptEvent) return
-    promptEvent.prompt()
-    const choice = await promptEvent.userChoice.catch(() => null)
-    if (choice && choice.outcome === 'accepted') {
-      setVisible(false)
-    }
-    window.__sahtyInstallPrompt = null
-    setDeferredPrompt(null)
+    const outcome = await promptInstall()
+    if (outcome === 'accepted') return // installed=true hides the banner
+    if (outcome === 'dismissed') setDeclined(true)
+  }
+
+  // The user declined from this banner: the native prompt is gone, so show
+  // the retry note (the header button stays available for a later retry).
+  if (declined && !canPrompt) {
+    return (
+      <div className="fixed bottom-4 right-4 left-4 z-50 mx-auto max-w-md rounded-2xl border border-amber-100 bg-white p-4 shadow-xl" dir="rtl">
+        <div className="flex items-start gap-3">
+          <div className="rounded-xl bg-amber-50 p-2 text-amber-600"><Download className="h-5 w-5" /></div>
+          <div className="flex-1 text-sm">
+            <p className="font-bold text-gray-900">رفضت التثبيت — لا مشكلة</p>
+            <p className="mt-1 text-gray-600">يمكنك إعادة المحاولة في أي وقت من زر التثبيت في الأعلى.</p>
+          </div>
+          <button onClick={dismiss} aria-label="إغلاق"><X className="h-4 w-4 text-gray-400" /></button>
+        </div>
+      </div>
+    )
   }
 
   // iOS Safari has no beforeinstallprompt: show manual instructions.
-  if (!deferredPrompt && isIOS() && !isStandalone()) {
+  if (!canPrompt && isIOS) {
     return (
       <div className="fixed bottom-4 right-4 left-4 z-50 mx-auto max-w-md rounded-2xl border border-blue-100 bg-white p-4 shadow-xl" dir="rtl">
         <div className="flex items-start gap-3">
@@ -78,7 +59,7 @@ export default function InstallPrompt() {
     )
   }
 
-  if (!visible || !deferredPrompt) return null
+  if (!canPrompt) return null
 
   return (
     <div className="fixed bottom-4 right-4 left-4 z-50 mx-auto max-w-md rounded-2xl border border-blue-100 bg-white p-4 shadow-xl" dir="rtl">

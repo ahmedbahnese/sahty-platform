@@ -4,6 +4,8 @@ import { useAuth } from '../contexts/AuthContext'
 import { useNotifications } from '../contexts/NotificationContext'
 import NotificationBell from './NotificationBell'
 import RoleSidebar from './RoleSidebar'
+import PwaInstallModal from './PwaInstallModal'
+import { usePwaInstall } from '../lib/pwaInstall'
 import { 
   Menu, 
   X, 
@@ -29,7 +31,9 @@ import {
   Building2,
   Sun,
   Moon,
-  Video
+  Video,
+  Download,
+  Check
 } from 'lucide-react'
 
 export default function Navbar() {
@@ -37,6 +41,8 @@ export default function Navbar() {
   const [userMenuOpen, setUserMenuOpen] = useState(false)
   const [shortcutsOpen, setShortcutsOpen] = useState(false)
   const [darkMode, setDarkMode] = useState(() => localStorage.getItem('sahty-theme') === 'dark')
+  const [installOpen, setInstallOpen] = useState(false)
+  const { installed: pwaInstalled } = usePwaInstall()
   const { user, logout, switchRole, applyRole, isAuthenticated, isAdmin, roleLabel } = useAuth()
   const notifications = useNotifications()
   const [roleFormOpen, setRoleFormOpen] = useState(false)
@@ -200,6 +206,13 @@ export default function Navbar() {
 
           {/* Desktop User */}
           <div className="hidden lg:flex items-center gap-2">
+            {/* Install as app — always available, opens the install modal */}
+            <button type="button" onClick={() => setInstallOpen(true)}
+              aria-label={pwaInstalled ? 'التطبيق مثبّت على جهازك' : 'تثبيت التطبيق'}
+              title={pwaInstalled ? 'التطبيق مثبّت على جهازك' : 'تثبيت التطبيق'}
+              className={`rounded-xl p-2 transition-colors ${pwaInstalled ? 'text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950' : 'text-gray-600 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-slate-800'}`}>
+              {pwaInstalled ? <Check className="h-4 w-4" /> : <Download className="h-4 w-4" />}
+            </button>
             <button type="button" onClick={() => setDarkMode(value => !value)}
               aria-label={darkMode ? 'تفعيل الوضع الفاتح' : 'تفعيل الوضع الداكن'}
               title={darkMode ? 'الوضع الفاتح' : 'الوضع الداكن'}
@@ -339,16 +352,24 @@ export default function Navbar() {
             )}
           </div>
 
-          {/* Mobile toggle */}
-          <button
-            type="button"
-            className="lg:hidden p-2 rounded-xl text-gray-600 hover:bg-gray-100 transition-colors"
-            onClick={() => setIsOpen(!isOpen)}
-            aria-label={isOpen ? 'إغلاق القائمة' : 'فتح القائمة'}
-            aria-expanded={isOpen}
-          >
-            {isOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-          </button>
+          {/* Mobile install + menu toggle */}
+          <div className="flex items-center gap-1 lg:hidden">
+            <button type="button" onClick={() => setInstallOpen(true)}
+              aria-label={pwaInstalled ? 'التطبيق مثبّت على جهازك' : 'تثبيت التطبيق'}
+              title={pwaInstalled ? 'التطبيق مثبّت على جهازك' : 'تثبيت التطبيق'}
+              className={`rounded-xl p-2 transition-colors ${pwaInstalled ? 'text-emerald-600 hover:bg-emerald-50' : 'text-gray-600 hover:bg-gray-100'}`}>
+              {pwaInstalled ? <Check className="h-5 w-5" /> : <Download className="h-5 w-5" />}
+            </button>
+            <button
+              type="button"
+              className="p-2 rounded-xl text-gray-600 hover:bg-gray-100 transition-colors"
+              onClick={() => setIsOpen(!isOpen)}
+              aria-label={isOpen ? 'إغلاق القائمة' : 'فتح القائمة'}
+              aria-expanded={isOpen}
+            >
+              {isOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -441,6 +462,7 @@ export default function Navbar() {
           </form>
         </div>
       )}
+      {installOpen && <PwaInstallModal open={installOpen} onClose={() => setInstallOpen(false)} />}
     </nav>
   )
 }

@@ -9,7 +9,6 @@ import {
   Droplets, 
   Calendar, 
   Users, 
-  Clock,
   CheckCircle,
   ArrowLeft,
   Bot,
@@ -38,6 +37,31 @@ export default function HomePage() {
       .then(response => response.ok ? response.json() : null)
       .then(data => setFeaturedDoctors(data?.doctors || []))
       .catch(() => setFeaturedDoctors([]))
+  }, [])
+
+  // أرقام حقيقية من الدليل — تُجلب من الـ API عند كل تحميل. القيم الافتراضية
+  // هي آخر أرقام موثّقة (2026-11-28) وتُستخدم فقط إذا تعذّر الوصول للـ API.
+  const [directoryStats, setDirectoryStats] = useState(null)
+
+  useEffect(() => {
+    const fetchTotal = async (url) => {
+      try {
+        const response = await fetch(url)
+        if (!response.ok) return null
+        const data = await response.json()
+        return typeof data.total === 'number' ? data.total : null
+      } catch { return null }
+    }
+    Promise.all([
+      fetchTotal('/api/facilities?type=Hospital&per_page=1'),
+      fetchTotal('/api/facilities?type=Pharmacy&per_page=1'),
+      fetchTotal('/api/facilities?type=Laboratory&per_page=1'),
+      fetchTotal('/api/facilities?type=Radiology%20Center&per_page=1')
+    ]).then(([hospitals, pharmacies, labs, radiology]) => {
+      if (hospitals !== null || pharmacies !== null || labs !== null || radiology !== null) {
+        setDirectoryStats({ hospitals, pharmacies, labs, radiology })
+      }
+    })
   }, [])
 
   const features = [
@@ -85,11 +109,13 @@ export default function HomePage() {
     }
   ]
 
+  const fallbackStats = { hospitals: 38, pharmacies: 31, labs: 24, radiology: 59 }
+  const s = directoryStats || fallbackStats
   const stats = [
-    { number: '1,000+', label: 'طبيب معتمد', icon: Stethoscope },
-    { number: '50,000+', label: 'مريض راضٍ', icon: Users },
-    { number: '100+', label: 'مستشفى شريك', icon: Heart },
-    { number: '24/7', label: 'خدمة متواصلة', icon: Clock }
+    { number: String(s.hospitals ?? '—'), label: 'مستشفى', icon: Stethoscope },
+    { number: String(s.pharmacies ?? '—'), label: 'صيدلية', icon: Pill },
+    { number: String(s.labs ?? '—'), label: 'معمل تحاليل', icon: FlaskConical },
+    { number: String(s.radiology ?? '—'), label: 'مركز أشعة', icon: Scan }
   ]
 
   const services = [
@@ -481,3 +507,4 @@ export default function HomePage() {
     </div>
   )
 }
+
