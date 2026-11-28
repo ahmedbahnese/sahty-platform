@@ -30,6 +30,7 @@ export default function FamilyHealthPage() {
   const [showRecordForm, setShowRecordForm] = useState(false)
   const [showGoalForm, setShowGoalForm] = useState(false)
   const [editingMemberId, setEditingMemberId] = useState(null)
+  const [editingGroupId, setEditingGroupId] = useState(null)
   const [editingRecordId, setEditingRecordId] = useState(null)
   const [memberReport, setMemberReport] = useState(null)
 
@@ -81,17 +82,37 @@ export default function FamilyHealthPage() {
   const createGroup = async (e) => {
     e.preventDefault()
     try {
-      const res = await fetch(API('/groups'), {
-        method: 'POST', headers: authHeader(), body: JSON.stringify(groupForm)
+      const isEdit = editingGroupId !== null
+      const res = await fetch(API(isEdit ? `/groups/${editingGroupId}` : '/groups'), {
+        method: isEdit ? 'PUT' : 'POST', headers: authHeader(), body: JSON.stringify(groupForm)
       })
       const data = await res.json()
       if (data.success) {
-        setMsg({ type: 'success', text: 'تم إنشاء مجموعة الأسرة' })
+        setMsg({ type: 'success', text: isEdit ? 'تم تعديل بيانات الأسرة' : 'تم إنشاء مجموعة الأسرة' })
         setShowGroupForm(false)
+        setEditingGroupId(null)
         setGroupForm({ name: '', description: '' })
         fetchGroups()
+      } else {
+        setMsg({ type: 'error', text: data.error || 'خطأ في الحفظ' })
       }
     } catch { setMsg({ type: 'error', text: 'خطأ في الإنشاء' }) }
+  }
+
+  const editGroup = (group) => {
+    setEditingGroupId(group.id)
+    setGroupForm({ name: group.name || '', description: group.description || '' })
+    setShowGroupForm(true)
+  }
+
+  const deleteGroup = async (group) => {
+    if (!window.confirm(`حذف مجموعة "${group.name}"؟ سيتم حذف جميع الأفراد والسجلات والأهداف المرتبطة بها نهائياً.`)) return
+    try {
+      const res = await fetch(API(`/groups/${group.id}`), { method: 'DELETE', headers: authHeader() })
+      const data = await res.json()
+      if (data.success) { setMsg({ type: 'success', text: 'تم حذف المجموعة' }); fetchGroups() }
+      else setMsg({ type: 'error', text: data.error || 'تعذر حذف المجموعة' })
+    } catch { setMsg({ type: 'error', text: 'تعذر حذف المجموعة' }) }
   }
 
   const addMember = async (e) => {
@@ -265,7 +286,7 @@ export default function FamilyHealthPage() {
             </div>
           </div>
           {view === 'groups' && (
-            <Button onClick={() => setShowGroupForm(!showGroupForm)} className="bg-green-600 hover:bg-green-700">
+            <Button onClick={() => { setEditingGroupId(null); setGroupForm({ name: '', description: '' }); setShowGroupForm(!showGroupForm) }} className="bg-green-600 hover:bg-green-700">
               <Plus size={18} className="ml-1" /> أسرة جديدة
             </Button>
           )}
@@ -323,7 +344,7 @@ export default function FamilyHealthPage() {
           <>
             {showGroupForm && (
               <div className="bg-white rounded-xl shadow-sm border p-5 mb-6">
-                <h3 className="font-bold text-gray-800 mb-4">إنشاء مجموعة أسرة جديدة</h3>
+                <h3 className="font-bold text-gray-800 mb-4">{editingGroupId ? 'تعديل بيانات الأسرة' : 'إنشاء مجموعة أسرة جديدة'}</h3>
                 <form onSubmit={createGroup} className="space-y-3">
                   <div>
                     <Label>اسم الأسرة *</Label>
@@ -336,8 +357,8 @@ export default function FamilyHealthPage() {
                       placeholder="وصف اختياري" />
                   </div>
                   <div className="flex gap-2">
-                    <Button type="submit" className="bg-green-600 hover:bg-green-700">إنشاء</Button>
-                    <Button type="button" variant="outline" onClick={() => setShowGroupForm(false)}>إلغاء</Button>
+                    <Button type="submit" className="bg-green-600 hover:bg-green-700">{editingGroupId ? 'حفظ التعديل' : 'إنشاء'}</Button>
+                    <Button type="button" variant="outline" onClick={() => { setShowGroupForm(false); setEditingGroupId(null) }}>إلغاء</Button>
                   </div>
                 </form>
               </div>
@@ -360,9 +381,21 @@ export default function FamilyHealthPage() {
                       <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center">
                         <Users size={24} className="text-green-600" />
                       </div>
-                      <div>
+                      <div className="flex-1 min-w-0">
                         <h3 className="font-bold text-gray-800">{g.name}</h3>
                         {g.description && <p className="text-sm text-gray-500">{g.description}</p>}
+                      </div>
+                      <div className="flex gap-1 shrink-0">
+                        <button onClick={(e) => { e.stopPropagation(); editGroup(g) }}
+                          title="تعديل الاسم والبيانات"
+                          className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
+                          <Pencil size={16} />
+                        </button>
+                        <button onClick={(e) => { e.stopPropagation(); deleteGroup(g) }}
+                          title="حذف المجموعة"
+                          className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+                          <Trash2 size={16} />
+                        </button>
                       </div>
                     </div>
                     <div className="flex items-center justify-between text-sm text-gray-400">
