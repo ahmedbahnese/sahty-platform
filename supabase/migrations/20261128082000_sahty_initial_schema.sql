@@ -1,5 +1,5 @@
 -- Sahty initial schema bootstrap for a fresh Supabase project.
--- Generated from repository SQLAlchemy metadata plus Alembic revisions 0002-0006.
+-- Generated from repository SQLAlchemy metadata plus Alembic revisions 0002-0007.
 -- No sample/patient data is inserted; public API roles have no access to these tables.
 CREATE TABLE public.users ( id SERIAL NOT NULL, username VARCHAR(80), email VARCHAR(120) NOT NULL, password_hash VARCHAR(256) NOT NULL, user_type VARCHAR(50) NOT NULL, is_active BOOLEAN, last_login TIMESTAMP WITHOUT TIME ZONE, login_count INTEGER, created_at TIMESTAMP WITHOUT TIME ZONE, updated_at TIMESTAMP WITHOUT TIME ZONE, PRIMARY KEY (id), UNIQUE (username), UNIQUE (email) );
  CREATE TABLE public.specializations ( id SERIAL NOT NULL, name_ar VARCHAR(100) NOT NULL, name_en VARCHAR(100) NOT NULL, description TEXT, created_at TIMESTAMP WITHOUT TIME ZONE, PRIMARY KEY (id) );
@@ -112,7 +112,7 @@ CREATE TABLE public.users ( id SERIAL NOT NULL, username VARCHAR(80), email VARC
  ALTER TABLE public.request_rate_limits ALTER COLUMN request_count SET DEFAULT 0;
  ALTER TABLE public.request_rate_limits ALTER COLUMN updated_at SET DEFAULT CURRENT_TIMESTAMP;
  CREATE TABLE public.alembic_version (version_num VARCHAR(64) NOT NULL PRIMARY KEY);
- INSERT INTO public.alembic_version (version_num) VALUES ('0006_supabase_rate_limits');
+ INSERT INTO public.alembic_version (version_num) VALUES ('0007_ai_daily_usage');
  REVOKE ALL PRIVILEGES ON ALL TABLES IN SCHEMA public FROM PUBLIC, anon, authenticated, service_role;
  REVOKE ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public FROM PUBLIC, anon, authenticated, service_role;
  ALTER DEFAULT PRIVILEGES IN SCHEMA public REVOKE ALL ON TABLES FROM PUBLIC, anon, authenticated, service_role;
@@ -184,3 +184,7 @@ CREATE TABLE public.users ( id SERIAL NOT NULL, username VARCHAR(80), email VARC
  ALTER TABLE public.user_sessions ENABLE ROW LEVEL SECURITY;
  ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
  ALTER TABLE public.vaccinations ENABLE ROW LEVEL SECURITY;
+
+-- Migration 0007: per-user daily AI usage counters (free daily quotas).
+ CREATE TABLE public.ai_daily_usage (id SERIAL PRIMARY KEY, user_id INTEGER REFERENCES public.users (id), guest_key VARCHAR(120), usage_date DATE NOT NULL, chat_count INTEGER NOT NULL DEFAULT 0, image_count INTEGER NOT NULL DEFAULT 0, symptom_count INTEGER NOT NULL DEFAULT 0, CONSTRAINT uq_ai_usage_user_date UNIQUE (user_id, usage_date), CONSTRAINT uq_ai_usage_guest_date UNIQUE (guest_key, usage_date));
+ ALTER TABLE public.ai_daily_usage ENABLE ROW LEVEL SECURITY;
