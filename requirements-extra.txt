@@ -1,0 +1,21 @@
+# Optional utilities, scripts, and test tooling not imported by the Vercel Flask API.
+# Install alongside requirements.txt only when using these repository tools.
+gunicorn==22.0.0
+bcrypt
+cryptography
+scikit-learn==1.5.1
+numpy==1.26.4
+pandas==2.2.2
+matplotlib==3.9.2
+reportlab==4.2.2
+boto3
+dropbox
+requests==2.32.3
+pyotp
+schedule
+gtts
+pyttsx3
+SpeechRecognition
+sift-stack-py
+pytest
+pytest-flask

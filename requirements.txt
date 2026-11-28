@@ -1,4 +1,5 @@
-# Production web server and Flask API
+# Runtime dependencies for the Flask API on Vercel.
+# Keep this list limited to packages imported by the deployed application.
 Flask==3.0.3
 Flask-Cors==4.0.1
 Flask-SQLAlchemy==3.1.1
@@ -6,70 +7,9 @@ Flask-Migrate==4.1.0
 Flask-Limiter==4.1.1
 redis>=5.0,<6
 Werkzeug==3.0.3
-gunicorn==22.0.0
-
-# Authentication and security
 PyJWT==2.8.0
-bcrypt
-cryptography
-
-# Database
 SQLAlchemy==2.0.36
-psycopg2-binary==2.9.9
-
-# AI and data processing
+psycopg2-binary==2.9.13
 openai
-scikit-learn==1.5.1
-numpy==1.26.4
-pandas==2.2.2
-matplotlib==3.9.2
-
-# Reports and storage integrations
-reportlab==4.2.2
-boto3
-dropbox
-
-# Application utilities
-requests==2.32.3
-pyotp
+Pillow
 qrcode
-schedule
-gtts
-pyttsx3
-speechrecognition
-sift-stack-py
-
-# Test tooling
-pytest
-pytest-flask
-bcrypt
-boto3
-cryptography
-dropbox
-Flask==3.0.3
-Flask-Cors==4.0.1
-Flask-Limiter==4.1.1
-Flask-Migrate==4.1.0
-Flask-SQLAlchemy==3.1.1
-gtts
-gunicorn==22.0.0
-matplotlib==3.9.2
-numpy==1.26.4
-openai
-pandas==2.2.2
-psycopg2-binary==2.9.9
-PyJWT==2.8.0
-pyotp
-pytest
-pytest-flask
-pyttsx3
-qrcode
-redis>=5.0,<6
-reportlab==4.2.2
-requests==2.32.3
-schedule
-scikit-learn==1.5.1
-sift-stack-py
-SpeechRecognition
-SQLAlchemy==2.0.36
-Werkzeug==3.0.3
