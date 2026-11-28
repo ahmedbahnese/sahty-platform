@@ -60,7 +60,18 @@ def _usage_key(current_user):
 def _get_or_create_usage(current_user):
     key = _usage_key(current_user)
     today = _cairo_today()
-    row = AIDailyUsage.query.filter_by(usage_date=today, **key).first()
+    try:
+        row = AIDailyUsage.query.filter_by(usage_date=today, **key).first()
+    except Exception:
+        # The table may not exist yet if migration 0007 was never applied to
+        # this database (the app does not run migrations on Vercel cold start).
+        # Create just this table, then retry once instead of failing the request.
+        db.session.rollback()
+        try:
+            AIDailyUsage.__table__.create(db.engine, checkfirst=True)
+        except Exception:
+            pass
+        row = AIDailyUsage.query.filter_by(usage_date=today, **key).first()
     if row is None:
         row = AIDailyUsage(usage_date=today, **key)
         db.session.add(row)
