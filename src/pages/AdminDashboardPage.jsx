@@ -90,6 +90,31 @@ function Alert({ message, type = 'info', onClose }) {
   )
 }
 
+// ─── Admin fetch helpers (rate-limit fix, 2026-11-28) ────────────────────────
+// Admin API calls used to hang forever on a slow or rate-limited backend
+// (no timeout anywhere), and failures surfaced only as a bare generic
+// message with no HTTP status — so a 429 looked identical to a crash.
+// These helpers give every admin load a 15 s timeout and a status-aware
+// error message.
+const FETCH_TIMEOUT_MS = 15000
+
+async function fetchWithTimeout(url, options = {}, timeoutMs = FETCH_TIMEOUT_MS) {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), timeoutMs)
+  try {
+    return await fetch(url, { ...options, signal: controller.signal })
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+function loadErrorMessage(base, res, err) {
+  if (err?.name === 'AbortError') return `${base} (انتهت مهلة الاتصال — حاول مرة أخرى)`
+  if (res?.status === 429) return `${base} (429 — تجاوزت حد الطلبات، حاول بعد دقيقة)`
+  if (res?.status) return `${base} (${res.status})`
+  return base
+}
+
 // ─── Overview Section ─────────────────────────────────────────────────────────
 function OverviewSection({ stats, loading }) {
   if (loading) return <Skeleton />
@@ -185,15 +210,23 @@ function ApprovalsSection({ headers, onMessage }) {
   const [search, setSearch]             = useState('')
   const [reviewNote, setReviewNote]     = useState({})
 
+  const [loadError, setLoadError] = useState(null)
+
   const load = useCallback(async () => {
     setLoading(true)
+    setLoadError(null)
+    let res
     try {
       const params = new URLSearchParams({ status: statusFilter })
       if (typeFilter !== 'all') params.set('provider_type', typeFilter)
-      const res = await fetch(`/api/admin/providers?${params}`, { headers })
-      if (!res.ok) throw new Error()
+      res = await fetchWithTimeout(`/api/admin/providers?${params}`, { headers })
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
       setProviders(await res.json())
-    } catch { onMessage('تعذر تحميل الطلبات', 'error') }
+    } catch (err) {
+      const message = loadErrorMessage('تعذر تحميل الطلبات', res, err)
+      setLoadError(message)
+      onMessage(message, 'error')
+    }
     finally { setLoading(false) }
   }, [typeFilter, statusFilter, headers, onMessage])
 
@@ -264,6 +297,14 @@ function ApprovalsSection({ headers, onMessage }) {
       {/* List */}
       <div className="space-y-3">
         {loading && <div className="flex justify-center py-16"><Loader2 className="h-8 w-8 animate-spin text-blue-600" /></div>}
+        {!loading && loadError && (
+          <div className="rounded-2xl border border-red-200 bg-red-50 p-6 text-center">
+            <p className="text-sm font-medium text-red-700">{loadError}</p>
+            <Button size="sm" variant="outline" onClick={load} className="mt-3 gap-2">
+              <RefreshCw className="h-4 w-4" /> إعادة المحاولة
+            </Button>
+          </div>
+        )}
         {!loading && filtered.length === 0 && (
           <div className="rounded-2xl border border-dashed border-gray-200 bg-white p-12 text-center text-gray-400">
             <CheckCircle2 className="mx-auto h-10 w-10 mb-3 opacity-30" />
@@ -345,15 +386,23 @@ function UsersSection({ headers, onMessage }) {
   const [search, setSearch]   = useState('')
   const [roleFilter, setRole] = useState('all')
 
+  const [loadError, setLoadError] = useState(null)
+
   const load = useCallback(async () => {
     setLoading(true)
+    setLoadError(null)
+    let res
     try {
-      const res = await fetch('/api/admin/users', { headers })
-      if (!res.ok) throw new Error()
+      res = await fetchWithTimeout('/api/admin/users', { headers })
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
       setUsers(await res.json())
-    } catch { onMessage('تعذر تحميل المستخدمين', 'error') }
+    } catch (err) {
+      const message = loadErrorMessage('تعذر تحميل المستخدمين', res, err)
+      setLoadError(message)
+      onMessage(message, 'error')
+    }
     finally { setLoading(false) }
-    }, [headers, onMessage])
+  }, [headers, onMessage])
   useEffect(() => { load() }, [load])
 
 
@@ -406,6 +455,16 @@ function UsersSection({ headers, onMessage }) {
           </div>
         </div>
       </div>
+
+      {/* Load error + retry */}
+      {!loading && loadError && (
+        <div className="rounded-2xl border border-red-200 bg-red-50 p-6 text-center">
+          <p className="text-sm font-medium text-red-700">{loadError}</p>
+          <Button size="sm" variant="outline" onClick={load} className="mt-3 gap-2">
+            <RefreshCw className="h-4 w-4" /> إعادة المحاولة
+          </Button>
+        </div>
+      )}
 
       {/* Table */}
       <div className="rounded-2xl border border-gray-100 bg-white shadow-sm overflow-hidden">
@@ -552,7 +611,7 @@ export default function AdminDashboardPage() {
   const loadStats = useCallback(async () => {
     setStatsLoading(true)
     try {
-      const res = await fetch('/api/admin/stats', { headers })
+      const res = await fetchWithTimeout('/api/admin/stats', { headers })
       if (res.ok) setStats(await res.json())
     } catch { /* silent */ }
     finally { setStatsLoading(false) }
@@ -560,10 +619,16 @@ export default function AdminDashboardPage() {
 
   useEffect(() => { loadStats() }, [loadStats])
 
-  const showAlert = (message, type = 'info') => {
+  // useCallback on purpose: ApprovalsSection/UsersSection list `onMessage`
+  // in their load() deps, so a new showAlert identity on every parent render
+  // re-ran their load() effect. On a failed load that looped forever — each
+  // failure re-rendered the parent, which re-triggered the load, which
+  // failed again — hammering /api/admin/* and re-exhausting the rate-limit
+  // budget every hour. A stable identity breaks the loop.
+  const showAlert = useCallback((message, type = 'info') => {
     setAlert({ message, type })
     setTimeout(() => setAlert(null), 5000)
-  }
+  }, [])
 
   if (!isAdmin) return <Navigate to="/dashboard" replace />
 

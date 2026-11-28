@@ -1,5 +1,9 @@
 /* Sahty service worker: offline app shell + emergency push notifications. */
-const CACHE = 'sahty-v1'
+// Bumped v1 -> v2 with the rate-limit fix (2026-11-28): the old cache may
+// hold poisoned error responses (429/500/503) stored by the previous SW;
+// the activate handler deletes every cache whose name is not CACHE, so the
+// bump clears them on the next SW activation.
+const CACHE = 'sahty-v2'
 const APP_SHELL = ['/', '/index.html', '/icons/icon.svg', '/icons/emergency.svg', '/manifest.webmanifest']
 
 self.addEventListener('install', event => {
@@ -21,15 +25,29 @@ self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET' || url.origin !== self.location.origin) return
 
   // API data: network first, cache fallback when offline.
+  // - Only successful responses are cached: a 429/500/503 must never be
+  //   stored, or the app would keep serving the error while offline.
+  // - /api/admin/* is never cached: admin data changes on every approval.
+  // - The fetch has a 15 s timeout: without one a hung request left the
+  //   admin dashboard spinning forever.
   if (url.pathname.startsWith('/api/')) {
     event.respondWith(
-      fetch(event.request)
-        .then(response => {
-          const copy = response.clone()
-          caches.open(CACHE).then(cache => cache.put(event.request, copy))
+      (async () => {
+        const controller = new AbortController()
+        const timer = setTimeout(() => controller.abort(), 15000)
+        try {
+          const response = await fetch(event.request, { signal: controller.signal })
+          if (response.ok && !url.pathname.startsWith('/api/admin/')) {
+            const copy = response.clone()
+            caches.open(CACHE).then(cache => cache.put(event.request, copy))
+          }
           return response
-        })
-        .catch(() => caches.match(event.request))
+        } catch (_) {
+          return caches.match(event.request)
+        } finally {
+          clearTimeout(timer)
+        }
+      })()
     )
     return
   }

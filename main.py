@@ -184,10 +184,14 @@ if production_like and rate_limit_storage == 'memory://' and not use_vercel_data
     raise RuntimeError(
         'RATELIMIT_STORAGE_URI must point to a shared production store (for example Redis)'
     )
+# NOTE (rate-limit fix, 2026-11-28): the in-memory limiter enforced the same
+# 30/min + 200/hour per egress IP as the DB limiter below, so raising only
+# the DB limits would have left a second 30/min gate in place. Keep both
+# generic limits aligned; the auth/AI blueprint limits below stay tighter.
 limiter = Limiter(
     key_func=get_remote_address,
     app=app,
-    default_limits=['200 per hour', '30 per minute'],
+    default_limits=['5000 per hour', '300 per minute'],
     storage_uri=rate_limit_storage,
 )
 
@@ -204,6 +208,32 @@ limiter.limit('20 per minute; 100 per hour')(auth_bp)
 limiter.limit('30 per hour; 5 per minute')(ai_bp)
 
 
+def _rate_limit_identity():
+    """Return a per-user rate-limit identity for an authenticated request.
+
+    The Bearer JWT is verified with the same secret auth.py uses
+    (app.config['JWT_SECRET'] == JWT_SECRET in auth.py), so a forged token
+    cannot borrow another user's budget. Returns None for anonymous
+    requests (or an invalid/expired token), which fall back to the client
+    IP. Decoding only — no DB hit — and verified exp rejects stale tokens.
+    """
+    auth_header = flask_request.headers.get('Authorization', '')
+    if not auth_header.startswith('Bearer '):
+        return None
+    token = auth_header[7:].strip()
+    if not token:
+        return None
+    try:
+        import jwt
+        data = jwt.decode(token, app.config['JWT_SECRET'], algorithms=['HS256'])
+    except Exception:
+        return None
+    user_id = data.get('user_id')
+    if isinstance(user_id, int):
+        return f'user:{user_id}'
+    return None
+
+
 @app.before_request
 def _apply_vercel_database_rate_limit():
     """Enforce cross-instance API limits through Supabase PostgreSQL on Vercel."""
@@ -216,15 +246,30 @@ def _apply_vercel_database_rate_limit():
 
     path = flask_request.path
     if path.startswith('/api/ai'):
+        # AI limits stay strict (expensive endpoints); only the counting
+        # flaw below is fixed for these buckets.
         rules = (('ai-minute', 5, 60), ('ai-hour', 30, 3600))
     elif path.startswith('/api/auth'):
+        # Auth limits stay strict (brute-force protection).
         rules = (('auth-minute', 20, 60), ('auth-hour', 100, 3600))
+    elif path.startswith('/api/admin'):
+        # Admin reads are few but bursty (dashboard loads stats + lists at
+        # once); give them their own generous bucket so admin work can never
+        # be crowded out by anonymous traffic sharing one egress IP.
+        rules = (('admin-minute', 300, 60), ('admin-hour', 5000, 3600))
     else:
-        rules = (('api-minute', 30, 60), ('api-hour', 200, 3600))
+        rules = (('api-minute', 300, 60), ('api-hour', 5000, 3600))
 
-    client_ip = flask_request.headers.get('x-real-ip') or get_remote_address()
-    client_hash = hashlib.sha256(
-        f"{app.config['SECRET_KEY']}:{client_ip}".encode('utf-8')
+    # Key by authenticated user when possible: every cloud-browser session
+    # behind one egress IP used to share a single bucket, so one busy
+    # session could lock out all the others. Anonymous requests still fall
+    # back to the client IP.
+    identity = _rate_limit_identity()
+    if identity is None:
+        client_ip = flask_request.headers.get('x-real-ip') or get_remote_address()
+        identity = f'ip:{client_ip}'
+    identity_hash = hashlib.sha256(
+        f"{app.config['SECRET_KEY']}:{identity}".encode('utf-8')
     ).hexdigest()
     now = time.time()
     now_dt = datetime.datetime.utcfromtimestamp(now)
@@ -242,20 +287,31 @@ def _apply_vercel_database_rate_limit():
 
         for label, maximum, period in rules:
             window_id = int(now // period)
-            key = hashlib.sha256(f'{client_hash}:{label}'.encode('utf-8')).hexdigest()
+            key = hashlib.sha256(f'{identity_hash}:{label}'.encode('utf-8')).hexdigest()
             statement = dialect_insert(RequestRateLimit).values(
                 key=key,
                 window_id=window_id,
                 request_count=1,
                 updated_at=now_dt,
             )
+            # Check-then-increment in ONE atomic upsert: while the counter
+            # is below the limit it grows by 1; once it reaches the limit
+            # it is pinned at maximum + 1 instead of growing, so a rejected
+            # request never re-arms its own block (the old code incremented
+            # first and checked second, so every retry extended the block).
+            # A stale over-limit counter (left by the old code) is pinned
+            # down to maximum + 1 the same way, and a new window resets it.
             statement = statement.on_conflict_do_update(
                 index_elements=[RequestRateLimit.key],
                 set_={
                     'window_id': window_id,
                     'request_count': case(
                         (RequestRateLimit.window_id == window_id,
-                         RequestRateLimit.request_count + 1),
+                         case(
+                             (RequestRateLimit.request_count < maximum,
+                              RequestRateLimit.request_count + 1),
+                             else_=maximum + 1,
+                         )),
                         else_=1,
                     ),
                     'updated_at': now_dt,
@@ -265,6 +321,9 @@ def _apply_vercel_database_rate_limit():
             if count > maximum:
                 remaining = period - int(now % period)
                 exceeded_retry_after = max(exceeded_retry_after or 0, remaining)
+                # Stop here: do not charge the remaining buckets for a
+                # request that is already rejected.
+                break
 
         if int(now) % 3600 < 2:
             db.session.query(RequestRateLimit).filter(
