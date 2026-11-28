@@ -33,8 +33,27 @@ def _save_transfusion_document(file_storage):
         return None, 'حجم المستند يتجاوز 25 ميجابايت'
     os.makedirs(UPLOAD_ROOT, exist_ok=True)
     stored = f'{uuid.uuid4().hex}.{extension}'
+    file_storage.stream.seek(0)
     file_storage.save(os.path.join(UPLOAD_ROOT, stored))
     return (f'blood_requests/{stored}', original), None
+
+
+def _public_request_dict(blood_request):
+    """Minimal discovery data; never serialize patient, contact, or document fields."""
+    return {
+        'id': blood_request.id,
+        'blood_type': blood_request.blood_type,
+        'units_needed': blood_request.units_needed,
+        'component_type': blood_request.component_type,
+        'is_irradiated': blood_request.is_irradiated,
+        'urgency_level': blood_request.urgency_level,
+        'hospital_name': blood_request.hospital_name,
+        'city': blood_request.city,
+        'status': blood_request.status,
+        'needed_by_date': blood_request.needed_by_date.isoformat() if blood_request.needed_by_date else None,
+        'document_status': blood_request.document_status,
+        'created_at': blood_request.created_at.isoformat() if blood_request.created_at else None,
+    }
 
 
 COMPATIBLE_DONORS = {
@@ -104,7 +123,6 @@ def list_donors():
     for d in donors:
         patient = Patient.query.get(d.patient_id)
         result.append({
-            'id':           d.id,
             'blood_type':   d.blood_type,
             'city':         d.city,
             'district':     d.district,
@@ -112,7 +130,6 @@ def list_donors():
             'available_for_emergency': d.available_for_emergency,
             'last_donation_date':  d.last_donation_date.isoformat() if d.last_donation_date else None,
             'next_eligible_date':  d.next_eligible_date.isoformat() if d.next_eligible_date else None,
-            'donor_name':   f"{patient.first_name} {patient.last_name[0]}." if patient else 'متبرع',
         })
 
     return jsonify({'donors': result, 'total': len(result)}), 200
@@ -237,7 +254,7 @@ def list_requests():
         BloodRequest.created_at.desc()
     ).limit(100).all()
 
-    return jsonify({'requests': [r.to_dict() for r in requests], 'total': len(requests)}), 200
+    return jsonify({'requests': [_public_request_dict(r) for r in requests], 'total': len(requests)}), 200
 
 
 @blood_bank_bp.route('/requests', methods=['POST'])
@@ -280,6 +297,8 @@ def create_request(current_user):
             return jsonify({'success': False, 'error': 'لا تملك صلاحية إنشاء طلب نقل دم لهذا المريض'}), 403
     else:
         patient = Patient.query.filter_by(user_id=current_user.id).first()
+    if not patient:
+        return jsonify({'success': False, 'error': 'يجب ربط طلب الدم بملف مريض تملكه أو تملك تفويضاً عليه'}), 403
 
     component_type = data.get('component_type', 'whole_blood')
     allowed_components = {'whole_blood', 'plasma', 'platelets', 'cryoprecipitate', 'other'}
@@ -313,7 +332,7 @@ def create_request(current_user):
         special_requirements=data.get('special_requirements'),
         transfusion_request_file_path=document_path,
         transfusion_request_file_name=document_name,
-        document_status='verified' if document_path else 'document_required',
+        document_status='document_required',
         status='active',
     )
     db.session.add(blood_request)
@@ -336,14 +355,14 @@ def create_request(current_user):
             db.session.add(Notification(
                 user_id=donor_patient.user_id,
                 title=f'طلب دم {urgency_label} - {data["blood_type"]}',
-                message=f'مريض في {data["hospital_name"]} يحتاج دم فصيلة {data["blood_type"]}. تواصل: {data["contact_phone"]}',
+                message=f'يوجد طلب دم في {data["hospital_name"]} لفصيلة {data["blood_type"]}. أرسل استجابتك عبر المنصة.',
                 type='blood_bank',
                 reference_id=blood_request.id,
                 reference_type='blood_request',
             ))
 
     db.session.commit()
-    message = 'تم إنشاء الطلب وإرساله للمراجعة' if document_path else 'تم حفظ الطلب، ويجب إرفاق طلب نقل دم مختوم قبل إرساله إلى مراكز بنك الدم'
+    message = 'تم حفظ الطلب وهو بانتظار مراجعة المستند' if document_path else 'تم حفظ الطلب، ويجب إرفاق طلب نقل دم مختوم قبل إرساله إلى مراكز بنك الدم'
     return jsonify({'success': True, 'message': message, 'request': blood_request.to_dict()}), 201
 
 
@@ -351,10 +370,11 @@ def create_request(current_user):
 @token_required
 def upload_transfusion_document(current_user, request_id):
     blood_request = BloodRequest.query.get_or_404(request_id)
-    if blood_request.patient_id:
-        patient = Patient.query.get(blood_request.patient_id)
-        if not patient or patient.user_id != current_user.id:
-            return jsonify({'success': False, 'error': 'غير مصرح'}), 403
+    if not blood_request.patient_id:
+        return jsonify({'success': False, 'error': 'الطلب غير مرتبط بملف مريض ولا يمكن تعديل مستنده'}), 403
+    patient = Patient.query.get(blood_request.patient_id)
+    if not patient or patient.user_id != current_user.id:
+        return jsonify({'success': False, 'error': 'غير مصرح'}), 403
     file_storage = request.files.get('transfusion_request')
     if not file_storage:
         return jsonify({'success': False, 'error': 'مستند طلب النقل المختوم مطلوب'}), 400
@@ -362,7 +382,7 @@ def upload_transfusion_document(current_user, request_id):
     if upload_error:
         return jsonify({'success': False, 'error': upload_error}), 400
     blood_request.transfusion_request_file_path, blood_request.transfusion_request_file_name = saved
-    blood_request.document_status = 'verified'
+    blood_request.document_status = 'document_required'
     db.session.commit()
     return jsonify({'success': True, 'request': blood_request.to_dict()}), 200
 
@@ -392,9 +412,10 @@ def forward_to_centers(current_user, request_id):
 def get_request(request_id):
     """تفاصيل طلب دم"""
     blood_request = BloodRequest.query.get_or_404(request_id)
-    data = blood_request.to_dict()
-    data['responses_count'] = BloodRequestResponse.query.filter_by(request_id=request_id).count()
-    return jsonify({'request': data}), 200
+    responses_count = BloodRequestResponse.query.filter_by(request_id=request_id).count()
+    # Public discovery deliberately excludes patient identifiers, diagnoses,
+    # personal contacts, precise location, and private document paths.
+    return jsonify({'request': _public_request_dict(blood_request), 'responses_count': responses_count}), 200
 
 
 @blood_bank_bp.route('/requests/<int:request_id>/respond', methods=['POST'])
@@ -533,11 +554,9 @@ def compatible_donors():
     for d in donors:
         patient = Patient.query.get(d.patient_id)
         result.append({
-            'id':         d.id,
             'blood_type': d.blood_type,
             'city':       d.city,
             'district':   d.district,
-            'donor_name': f"{patient.first_name} {patient.last_name[0]}." if patient else 'متبرع',
         })
 
     return jsonify({'donors': result, 'total': len(result), 'compatible_types': compatible}), 200

@@ -3,6 +3,8 @@ import os
 import secrets
 import sys
 import datetime
+import hashlib
+import time
 
 from werkzeug.exceptions import HTTPException
 
@@ -76,6 +78,8 @@ from src.database.egypt_healthcare_seed import (
 )
 from src.database.import_healthcare_csv import import_directory_if_needed
 from werkzeug.security import generate_password_hash
+from sqlalchemy import case
+from src.models.rate_limit import RequestRateLimit
 
 app = Flask(__name__, static_folder=os.path.join(os.path.dirname(os.path.abspath(__file__)), 'dist'))
 app.config['MAX_CONTENT_LENGTH'] = int(os.environ.get('MAX_UPLOAD_BYTES', str(25 * 1024 * 1024)))
@@ -163,7 +167,12 @@ CORS(app, origins=cors_origins, supports_credentials=True)
 
 # ── Rate Limiting ─────────────────────────────────────────────────────────────
 rate_limit_storage = os.environ.get('RATELIMIT_STORAGE_URI', 'memory://')
-if production_like and rate_limit_storage == 'memory://':
+use_vercel_database_limiter = (
+    production_like
+    and os.environ.get('VERCEL') == '1'
+    and rate_limit_storage == 'memory://'
+)
+if production_like and rate_limit_storage == 'memory://' and not use_vercel_database_limiter:
     raise RuntimeError(
         'RATELIMIT_STORAGE_URI must point to a shared production store (for example Redis)'
     )
@@ -185,6 +194,86 @@ def _skip_rate_limit_in_tests():
 limiter.limit('20 per minute; 100 per hour')(auth_bp)
 # AI endpoints are expensive — limit more strictly
 limiter.limit('30 per hour; 5 per minute')(ai_bp)
+
+
+@app.before_request
+def _apply_vercel_database_rate_limit():
+    """Enforce cross-instance API limits through Supabase PostgreSQL on Vercel."""
+    if (
+        not use_vercel_database_limiter
+        or not flask_request.path.startswith('/api')
+        or current_app.config.get('TESTING', False)
+    ):
+        return None
+
+    path = flask_request.path
+    if path.startswith('/api/ai'):
+        rules = (('ai-minute', 5, 60), ('ai-hour', 30, 3600))
+    elif path.startswith('/api/auth'):
+        rules = (('auth-minute', 20, 60), ('auth-hour', 100, 3600))
+    else:
+        rules = (('api-minute', 30, 60), ('api-hour', 200, 3600))
+
+    client_ip = flask_request.headers.get('x-real-ip') or get_remote_address()
+    client_hash = hashlib.sha256(
+        f"{app.config['SECRET_KEY']}:{client_ip}".encode('utf-8')
+    ).hexdigest()
+    now = time.time()
+    now_dt = datetime.datetime.utcfromtimestamp(now)
+    exceeded_retry_after = None
+
+    try:
+        dialect = db.engine.dialect.name
+        if dialect == 'postgresql':
+            from sqlalchemy.dialects.postgresql import insert as dialect_insert
+        elif dialect == 'sqlite':
+            from sqlalchemy.dialects.sqlite import insert as dialect_insert
+        else:
+            app.logger.error('Unsupported database dialect for shared API rate limiting')
+            return jsonify({'error': 'الخدمة غير متاحة مؤقتاً'}), 503
+
+        for label, maximum, period in rules:
+            window_id = int(now // period)
+            key = hashlib.sha256(f'{client_hash}:{label}'.encode('utf-8')).hexdigest()
+            statement = dialect_insert(RequestRateLimit).values(
+                key=key,
+                window_id=window_id,
+                request_count=1,
+                updated_at=now_dt,
+            )
+            statement = statement.on_conflict_do_update(
+                index_elements=[RequestRateLimit.key],
+                set_={
+                    'window_id': window_id,
+                    'request_count': case(
+                        (RequestRateLimit.window_id == window_id,
+                         RequestRateLimit.request_count + 1),
+                        else_=1,
+                    ),
+                    'updated_at': now_dt,
+                },
+            ).returning(RequestRateLimit.request_count)
+            count = db.session.execute(statement).scalar_one()
+            if count > maximum:
+                remaining = period - int(now % period)
+                exceeded_retry_after = max(exceeded_retry_after or 0, remaining)
+
+        if int(now) % 3600 < 2:
+            db.session.query(RequestRateLimit).filter(
+                RequestRateLimit.updated_at < now_dt - datetime.timedelta(days=7)
+            ).delete(synchronize_session=False)
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        app.logger.exception('Shared API rate-limit storage failed')
+        return jsonify({'error': 'تعذر التحقق من حد الطلبات'}), 503
+
+    if exceeded_retry_after is not None:
+        response = jsonify({'error': 'تجاوزت الحد المسموح للطلبات، حاول لاحقاً'})
+        response.status_code = 429
+        response.headers['Retry-After'] = str(exceeded_retry_after)
+        return response
+    return None
 
 # ── Blueprints ────────────────────────────────────────────────────────────────
 app.register_blueprint(user_bp, url_prefix='/api')
@@ -235,9 +324,9 @@ engine_options = {
 }
 if database_url.startswith(('postgresql://', 'postgresql+psycopg2://')):
     engine_options.update({
-        'pool_size': int(os.environ.get('DB_POOL_SIZE', '10')),
-        'max_overflow': int(os.environ.get('DB_MAX_OVERFLOW', '20')),
-        'pool_timeout': int(os.environ.get('DB_POOL_TIMEOUT', '30')),
+        'pool_size': int(os.environ.get('DB_POOL_SIZE', '1' if os.environ.get('VERCEL') == '1' else '10')),
+        'max_overflow': int(os.environ.get('DB_MAX_OVERFLOW', '0' if os.environ.get('VERCEL') == '1' else '20')),
+        'pool_timeout': int(os.environ.get('DB_POOL_TIMEOUT', '10' if os.environ.get('VERCEL') == '1' else '30')),
     })
 app.config['SQLALCHEMY_ENGINE_OPTIONS'] = engine_options
 

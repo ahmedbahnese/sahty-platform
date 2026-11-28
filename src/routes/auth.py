@@ -1,4 +1,4 @@
-from flask import Blueprint, request, jsonify, g, current_app
+from flask import Blueprint, request, jsonify, g, current_app, has_request_context
 from werkzeug.security import check_password_hash, generate_password_hash
 from functools import wraps
 import jwt
@@ -63,8 +63,8 @@ def _issue_session(user, selected_role=None):
         jwt_id=session_id,
         token_hash=_hash_token(token),
         expires_at=expires_at,
-        ip_address=request.remote_addr,
-        user_agent=request.headers.get('User-Agent'),
+        ip_address=request.remote_addr if has_request_context() else None,
+        user_agent=request.headers.get('User-Agent') if has_request_context() else None,
     )
     db.session.add(user_session)
     return token, user_session

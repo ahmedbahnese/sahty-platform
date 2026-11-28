@@ -291,7 +291,8 @@ def upload_my_profile_image(current_user):
 
 
 @doctor_bp.route('/profile-images/<path:filename>', methods=['GET'])
-def get_profile_image(filename):
+@token_required
+def get_profile_image(current_user, filename):
     return send_from_directory(PROFILE_UPLOAD_DIR, filename)
 
 

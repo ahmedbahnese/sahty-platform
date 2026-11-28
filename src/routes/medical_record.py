@@ -949,79 +949,15 @@ def delete_ecg(current_user, rid):
 # ──────────────────────────────────────────────
 @medical_record_bp.route('/public/<string:token>', methods=['GET'])
 def get_public_report(token):
-    """التقرير الطبي الشامل للقراءة فقط عبر رمز QR — بدون تسجيل دخول."""
-    import hmac, hashlib, os
-    secret = os.environ.get('SESSION_SECRET', 'sehaty-secret')
-    # token = patient_id:signature
-    try:
-        parts = token.split(':')
-        if len(parts) != 2:
-            return jsonify({'message': 'رابط غير صالح'}), 400
-        pid_str, sig = parts
-        expected = hmac.new(secret.encode(), pid_str.encode(), hashlib.sha256).hexdigest()[:16]
-        if not hmac.compare_digest(sig, expected):
-            return jsonify({'message': 'رابط غير صالح'}), 403
-        patient_id = int(pid_str)
-    except Exception:
-        return jsonify({'message': 'رابط غير صالح'}), 400
-
-    patient = Patient.query.get(patient_id)
-    if not patient:
-        return jsonify({'message': 'لم يتم العثور على الملف'}), 404
-
-    allergies = [a.to_dict() for a in Allergy.query.filter_by(patient_id=patient.id).all()]
-    diseases = [d.to_dict() for d in Disease.query.filter_by(patient_id=patient.id).all()]
-    medications = [m.to_dict() for m in Medication.query.filter_by(patient_id=patient.id, is_active=True).all()]
-    vaccinations = [v.to_dict() for v in Vaccination.query.filter_by(patient_id=patient.id).all()]
-    lab_tests = [l.to_dict() for l in LabTest.query.filter_by(patient_id=patient.id).order_by(LabTest.test_date.desc()).limit(20).all()]
-    radiology = [r.to_dict() for r in Radiology.query.filter_by(patient_id=patient.id).order_by(Radiology.scan_date.desc()).limit(10).all()]
-    history = MedicalHistory.query.filter_by(patient_id=patient.id).first()
-    from datetime import date as dt_date
-    age = None
-    if patient.date_of_birth:
-        today = dt_date.today()
-        age = today.year - patient.date_of_birth.year - (
-            (today.month, today.day) < (patient.date_of_birth.month, patient.date_of_birth.day)
-        )
-    return jsonify({
-        'generated_at': datetime.utcnow().isoformat(),
-        'patient': {
-            'name': f'{patient.first_name} {patient.last_name}',
-            'date_of_birth': patient.date_of_birth.isoformat() if patient.date_of_birth else None,
-            'age': age,
-            'gender': patient.gender,
-            'blood_type': patient.blood_type,
-            'height': patient.height,
-            'weight': patient.weight,
-            'bmi': round(patient.weight / ((patient.height / 100) ** 2), 1) if patient.height and patient.weight else None,
-            'phone': patient.phone,
-            'address': patient.address,
-            'emergency_contact_name': patient.emergency_contact_name,
-            'emergency_contact_phone': patient.emergency_contact_phone,
-        },
-        'allergies': allergies,
-        'active_diseases': [d for d in diseases if d.get('status') in ('active', 'chronic')],
-        'current_medications': medications,
-        'vaccinations': vaccinations,
-        'recent_lab_tests': lab_tests,
-        'recent_radiology': radiology,
-        'surgeries': [s.to_dict() for s in Surgery.query.filter_by(patient_id=patient.id).order_by(Surgery.surgery_date.desc()).all()],
-        'medical_history': history.to_dict() if history else {},
-    }), 200
+    """Disabled until explicit, expiring, revocable consent tokens are implemented."""
+    return jsonify({'message': 'مشاركة السجل الطبي العامة معطلة مؤقتاً لحماية الخصوصية'}), 410
 
 
 @medical_record_bp.route('/public-token', methods=['GET'])
 @token_required
 def get_public_token(current_user):
-    """توليد رمز عام للـ QR code."""
-    import hmac, hashlib, os
-    patient = Patient.query.filter_by(user_id=current_user.id).first()
-    if not patient:
-        return jsonify({'message': 'لم يتم العثور على ملف المريض'}), 404
-    secret = os.environ.get('SESSION_SECRET', 'sehaty-secret')
-    sig = hmac.new(secret.encode(), str(patient.id).encode(), hashlib.sha256).hexdigest()[:16]
-    token = f'{patient.id}:{sig}'
-    return jsonify({'token': token, 'patient_id': patient.id}), 200
+    """Do not mint permanent bearer links to a patient's full medical history."""
+    return jsonify({'message': 'مشاركة السجل الطبي العامة معطلة مؤقتاً'}), 410
 
 
 @medical_record_bp.route('/visits/<int:appointment_id>', methods=['GET'])

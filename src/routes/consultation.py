@@ -14,6 +14,9 @@ consultation_bp = Blueprint("consultation", __name__, url_prefix="/api/consultat
 
 ALLOWED_EXTENSIONS = {"pdf", "png", "jpg", "jpeg", "webp", "dcm", "tif", "tiff"}
 MAX_ATTACHMENT_BYTES = 25 * 1024 * 1024
+CONSULTATION_UPLOAD_DIR = os.path.abspath(
+    os.path.join(os.path.dirname(__file__), "..", "..", "static", "uploads", "consultations")
+)
 
 
 def _is_participant(item, user):
@@ -46,9 +49,10 @@ def _save_attachment(file_storage, consultation_id):
     content = file_storage.read()
     if len(content) > MAX_ATTACHMENT_BYTES:
         return None, "حجم الملف يتجاوز 25 ميجابايت"
-    folder = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "static", "uploads", "consultations"))
+    folder = CONSULTATION_UPLOAD_DIR
     os.makedirs(folder, exist_ok=True)
     stored_name = f"{uuid.uuid4().hex}.{extension}"
+    file_storage.stream.seek(0)
     file_storage.save(os.path.join(folder, stored_name))
     return (stored_name, original, file_storage.mimetype, len(content)), None
 

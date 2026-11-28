@@ -24,6 +24,17 @@ down_revision = None
 branch_labels = None
 depends_on = None
 
+# These tables are introduced by later immutable revisions.  The Flask CLI
+# imports the current application before Alembic starts, so they may already
+# be present in the shared SQLAlchemy metadata when this historical baseline
+# runs; excluding them keeps their owning revisions idempotent on fresh DBs.
+POST_BASELINE_TABLES = {
+    "consultations",
+    "consultation_messages",
+    "consultation_attachments",
+    "request_rate_limits",
+}
+
 
 def _model_metadata():
     """Return all model tables without importing the Flask application."""
@@ -72,11 +83,18 @@ def upgrade():
     metadata = _model_metadata()
     inspector = inspect(bind)
     existing_tables = set(inspector.get_table_names())
+    baseline_tables = {
+        name: table
+        for name, table in metadata.tables.items()
+        if name not in POST_BASELINE_TABLES
+    }
 
     # Table.create emits normal SQLAlchemy DDL through the Alembic connection
     # and preserves the model's columns, constraints, and indexes.  It is not
     # db.create_all(): each table is an explicit, versioned migration action.
     for table in metadata.sorted_tables:
+        if table.name in POST_BASELINE_TABLES:
+            continue
         if table.name not in existing_tables:
             table.create(bind=bind, checkfirst=False)
 
@@ -85,8 +103,8 @@ def upgrade():
     # foreign key in place, so batch mode rebuilds only tables that need drift
     # reconciliation while copying all existing rows.
     inspector = inspect(bind)
-    for table_name in sorted(set(metadata.tables) & existing_tables):
-        model_table = metadata.tables[table_name]
+    for table_name in sorted(set(baseline_tables) & existing_tables):
+        model_table = baseline_tables[table_name]
         existing_columns = {
             column["name"] for column in inspector.get_columns(table_name)
         }
